@@ -1,0 +1,1384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Papers & Op-Eds — Birkley Grunewald</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,500;1,600&family=Lora:ital,wght@0,400;0,500;1,400;1,500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --white:  #FAFAF7;
+  --off:    #F2F0EB;
+  --ink:    #111110;
+  --ink2:   #2E2C28;
+  --ink3:   #7A7570;
+  --green:  #1C4A2E;   /* CTA buttons only */
+  --green2: #2D6B44;
+  --gold:   #C4922A;   /* primary accent — burnished ochre */
+  --gold2:  #D9A83E;   /* hover / lighter gold */
+  --gold3:  #A67820;   /* darker pressed gold */
+  --border: #E2DDD4;
+  --nav-h:  58px;
+}
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+html { scroll-behavior:smooth; }
+body { background:var(--white); color:var(--ink); font-family:'Lora',Georgia,serif; overflow-x:hidden; }
+::selection { background:var(--gold); color:#fff; }
+
+/* ══════════════════════════════════════════
+   NAV
+══════════════════════════════════════════ */
+#nav {
+  position:fixed; top:0; left:0; right:0; z-index:200;
+  height:var(--nav-h);
+  background:rgba(250,250,247,0.95);
+  backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--border);
+  display:flex; align-items:center; justify-content:space-between;
+  padding:0 52px;
+}
+.nav-brand {
+  font-family:'Cormorant Garamond',serif; font-style:italic;
+  font-size:13.5px; letter-spacing:0.04em; color:var(--ink2); text-decoration:none;
+}
+.nav-links { display:flex; }
+.nav-links a {
+  font-family:'Cormorant Garamond',serif; font-size:10.5px; letter-spacing:0.3em;
+  text-transform:uppercase; color:var(--ink3); text-decoration:none;
+  padding:0 22px; height:var(--nav-h); display:flex; align-items:center;
+  position:relative; cursor:pointer; transition:color 0.2s;
+}
+.nav-links a::after {
+  content:''; position:absolute; bottom:0; left:22px; right:22px; height:2px;
+  background:var(--gold); transform:scaleX(0); transform-origin:left; transition:transform 0.25s ease;
+}
+.nav-links a:hover { color:var(--gold); }
+.nav-links a:hover::after, .nav-links a.active::after { transform:scaleX(1); }
+.nav-links a.active { color:var(--gold); }
+
+/* ══════════════════════════════════════════
+   HERO
+══════════════════════════════════════════ */
+#hero {
+  position:relative; min-height:100vh; padding-top:var(--nav-h);
+  background:var(--white); overflow:hidden; display:flex; align-items:center;
+  /* NO isolation, NO z-index on children that contain text */
+}
+
+/* ── INK SVG ── */
+.hero-ink {
+  position:absolute; inset:0; width:100%; height:100%;
+  pointer-events:none; display:block;
+  /* NO z-index — DOM order paints it before the text */
+}
+
+/* ── SINGLE TEXT LAYER ──
+   mix-blend-mode: difference with color:white produces:
+   • near-black  over cream background (#FAFAF7)
+   • near-white  over ink  background (#111110)
+   No dual layers, no clip-path, no stacking context issues.
+
+   CRITICAL: nothing between .hero-ink and the text elements may have
+   z-index, transform, opacity<1, filter, or isolation — any of those
+   creates a new stacking context that traps the blend inside it.        */
+.hero-content {
+  position:relative; padding:80px 52px 100px; width:100%;
+  /* NO z-index */
+}
+
+.hero-kicker {
+  font-family:'Cormorant Garamond',serif; font-size:10.5px; letter-spacing:0.52em;
+  text-transform:uppercase; color:var(--gold);
+  margin-bottom:30px; display:flex; align-items:center; gap:14px;
+}
+.hero-kicker::before { content:''; width:28px; height:1px; background:var(--gold); }
+
+/* ── THE TITLE: mix-blend-mode difference ──
+   color:white + difference = inverted background pixel value
+   Animate with `top` NOT `transform` — transform creates a stacking
+   context even at translateY(0), which breaks mix-blend-mode.
+   position:relative + top has NO stacking-context side effects.        */
+.hero-title {
+  font-family:'Cormorant',serif; font-weight:300;
+  font-size:clamp(58px, 9.2vw, 144px); line-height:1.0; letter-spacing:-0.04em;
+  display:block; white-space:nowrap;
+  color:white;
+  mix-blend-mode:difference;
+  position:relative;
+  animation:heroTitleIn 0.9s ease 0.22s both;
+}
+/* inline — both words on one line, title crosses the ink boundary */
+.hero-title strong { font-weight:700; font-style:italic; display:inline; }
+
+@keyframes heroTitleIn {
+  from { top:28px; }
+  to   { top:0;    }
+  /* `top` on position:relative = NO stacking context → blend works throughout */
+}
+
+.hero-divider {
+  width:52px; height:2px; background:var(--gold); margin:40px 0 28px;
+  position:relative; animation:heroTitleIn 0.7s ease 0.4s both;
+}
+
+/* ── TYPEWRITER / SUBTITLE: also gets the blend ── */
+.hero-tw-wrap {
+  max-width:440px; min-height:60px;
+  position:relative;
+  animation:heroTitleIn 0.7s ease 0.52s both;
+}
+
+.hero-tw {
+  font-family:'Lora',serif; font-size:15.5px; font-style:italic; line-height:1.76;
+  color:white;
+  mix-blend-mode:difference;
+}
+
+/* cursor — gold, blend mode keeps it readable in both zones */
+.cursor {
+  display:inline-block; width:2px; height:1em;
+  background:var(--gold); margin-left:2px; vertical-align:text-bottom;
+  animation:blink 0.85s step-end infinite;
+  mix-blend-mode:difference;
+}
+
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+/* kicker/divider/hints use transform slideUp — they don't need blend mode */
+@keyframes slideUp { from{transform:translateY(18px)} to{transform:none} }
+.hero-kicker    { animation:slideUp 0.7s ease 0.1s both; }
+
+.hero-scroll-hint {
+  position:absolute; bottom:40px; left:52px;
+  display:flex; align-items:center; gap:12px;
+  font-family:'Cormorant Garamond',serif; font-size:9.5px; letter-spacing:0.38em;
+  text-transform:uppercase; color:var(--ink3);
+  animation:slideUp 0.5s ease 0.7s both;
+}
+.hero-scroll-hint::before {
+  content:''; width:1px; height:36px;
+  background:linear-gradient(to bottom, transparent, var(--ink3));
+}
+.hero-byline {
+  position:absolute; bottom:40px; right:52px; text-align:right;
+  animation:slideUp 0.5s ease 0.7s both;
+}
+.hero-byline-label {
+  font-family:'Cormorant Garamond',serif; font-size:9.5px; letter-spacing:0.42em;
+  text-transform:uppercase; color:var(--ink3); margin-bottom:4px;
+}
+.hero-byline-name {
+  font-family:'Cormorant',serif; font-weight:300; font-size:22px;
+  color:var(--ink2); letter-spacing:-0.01em;
+}
+
+/* ══════════════════════════════════════════
+   SECTION DIVIDER
+══════════════════════════════════════════ */
+.sd {
+  display:flex; align-items:center; gap:24px;
+  padding:20px 52px; background:var(--off);
+  border-top:1px solid var(--border); border-bottom:1px solid var(--border);
+}
+.sd-lbl {
+  font-family:'Cormorant Garamond',serif; font-size:9.5px; letter-spacing:0.46em;
+  text-transform:uppercase; color:var(--ink3); flex-shrink:0;
+}
+.sd-line { flex:1; height:1px; background:var(--border); }
+.sd-blot { flex-shrink:0; opacity:0.45; }
+
+/* ══════════════════════════════════════════
+   FEATURED — full-width ink-spill, mirrors hero
+══════════════════════════════════════════ */
+#featured {
+  position:relative;
+  min-height:calc(100vh - var(--nav-h));
+  background:var(--white);
+  overflow:hidden;
+  display:flex;
+  align-items:center;
+  /* NO isolation, NO z-index on ink-bearing children */
+}
+
+/* Ink SVG — different boundary from hero, comes from right at a rounder angle */
+.feat-ink {
+  position:absolute; inset:0; width:100%; height:100%;
+  pointer-events:none; display:block;
+  /* NO z-index */
+}
+
+/* Ghost ordinal — large numeral in the ink zone, inverts to near-white */
+.feat-ghost {
+  position:absolute; right:4%; bottom:-4%;
+  font-family:'Cormorant',serif; font-weight:700;
+  font-size:clamp(200px, 24vw, 380px);
+  line-height:1; letter-spacing:-0.06em;
+  color:white; mix-blend-mode:difference;
+  pointer-events:none; user-select:none;
+  /* NO z-index, NO transform — safe for blend mode */
+}
+
+/* Main content wrapper — position:relative, NO z-index */
+.feat-content {
+  position:relative; /* enables `top` animation */
+  padding:80px 52px 110px;
+  width:100%;
+  /* NO z-index — preserves blend mode path to ink SVG */
+}
+
+.feat-kicker {
+  font-family:'Cormorant Garamond',serif; font-size:10px; letter-spacing:0.46em;
+  text-transform:uppercase; margin-bottom:22px;
+  color:white; mix-blend-mode:difference;
+  display:flex; align-items:center; gap:14px;
+  animation:slideUp 0.6s ease 0.08s both;
+}
+.feat-kicker::before { content:''; width:22px; height:1px; background:currentColor; }
+
+/* Title: large, multi-line, crosses the ink boundary per-line */
+.feat-title {
+  font-family:'Cormorant',serif; font-weight:400;
+  font-size:clamp(32px, 4.8vw, 76px);
+  line-height:1.1; letter-spacing:-0.025em;
+  color:white; mix-blend-mode:difference;
+  max-width:68%; margin-bottom:26px;
+  cursor:pointer;
+  position:relative;
+  animation:heroTitleIn 0.85s ease 0.16s both;
+}
+
+.feat-summary {
+  font-family:'Lora',serif; font-size:15px; font-style:italic; line-height:1.84;
+  color:white; mix-blend-mode:difference;
+  max-width:520px; margin-bottom:28px;
+  position:relative;
+  animation:heroTitleIn 0.7s ease 0.26s both;
+}
+
+.feat-kws {
+  display:flex; flex-wrap:wrap; gap:7px; margin-bottom:28px;
+  animation:slideUp 0.6s ease 0.32s both;
+}
+.feat-kw {
+  font-family:'Cormorant Garamond',serif; font-size:10.5px; letter-spacing:0.1em;
+  color:white; mix-blend-mode:difference;
+  border:1px solid rgba(128,128,128,0.45); padding:3px 11px;
+}
+
+.feat-meta {
+  display:flex; align-items:center; gap:16px; margin-bottom:34px;
+  font-family:'Cormorant Garamond',serif; font-size:12px; letter-spacing:0.06em;
+  color:white; mix-blend-mode:difference;
+  animation:slideUp 0.6s ease 0.3s both;
+}
+.feat-meta-dot { width:3px; height:3px; border-radius:50%; background:currentColor; }
+
+/* Read button — forest green CTA, readable on both cream and ink zones */
+.btn-read {
+  font-family:'Cormorant Garamond',serif; font-size:11px; letter-spacing:0.3em;
+  text-transform:uppercase; background:var(--green); color:#fff;
+  border:none; padding:13px 30px; cursor:pointer;
+  transition:background 0.22s, padding-right 0.22s;
+  display:inline-flex; align-items:center; gap:10px;
+  animation:slideUp 0.6s ease 0.36s both;
+}
+.btn-read:hover { background:var(--green2); padding-right:36px; }
+
+/* Bottom controls — dots + arrows only, no progress bar */
+.feat-controls {
+  position:absolute; bottom:40px; left:52px; right:52px;
+  display:flex; align-items:center; justify-content:flex-end; gap:16px;
+}
+.feat-dots { display:flex; gap:10px; align-items:center; }
+.feat-dot {
+  height:2px; background:var(--border); cursor:pointer;
+  transition:width 0.3s ease, background 0.3s ease;
+  width:18px;
+}
+.feat-dot.active { width:42px; background:var(--gold); }
+.feat-arrows { display:flex; gap:8px; }
+.feat-arr {
+  width:38px; height:38px; background:transparent;
+  border:1px solid var(--border); color:var(--ink3);
+  display:flex; align-items:center; justify-content:center;
+  cursor:pointer; font-size:15px; font-family:serif; transition:all 0.2s;
+}
+.feat-arr:hover { border-color:var(--gold); color:var(--gold); }
+
+/* ══════════════════════════════════════════
+   LIBRARY
+══════════════════════════════════════════ */
+#library {
+  padding:88px 52px 120px;
+  position:relative;
+  overflow:hidden;
+  background: var(--white);
+}
+
+/* Top-left ink spill: heading blend (unchanged) */
+.lib-ink {
+  position:absolute;
+  top:0; left:0;
+  width:62%; height:260px;
+  pointer-events:none; display:block;
+}
+
+/* Margin ink blots — sit in left/right white space outside the text column.
+   Low opacity by default; fade to invisible when any row is hovered.
+   NO mix-blend-mode — they sit in margin (cream bg) and just darken it. */
+.mblot {
+  position:absolute;
+  pointer-events:none;
+  opacity:0.07;
+  transition:opacity 0.55s ease;
+}
+/* When any row in the list is hovered, all margin blots vanish */
+#library:has(.paper-row:hover) .mblot { opacity:0; }
+
+.lib-head {
+  display:flex; justify-content:space-between; align-items:flex-end;
+  margin-bottom:44px; position:relative;
+}
+.lib-kicker {
+  font-family:'Cormorant Garamond',serif; font-size:9.5px; letter-spacing:0.5em;
+  text-transform:uppercase; margin-bottom:8px;
+  color:white; mix-blend-mode:difference;
+}
+.lib-title {
+  font-family:'Cormorant',serif; font-weight:300; font-size:48px;
+  letter-spacing:-0.025em; line-height:1;
+  color:white; mix-blend-mode:difference;
+  position:relative;
+}
+.lib-count {
+  font-family:'Cormorant Garamond',serif; font-size:12px; color:var(--ink3);
+  letter-spacing:0.08em; padding-bottom:8px;
+}
+
+/* Search bar — gold accent */
+.search-bar {
+  display:flex; border:1px solid var(--border); border-bottom:2px solid var(--gold);
+  margin-bottom:52px; background:var(--white);
+}
+.s-wrap { flex:1; position:relative; display:flex; align-items:center; }
+.s-wrap svg { position:absolute; left:18px; color:var(--ink3); pointer-events:none; }
+.s-input {
+  width:100%; border:none; background:transparent; color:var(--ink);
+  font-family:'Lora',serif; font-size:15px; font-style:italic;
+  padding:14px 18px 14px 46px; outline:none;
+}
+.s-input::placeholder { color:var(--ink3); opacity:0.55; }
+.s-sep { width:1px; background:var(--border); align-self:stretch; flex-shrink:0; }
+.f-sel {
+  border:none; background:transparent; color:var(--ink2);
+  font-family:'Cormorant Garamond',serif; font-size:12.5px; letter-spacing:0.06em;
+  padding:14px 34px 14px 18px; outline:none; cursor:pointer; appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%237A7570'/%3E%3C/svg%3E");
+  background-repeat:no-repeat; background-position:right 12px center; background-size:8px; min-width:150px;
+}
+.f-sel option { background:#fff; }
+
+/* Paper rows — standard colors restored (no band crossing anymore) */
+.papers-list { display:flex; flex-direction:column; position:relative; }
+.paper-row {
+  display:grid; grid-template-columns:52px 1fr 130px; gap:28px; align-items:start;
+  padding:32px 0; border-bottom:1px solid var(--border); cursor:pointer;
+  position:relative; transition:padding-left 0.25s, background 0.2s;
+}
+.paper-row:first-child { border-top:1px solid var(--border); }
+.paper-row:hover { background:var(--off); padding-left:4px; }
+
+.row-n {
+  font-family:'Cormorant',serif; font-weight:700; font-size:13px;
+  color:var(--border); padding-top:3px; letter-spacing:0.04em;
+  transition:color 0.2s;
+}
+.paper-row:hover .row-n { color:var(--gold); }
+.row-body {}
+.row-cat {
+  font-family:'Cormorant Garamond',serif; font-size:9.5px; letter-spacing:0.4em;
+  text-transform:uppercase; color:var(--gold); margin-bottom:8px;
+}
+.row-title {
+  font-family:'Cormorant',serif; font-weight:500; font-size:clamp(17px,1.8vw,23px);
+  line-height:1.28; color:var(--ink); margin-bottom:10px; transition:color 0.2s;
+}
+.paper-row:hover .row-title { color:var(--gold3); }
+.row-kws { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px; }
+.row-kw {
+  font-family:'Cormorant Garamond',serif; font-size:10px; color:var(--ink3);
+  border:1px solid var(--border); padding:2px 8px;
+}
+.row-preview {
+  font-family:'Lora',serif; font-size:13px; font-style:italic; line-height:1.72;
+  color:var(--ink2); max-width:600px;
+  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+}
+.row-aside {
+  display:flex; flex-direction:column; align-items:flex-end; gap:7px; padding-top:3px;
+}
+.row-date { font-family:'Cormorant Garamond',serif; font-size:12px; color:var(--ink3); }
+.row-time { font-family:'Cormorant Garamond',serif; font-size:11px; color:var(--ink3); }
+.row-arrow { font-size:17px; color:var(--border); transition:color 0.2s, transform 0.2s; }
+.paper-row:hover .row-arrow { color:var(--gold); transform:translateX(5px); }
+.no-results {
+  padding:72px 0; text-align:center; font-family:'Lora',serif;
+  font-style:italic; color:var(--ink3); font-size:15px;
+}
+
+/* ══════════════════════════════════════════
+   ABOUT — cream background, portrait = dark zone
+   Author name uses mix-blend-mode: difference so it inverts
+   exactly where the portrait edge crosses the text, mirroring the hero.
+══════════════════════════════════════════ */
+#author {
+  position:relative;
+  min-height:580px;
+  background:var(--white);   /* CREAM — portrait creates the dark zone */
+  overflow:hidden;
+  display:flex;
+  align-items:center;
+  /* NO isolation */
+}
+
+/* B&W portrait — the dark zone that triggers text inversion.
+   NO filter property here because filter creates a stacking context,
+   which would prevent blend-mode on author-name from seeing these pixels.
+   Grayscale is achieved by painting only dark grays in the gradient. */
+.author-portrait {
+  position:absolute;
+  left:0; top:0; bottom:0; width:44%;
+  /* Dark gradient simulating a B&W portrait — replace with:
+     background-image: url('portrait.jpg');
+     background-size: cover; background-position: center top;
+     filter: grayscale(1);  ← safe to add once text blend is NOT needed over it */
+  background:
+    linear-gradient(105deg,
+      #0d0c0b 0%,
+      #181714 25%,
+      #1e1d1a 50%,
+      #161513 75%,
+      #0f0e0d 100%);
+  /* NO filter, NO z-index */
+}
+
+/* Portrait placeholder label */
+.portrait-ph {
+  position:absolute; top:50%; left:50%;
+  transform:translateX(-50%) translateY(-50%) rotate(-90deg);
+  font-family:'Cormorant Garamond',serif; font-size:10px; letter-spacing:0.3em;
+  text-transform:uppercase; color:rgba(255,255,255,0.12);
+  white-space:nowrap;
+  /* transform is OK here — this element doesn't use blend-mode */
+}
+
+/* Thin ink-drip ornaments at portrait right edge */
+.portrait-drips {
+  position:absolute;
+  left:0; top:0; bottom:0; width:58%;
+  pointer-events:none;
+  /* NO z-index */
+}
+
+/* Author content starts overlapping the portrait */
+.author-content {
+  position:relative;
+  padding:88px 64px 88px 34%;
+  max-width:900px;
+  width:100%;
+  /* NO z-index — DOM order (after portrait) handles layering */
+}
+
+.author-kicker {
+  font-family:'Cormorant Garamond',serif; font-size:9.5px; letter-spacing:0.52em;
+  text-transform:uppercase; color:var(--gold); margin-bottom:18px;
+}
+
+/* Author name: inverts over portrait (dark→white) and cream (light→dark)
+   Same technique as the hero title. NO z-index, NO transform, position:relative only. */
+.author-name {
+  font-family:'Cormorant',serif; font-weight:300;
+  font-size:clamp(46px,5.5vw,72px); line-height:0.96; letter-spacing:-0.03em;
+  color:white; mix-blend-mode:difference;
+  margin-bottom:8px;
+  position:relative; /* safe: position:relative without z-index ≠ stacking context */
+}
+.author-name strong { font-weight:700; font-style:italic; display:block; }
+
+.author-role {
+  font-family:'Cormorant Garamond',serif; font-size:12px; letter-spacing:0.22em;
+  /* blend: role line starts in portrait zone → first few words appear white */
+  color:white; mix-blend-mode:difference;
+  margin-bottom:34px;
+  position:relative; /* NO z-index */
+}
+.author-bio {
+  font-family:'Lora',serif; font-size:15px; line-height:1.88;
+  max-width:500px; margin-bottom:14px;
+  /* each line: left portion over portrait = white, right portion over cream = dark */
+  color:white; mix-blend-mode:difference;
+  position:relative; /* NO z-index */
+}
+.int-tags { display:flex; flex-wrap:wrap; gap:8px; margin:24px 0 36px; }
+.int-tag {
+  font-family:'Cormorant Garamond',serif; font-size:11px;
+  color:var(--ink3); border:1px solid var(--border);
+  padding:5px 14px; letter-spacing:0.06em; transition:border-color 0.2s, color 0.2s; cursor:default;
+}
+.int-tag:hover { border-color:var(--gold); color:var(--gold); }
+.author-back {
+  font-family:'Cormorant Garamond',serif; font-size:11.5px; letter-spacing:0.3em;
+  text-transform:uppercase; color:var(--gold); text-decoration:none;
+  display:inline-flex; align-items:center; gap:10px; transition:gap 0.22s, color 0.22s;
+}
+.author-back:hover { gap:16px; color:var(--gold2); }
+
+/* ══════════════════════════════════════════
+   FOOTER
+══════════════════════════════════════════ */
+footer {
+  background:var(--ink); padding:26px 52px;
+  display:flex; justify-content:space-between; align-items:center;
+  border-top:1px solid rgba(255,255,255,0.05);
+}
+footer p {
+  font-family:'Cormorant Garamond',serif; font-size:10.5px;
+  letter-spacing:0.2em; color:rgba(255,255,255,0.18);
+}
+
+/* ══════════════════════════════════════════
+   PAPER OVERLAY
+══════════════════════════════════════════ */
+#overlay {
+  position:fixed; inset:0; z-index:9000; background:var(--white);
+  transform:translateY(100%); transition:transform 0.62s cubic-bezier(0.76,0,0.24,1);
+  overflow-y:auto;
+}
+#overlay.open { transform:translateY(0); }
+.ov-nav {
+  position:sticky; top:0; background:rgba(250,250,247,0.96); backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--border); padding:0 52px; height:var(--nav-h);
+  display:flex; align-items:center; justify-content:space-between; z-index:10;
+}
+.ov-close {
+  display:flex; align-items:center; gap:10px; font-family:'Cormorant Garamond',serif;
+  font-size:10.5px; letter-spacing:0.3em; text-transform:uppercase; color:var(--ink2);
+  cursor:pointer; background:none; border:none; transition:color 0.2s;
+}
+.ov-close:hover { color:var(--gold); }
+.ov-close svg { transition:transform 0.2s; }
+.ov-close:hover svg { transform:translateX(-3px); }
+.ov-label { font-family:'Cormorant Garamond',serif; font-size:10.5px; letter-spacing:0.2em; color:var(--ink3); }
+.ov-body { max-width:760px; margin:0 auto; padding:80px 40px 120px; }
+.ov-kicker {
+  font-family:'Cormorant Garamond',serif; font-size:10px; letter-spacing:0.46em;
+  text-transform:uppercase; color:var(--gold); margin-bottom:18px;
+  display:flex; align-items:center; gap:14px;
+}
+.ov-kicker::after { content:''; flex:1; height:1px; background:var(--border); }
+.ov-title {
+  font-family:'Cormorant',serif; font-weight:400; font-size:clamp(30px,5vw,58px);
+  line-height:1.1; letter-spacing:-0.02em; color:var(--ink); margin-bottom:36px;
+}
+.ov-meta { display:flex; flex-wrap:wrap; gap:0; margin-bottom:40px; border-top:1px solid var(--border); border-bottom:1px solid var(--border); }
+.ov-mc { padding:16px 28px 16px 0; margin-right:28px; border-right:1px solid var(--border); }
+.ov-mc:last-child { border-right:none; }
+.ov-ml { font-family:'Cormorant Garamond',serif; font-size:9px; letter-spacing:0.4em; text-transform:uppercase; color:var(--gold); margin-bottom:4px; }
+.ov-mv { font-family:'Lora',serif; font-size:13.5px; color:var(--ink2); }
+.ov-cite { border:1px solid var(--border); border-left:3px solid var(--gold); display:flex; gap:0; margin-bottom:44px; }
+.ov-cite-body { padding:20px 24px; flex:1; }
+.ov-cite-lbl { font-family:'Cormorant Garamond',serif; font-size:9.5px; letter-spacing:0.38em; text-transform:uppercase; color:var(--gold); margin-bottom:10px; }
+.ov-cite-txt { font-family:'Lora',serif; font-size:13px; font-style:italic; line-height:1.68; color:var(--ink2); }
+.ov-cite-styles { border-left:1px solid var(--border); padding:16px 14px; display:flex; flex-direction:column; gap:6px; justify-content:center; }
+.cs-btn { font-family:'Cormorant Garamond',serif; font-size:10px; letter-spacing:0.18em; padding:5px 12px; background:transparent; border:1px solid var(--border); color:var(--ink2); cursor:pointer; transition:all 0.18s; white-space:nowrap; }
+.cs-btn.active,.cs-btn:hover { background:var(--gold); border-color:var(--gold); color:#fff; }
+.ov-abstract { background:var(--off); padding:30px 36px; margin-bottom:48px; position:relative; }
+.ov-abs-lbl { font-family:'Cormorant Garamond',serif; font-size:9px; letter-spacing:0.44em; text-transform:uppercase; color:var(--gold); margin-bottom:14px; }
+.ov-abstract p { font-family:'Lora',serif; font-size:14.5px; font-style:italic; line-height:1.88; color:var(--ink2); margin-bottom:12px; }
+.ov-abstract p:last-child { margin-bottom:0; }
+.ov-text { font-family:'Lora',serif; font-size:16px; line-height:1.94; color:var(--ink2); margin-bottom:56px; }
+.ov-text h2 { font-family:'Cormorant',serif; font-weight:500; font-size:26px; color:var(--ink); margin:44px 0 16px; letter-spacing:-0.01em; }
+.ov-text p { margin-bottom:22px; }
+.ov-text blockquote { border-left:2px solid var(--gold); padding:2px 0 2px 24px; margin:32px 0; color:var(--ink); font-style:italic; font-size:17px; line-height:1.7; }
+.sec-mark { font-family:'Cormorant Garamond',serif; font-size:10.5px; letter-spacing:0.3em; text-transform:uppercase; color:var(--gold); display:block; margin-bottom:8px; opacity:0.7; }
+.ov-dls { display:flex; gap:12px; flex-wrap:wrap; padding-top:38px; border-top:1px solid var(--border); }
+.btn-dl { font-family:'Cormorant Garamond',serif; font-size:11px; letter-spacing:0.26em; text-transform:uppercase; padding:12px 26px; cursor:pointer; background:transparent; border:1px solid; transition:all 0.2s; }
+.dl-pdf { color:var(--ink); border-color:var(--ink2); } .dl-pdf:hover { background:var(--ink); color:var(--white); }
+.dl-txt { color:var(--green); border-color:var(--green); } .dl-txt:hover { background:var(--green); color:#fff; }
+.dl-cit { color:var(--gold); border-color:var(--gold); } .dl-cit:hover { background:var(--gold); color:#fff; }
+
+/* ══════════════════════════════════════════
+   RESPONSIVE
+══════════════════════════════════════════ */
+@media (max-width:1080px) {
+  #nav, #library, .sd, footer { padding-left:32px; padding-right:32px; }
+  .hero-content, .feat-content { padding-left:32px; padding-right:32px; }
+  .feat-controls { left:32px; right:32px; }
+  .feat-title { max-width:80%; }
+  .author-content { padding:72px 40px 72px 38%; }
+  .lib-ink { width:75%; }
+}
+@media (max-width:760px) {
+  .hero-title { white-space:normal; font-size:clamp(48px,12vw,80px); }
+  .feat-title { max-width:100%; font-size:clamp(28px,6vw,48px); }
+  .feat-ghost { font-size:140px; }
+  .paper-row { grid-template-columns:36px 1fr; }
+  .row-aside { display:none; }
+  #author { flex-direction:column; align-items:stretch; }
+  .author-portrait { position:relative; width:100%; height:280px; flex-shrink:0; }
+  .portrait-drips { display:none; }
+  .author-content { padding:48px 32px; }
+  .ov-body { padding:48px 24px 80px; }
+  .ov-cite { flex-direction:column; }
+  .lib-ink { width:100%; }
+  .mblot { display:none; }
+}
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════
+     SVG FILTER DEFS
+════════════════════════════════════ -->
+<svg width="0" height="0" style="position:absolute;overflow:hidden">
+  <defs>
+    <!-- Primary organic ink blob filter — high displacement for natural edges -->
+    <filter id="f-drop" x="-60%" y="-60%" width="220%" height="220%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.028" numOctaves="5" seed="31"/>
+      <feDisplacementMap in="SourceGraphic" scale="22" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+    <!-- Softer filter for section ornament blots -->
+    <filter id="f-sm" x="-50%" y="-50%" width="200%" height="200%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.038" numOctaves="4" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="16" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+    <!-- Heavy splash filter for library band drops -->
+    <filter id="f-splash" x="-80%" y="-80%" width="260%" height="260%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.022" numOctaves="6" seed="53"/>
+      <feDisplacementMap in="SourceGraphic" scale="28" xChannelSelector="G" yChannelSelector="R"/>
+    </filter>
+  </defs>
+</svg>
+
+
+<!-- ════════════════════════════════════
+     NAV
+════════════════════════════════════ -->
+<nav id="nav">
+  <a class="nav-brand" href="#">Stories From Abroad</a>
+  <div class="nav-links">
+    <a class="active" onclick="navTo(this,'featured')">Featured</a>
+    <a onclick="navTo(this,'library')">All Papers</a>
+    <a onclick="navTo(this,'author')">About</a>
+  </div>
+</nav>
+
+
+<!-- ════════════════════════════════════
+     HERO
+════════════════════════════════════ -->
+<section id="hero">
+
+  <!--
+    INK SPILL SVG — painted first in DOM so mix-blend-mode on text
+    composites against it. preserveAspectRatio="none" is cosmetic only now —
+    no clip-path needs to match it.
+  -->
+  <svg class="hero-ink" viewBox="0 0 1200 800" preserveAspectRatio="xMaxYMid slice"
+       xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+
+    <!-- Main ink body — organic left boundary sweeping from top-right to bottom-right -->
+    <path d="
+      M 636 0
+      C 588 42,  542 84,  571 130
+      C 600 176, 552 216, 480 253
+      C 408 290, 360 334, 403 378
+      C 446 422, 504 454, 456 498
+      C 408 542, 425 590, 475 632
+      C 525 674, 499 725, 534 800
+      L 1200 800 L 1200 0 Z
+    " fill="#111110"/>
+
+    <!-- Satellite drops — organic shapes distorted by f-drop turbulence filter.
+         The filter scale=22 means each shape gains ~22px of organic edge variation.
+         Shapes are drawn slightly LARGER than desired to account for filter shrinkage. -->
+    <g filter="url(#f-drop)">
+
+      <!-- Upper cluster y≈120-220: ink flung left-upward from the boundary -->
+      <!-- Primary impact: wide oval, slightly flattened on impact side -->
+      <ellipse cx="502" cy="138" rx="32" ry="21" fill="#111110" opacity="0.88"/>
+      <!-- Secondary lobe: drip that separated on impact -->
+      <ellipse cx="464" cy="172" rx="18" ry="13" fill="#111110" opacity="0.70"/>
+      <!-- Tail streaking away from parent drop -->
+      <path d="M 438 194 C 446 188, 454 192, 450 208 C 447 220, 437 222, 431 213 C 426 206, 430 198, 438 194 Z"
+            fill="#111110" opacity="0.52"/>
+      <!-- Micro-scatter: the fine droplets that escape furthest -->
+      <circle cx="418" cy="224" r="7"   fill="#111110" opacity="0.38"/>
+      <circle cx="406" cy="238" r="4.5" fill="#111110" opacity="0.26"/>
+      <circle cx="394" cy="250" r="2.5" fill="#111110" opacity="0.17"/>
+
+      <!-- Mid cluster y≈340-460: large impact zone at biggest boundary indent -->
+      <!-- Main body: large irregular splat, multi-lobe -->
+      <path d="M 330 328 C 362 308, 414 318, 418 352 C 422 384, 396 402, 366 394 C 338 386, 320 364, 330 328 Z"
+            fill="#111110" opacity="0.90"/>
+      <!-- Left lobe: secondary impact mass -->
+      <ellipse cx="294" cy="372" rx="24" ry="17" fill="#111110" opacity="0.72"/>
+      <!-- Long teardrop drip pointing down-left (gravity) -->
+      <path d="M 278 406 C 290 396, 308 402, 304 426 C 300 446, 282 450, 270 436 C 260 424, 264 412, 278 406 Z"
+            fill="#111110" opacity="0.58"/>
+      <!-- Fine scatter -->
+      <circle cx="252" cy="454" r="8"   fill="#111110" opacity="0.40"/>
+      <circle cx="238" cy="468" r="5"   fill="#111110" opacity="0.28"/>
+      <circle cx="226" cy="480" r="3"   fill="#111110" opacity="0.18"/>
+      <circle cx="216" cy="490" r="1.8" fill="#111110" opacity="0.11"/>
+
+      <!-- Lower cluster y≈590-690 -->
+      <!-- Wide shallow impact — fell at a low angle -->
+      <ellipse cx="398" cy="606" rx="38" ry="24" fill="#111110" opacity="0.86"/>
+      <!-- Drip that continued rolling left -->
+      <path d="M 342 636 C 356 626, 376 632, 372 654 C 368 672, 348 676, 336 662 C 326 650, 330 642, 342 636 Z"
+            fill="#111110" opacity="0.64"/>
+      <!-- Two micro lobes breaking off -->
+      <circle cx="314" cy="670" r="9"   fill="#111110" opacity="0.46"/>
+      <circle cx="296" cy="682" r="5.5" fill="#111110" opacity="0.30"/>
+      <circle cx="282" cy="691" r="3"   fill="#111110" opacity="0.18"/>
+    </g>
+  </svg>
+
+  <!--
+    SINGLE TEXT LAYER
+    mix-blend-mode:difference on .hero-title and .hero-tw
+    color:white → renders as near-black over cream, near-white over ink.
+    No duplicate HTML, no clip-path, no stacking context issues.
+  -->
+  <div class="hero-content">
+    <div class="hero-kicker">Papers &amp; Op-Eds</div>
+    <h1 class="hero-title">Selected <strong>Writing</strong></h1>
+    <div class="hero-divider"></div>
+    <div class="hero-tw-wrap">
+      <span class="hero-tw" id="tw-el"></span><span class="cursor"></span>
+    </div>
+  </div>
+
+  <div class="hero-scroll-hint">Scroll to read</div>
+  <div class="hero-byline">
+    <div class="hero-byline-label">By</div>
+    <div class="hero-byline-name">Birkley Grunewald</div>
+  </div>
+</section>
+
+
+<!-- section ornament -->
+<div class="sd">
+  <svg class="sd-blot" width="26" height="26" viewBox="0 0 60 60">
+    <g filter="url(#f-sm)">
+      <circle cx="30" cy="30" r="18" fill="#111110" opacity="0.7"/>
+      <circle cx="42" cy="21" r="8"  fill="#111110" opacity="0.5"/>
+      <circle cx="19" cy="22" r="6"  fill="#111110" opacity="0.45"/>
+    </g>
+    <g filter="url(#f-drop)">
+      <circle cx="51" cy="16" r="4"   fill="#111110" opacity="0.32"/>
+      <circle cx="57" cy="24" r="2.5" fill="#111110" opacity="0.22"/>
+      <circle cx="10" cy="42" r="3"   fill="#111110" opacity="0.24"/>
+    </g>
+  </svg>
+  <span class="sd-lbl">Featured Writing</span>
+  <div class="sd-line"></div>
+  <span class="sd-lbl" id="feat-ctr-sd">01 of 03</span>
+</div>
+
+
+<!-- ════════════════════════════════════
+     FEATURED — full-width ink-spill
+     Same blend technique as hero:
+     color:white + mix-blend-mode:difference on title/text
+════════════════════════════════════ -->
+<section id="featured">
+
+  <!--
+    Ink spill from right side — different boundary shape from hero:
+    boundary starts higher/tighter (~48% from left at top) and
+    has more pronounced undulations. Creates a distinct but cohesive feel.
+  -->
+  <svg class="feat-ink" viewBox="0 0 1200 800" preserveAspectRatio="xMaxYMid slice"
+       xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+
+    <path d="
+      M 576 0
+      C 540 55,  562 115, 524 178
+      C 486 241, 512 295, 474 358
+      C 436 421, 460 476, 436 538
+      C 412 600, 438 654, 416 720
+      C 402 762, 420 790, 428 800
+      L 1200 800 L 1200 0 Z
+    " fill="#111110"/>
+
+    <!-- Organic satellite drops using f-drop filter (scale=22) -->
+    <g filter="url(#f-drop)">
+      <!-- Upper cluster y≈100-195 -->
+      <ellipse cx="498" cy="118" rx="30" ry="20" fill="#111110" opacity="0.86"/>
+      <ellipse cx="460" cy="156" rx="18" ry="12" fill="#111110" opacity="0.68"/>
+      <path d="M 432 182 C 442 174, 454 178, 450 196 C 447 210, 434 213, 426 202 C 419 193, 423 188, 432 182 Z"
+            fill="#111110" opacity="0.52"/>
+      <circle cx="410" cy="214" r="7"   fill="#111110" opacity="0.36"/>
+      <circle cx="396" cy="226" r="4"   fill="#111110" opacity="0.23"/>
+      <circle cx="385" cy="236" r="2.2" fill="#111110" opacity="0.14"/>
+
+      <!-- Mid cluster y≈318-418 — biggest boundary indent -->
+      <path d="M 404 312 C 432 294, 470 306, 472 336 C 474 364, 448 380, 420 370 C 394 360, 380 332, 404 312 Z"
+            fill="#111110" opacity="0.88"/>
+      <ellipse cx="366" cy="366" rx="24" ry="16" fill="#111110" opacity="0.70"/>
+      <path d="M 344 402 C 356 392, 374 398, 370 420 C 366 438, 348 442, 337 428 C 328 416, 332 408, 344 402 Z"
+            fill="#111110" opacity="0.56"/>
+      <circle cx="318" cy="446" r="8"   fill="#111110" opacity="0.40"/>
+      <circle cx="303" cy="460" r="5"   fill="#111110" opacity="0.27"/>
+      <circle cx="291" cy="472" r="2.8" fill="#111110" opacity="0.16"/>
+
+      <!-- Lower cluster y≈650-740 -->
+      <ellipse cx="382" cy="668" rx="34" ry="22" fill="#111110" opacity="0.84"/>
+      <path d="M 332 706 C 346 696, 366 702, 362 726 C 358 744, 338 748, 325 734 C 314 722, 318 712, 332 706 Z"
+            fill="#111110" opacity="0.62"/>
+      <circle cx="304" cy="748" r="9"   fill="#111110" opacity="0.44"/>
+      <circle cx="286" cy="760" r="5.5" fill="#111110" opacity="0.29"/>
+      <circle cx="272" cy="770" r="3"   fill="#111110" opacity="0.17"/>
+    </g>
+  </svg>
+
+  <!-- Ghost ordinal: sits in the ink zone, blend renders it near-white -->
+  <div class="feat-ghost" id="feat-ghost">01</div>
+
+  <!-- Content: position:relative, NO z-index -->
+  <div class="feat-content" id="feat-content">
+    <div class="feat-kicker" id="feat-kicker">Political Economy</div>
+    <h2 class="feat-title" id="feat-title">The Erosion of Fiscal Sovereignty in Post-Crisis Europe</h2>
+    <p class="feat-summary" id="feat-summary">An examination of how the 2008 financial crisis restructured the relationship between national fiscal autonomy and supranational governance — with attention to the political consequences of technocratic discipline.</p>
+    <div class="feat-kws" id="feat-kws"></div>
+    <div class="feat-meta" id="feat-meta"></div>
+    <button class="btn-read" id="feat-btn">Read Paper &nbsp;&rarr;</button>
+  </div>
+
+  <!-- Bottom controls: dot nav + arrows (no timer bar) -->
+  <div class="feat-controls">
+    <div class="feat-dots" id="feat-dots"></div>
+    <div class="feat-arrows">
+      <button class="feat-arr" onclick="moveFeat(-1)">&#8592;</button>
+      <button class="feat-arr" onclick="moveFeat(1)">&#8594;</button>
+    </div>
+  </div>
+
+</section>
+
+
+<div class="sd">
+  <svg class="sd-blot" width="22" height="22" viewBox="0 0 50 50">
+    <g filter="url(#f-sm)">
+      <circle cx="25" cy="25" r="14" fill="#111110" opacity="0.6"/>
+      <circle cx="35" cy="17" r="6"  fill="#111110" opacity="0.4"/>
+    </g>
+    <g filter="url(#f-drop)">
+      <circle cx="42" cy="12" r="3"  fill="#111110" opacity="0.26"/>
+      <circle cx="7"  cy="35" r="2"  fill="#111110" opacity="0.18"/>
+    </g>
+  </svg>
+  <span class="sd-lbl">The Archive</span>
+  <div class="sd-line"></div>
+</div>
+
+
+<!-- ════════════════════════════════════
+     LIBRARY
+════════════════════════════════════ -->
+<section id="library">
+
+  <!--
+    Ink spill from top-left — same technique as hero.
+    Painted before heading in DOM so mix-blend-mode on lib-title
+    composites against these pixels. NO z-index on this SVG.
+    viewBox matches section dimensions proportionally.
+  -->
+  <svg class="lib-ink" viewBox="0 0 820 260" preserveAspectRatio="xMinYMin slice"
+       xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <!-- Main spill body from top-left corner -->
+    <path d="
+      M 0 0
+      L 480 0
+      C 450 18, 420 38, 438 62
+      C 456 86, 422 108, 388 128
+      C 354 148, 362 180, 320 200
+      C 278 220, 240 248, 190 260
+      L 0 260 Z
+    " fill="#111110"/>
+
+    <!-- Organic satellite drops at the boundary -->
+    <!-- Teardrop near upper-middle boundary -->
+    <path d="M 452 46 C 466 36, 482 44, 478 62 C 474 78, 458 84, 448 72 C 438 62, 440 54, 452 46 Z"
+          fill="#111110" opacity="0.80"/>
+    <!-- Small drip below it -->
+    <path d="M 428 98 C 438 90, 450 96, 446 110 C 442 122, 430 126, 423 116 C 416 108, 418 104, 428 98 Z"
+          fill="#111110" opacity="0.60"/>
+    <!-- Elongated splash fragment mid-boundary -->
+    <path d="M 362 158 C 378 150, 398 156, 394 172 C 390 186, 372 190, 358 180 C 346 172, 348 164, 362 158 Z"
+          fill="#111110" opacity="0.70"/>
+    <!-- Micro dots -->
+    <circle cx="410" cy="134" r="5"   fill="#111110" opacity="0.44"/>
+    <circle cx="396" cy="146" r="3.2" fill="#111110" opacity="0.30"/>
+    <circle cx="340" cy="194" r="4.5" fill="#111110" opacity="0.38"/>
+    <circle cx="320" cy="210" r="2.8" fill="#111110" opacity="0.24"/>
+    <circle cx="298" cy="222" r="1.8" fill="#111110" opacity="0.16"/>
+    <circle cx="472" cy="28"  r="3.5" fill="#111110" opacity="0.32"/>
+    <circle cx="488" cy="18"  r="2"   fill="#111110" opacity="0.20"/>
+  </svg>
+
+  <!--
+    MARGIN INK BLOTS — 3 organic blobs floating in the white gutters.
+    ~7% opacity normally (barely visible, just textural ink presence).
+    All fade to 0 when any row is hovered via CSS :has().
+    Each uses f-drop filter for genuine organic edges.
+  -->
+
+  <!-- Blot A: right gutter, vertically centered in rows 2–3 (~380px from section top) -->
+  <svg class="mblot" style="right:-14px; top:420px; width:140px; height:120px;"
+       viewBox="0 0 140 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <g filter="url(#f-drop)">
+      <path d="M 52 24 C 78 8, 114 18, 118 46 C 122 72, 100 94, 72 90
+               C 44 86, 22 72, 18 50 C 14 28, 28 38, 52 24 Z" fill="#111110"/>
+      <ellipse cx="110" cy="22" rx="14" ry="10" fill="#111110" opacity="0.7"/>
+      <circle cx="125" cy="12" r="7" fill="#111110" opacity="0.5"/>
+      <circle cx="132" cy="4"  r="4" fill="#111110" opacity="0.35"/>
+    </g>
+  </svg>
+
+  <!-- Blot B: left gutter, rows 4–5 — elongated vertical drip matching annotation -->
+  <svg class="mblot" style="left:-10px; top:680px; width:100px; height:160px;"
+       viewBox="0 0 100 160" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <g filter="url(#f-drop)">
+      <path d="M 54 12 C 72 8, 86 22, 82 44 C 78 66, 60 76, 50 94
+               C 42 110, 46 134, 34 148 C 24 160, 12 154, 10 138
+               C 8 122, 20 108, 28 90 C 36 72, 28 54, 32 36
+               C 36 18, 38 14, 54 12 Z" fill="#111110"/>
+      <circle cx="78" cy="14" r="8" fill="#111110" opacity="0.6"/>
+      <circle cx="86" cy="6"  r="5" fill="#111110" opacity="0.4"/>
+    </g>
+  </svg>
+
+  <!-- Blot C: right gutter, near bottom — clustered drip matching annotation bottom-right -->
+  <svg class="mblot" style="right:-8px; bottom:90px; width:120px; height:100px;"
+       viewBox="0 0 120 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <g filter="url(#f-drop)">
+      <ellipse cx="62" cy="54" rx="46" ry="30" fill="#111110"/>
+      <ellipse cx="26" cy="28" rx="18" ry="13" fill="#111110" opacity="0.8"/>
+      <circle cx="10" cy="16" r="8" fill="#111110" opacity="0.6"/>
+      <circle cx="3"  cy="8"  r="5" fill="#111110" opacity="0.4"/>
+    </g>
+  </svg>
+
+  <div class="lib-head">
+    <div>
+      <div class="lib-kicker">The Archive</div>
+      <h2 class="lib-title">All Writing</h2>
+    </div>
+    <div class="lib-count" id="paper-count">8 papers</div>
+  </div>
+
+  <div class="search-bar">
+    <div class="s-wrap">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+      <input class="s-input" id="s-in" type="text"
+             placeholder="Search by title, keyword, or topic…" oninput="doFilter()">
+    </div>
+    <div class="s-sep"></div>
+    <select class="f-sel" id="f-cat" onchange="doFilter()">
+      <option value="">All Categories</option>
+      <option>Political Economy</option><option>Policy Analysis</option>
+      <option>Philosophy</option><option>Essays</option>
+      <option>Op-Eds</option><option>Research Notes</option>
+    </select>
+    <div class="s-sep"></div>
+    <select class="f-sel" id="f-yr" onchange="doFilter()">
+      <option value="">All Years</option>
+      <option>2024</option><option>2023</option><option>2022</option>
+    </select>
+    <div class="s-sep"></div>
+    <select class="f-sel" id="f-tp" onchange="doFilter()">
+      <option value="">Writing Type</option>
+      <option>Academic</option><option>Op-Ed</option>
+      <option>Essay</option><option>Research Note</option>
+    </select>
+  </div>
+
+  <div class="papers-list" id="papers-list"></div>
+</section>
+
+
+<div style="height:1px;background:var(--border)"></div>
+
+
+<!-- ════════════════════════════════════
+     ABOUT — cream background, portrait = dark zone
+     Author name uses mix-blend-mode: difference
+     mirroring the hero title technique exactly.
+════════════════════════════════════ -->
+<section id="author">
+
+  <!--
+    Portrait painted first in DOM — absolutely positioned,
+    fills left 44% of section with dark tones.
+    NO filter property (filter creates stacking context → breaks blend on author-name).
+    For real photo: add background-image here; apply grayscale via CSS
+    ONLY if you remove mix-blend-mode from author-name.
+  -->
+  <div class="author-portrait">
+    <span class="portrait-ph">Portrait — Birkley Grunewald</span>
+  </div>
+
+  <!--
+    Small ink drip ornaments at the portrait right edge.
+    Purely decorative, positioned along the boundary.
+    NO z-index, NO filter.
+  -->
+  <svg class="portrait-drips" viewBox="0 0 600 600"
+       preserveAspectRatio="xMaxYMid meet"
+       xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <!-- Thin drip running down the portrait edge -->
+    <path d="M 580 80 C 590 100, 592 130, 585 160 C 578 190, 582 220, 575 250
+             C 568 280, 572 310, 565 340 C 558 370, 562 400, 555 430"
+          stroke="#111110" stroke-width="1.5" fill="none" opacity="0.18"/>
+    <!-- Teardrop at drip end -->
+    <path d="M 550 432 C 558 422, 570 428, 568 444 C 566 458, 554 462, 546 452 C 540 444, 542 438, 550 432 Z"
+          fill="#111110" opacity="0.28"/>
+    <!-- Two smaller accent drops -->
+    <path d="M 572 180 C 578 172, 588 176, 586 188 C 584 198, 574 202, 568 194 C 563 188, 566 186, 572 180 Z"
+          fill="#111110" opacity="0.22"/>
+    <circle cx="578" cy="288" r="5"   fill="#111110" opacity="0.18"/>
+    <circle cx="560" cy="370" r="3.2" fill="#111110" opacity="0.14"/>
+    <circle cx="544" cy="462" r="2"   fill="#111110" opacity="0.10"/>
+  </svg>
+
+  <!--
+    Author content — position:relative, NO z-index.
+    DOM order (after portrait) means it paints on top.
+    author-name blend composites against portrait pixels beneath it.
+  -->
+  <div class="author-content">
+    <div class="author-kicker">About the Author</div>
+    <h3 class="author-name">Birkley<strong>Grunewald</strong></h3>
+    <p class="author-role">Writer &nbsp;·&nbsp; Researcher &nbsp;·&nbsp; Correspondent</p>
+    <p class="author-bio">These papers represent an ongoing attempt to think clearly about politics, economy, and the structures that shape how people live. Written across years of study and travel, they range from formal academic arguments to shorter reflections on questions that resist easy answers.</p>
+    <p class="author-bio">The work sits alongside photography, travel writing, and short fiction — each form asking a different kind of attention from the same underlying preoccupations.</p>
+    <div class="int-tags">
+      <span class="int-tag">Political Economy</span>
+      <span class="int-tag">State &amp; Sovereignty</span>
+      <span class="int-tag">Global Justice</span>
+      <span class="int-tag">Development</span>
+      <span class="int-tag">Philosophy</span>
+      <span class="int-tag">International Order</span>
+    </div>
+    <a href="#" class="author-back">&#8592; Return to Stories From Abroad</a>
+  </div>
+</section>
+
+<footer>
+  <p>Stories From Abroad &nbsp;·&nbsp; Papers &amp; Op-Eds</p>
+  <p>© 2025 Birkley Grunewald</p>
+</footer>
+
+
+<!-- ════════════════════════════════════
+     PAPER OVERLAY
+════════════════════════════════════ -->
+<div id="overlay">
+  <div class="ov-nav">
+    <button class="ov-close" onclick="closeOverlay()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
+      </svg>
+      Back to Papers
+    </button>
+    <span class="ov-label" id="ov-label"></span>
+  </div>
+  <div class="ov-body" id="ov-body"></div>
+</div>
+
+
+<!-- ════════════════════════════════════
+     JAVASCRIPT
+════════════════════════════════════ -->
+<script>
+/* ── DATA ── */
+const papers = [
+  { id:1, title:"The Erosion of Fiscal Sovereignty in Post-Crisis Europe",
+    cat:"Political Economy", year:2024, date:"March 2024",
+    kw:["European Union","Austerity","Fiscal Policy","Sovereignty"],
+    time:"14 min", type:"Academic", featured:true,
+    summary:"An examination of how the 2008 financial crisis and subsequent eurozone debt crises restructured the relationship between national fiscal autonomy and supranational governance — with attention to the political consequences of technocratic discipline." },
+  { id:2, title:"Against Technocracy: On Democratic Legitimacy and the Administrative State",
+    cat:"Policy Analysis", year:2024, date:"January 2024",
+    kw:["Democracy","Bureaucracy","Legitimacy","Governance"],
+    time:"11 min", type:"Essay", featured:true,
+    summary:"A critical analysis of the expanding role of technocratic institutions in liberal democracies and the tension this creates with principles of popular sovereignty and democratic accountability." },
+  { id:3, title:"The Moral Economy of Migration: Obligation, Borders, and Global Justice",
+    cat:"Philosophy", year:2023, date:"September 2023",
+    kw:["Migration","Global Justice","Ethics","Borders"],
+    time:"18 min", type:"Academic", featured:true,
+    summary:"Drawing on cosmopolitan and communitarian traditions, this essay examines the ethical obligations wealthy states bear toward migrants, and whether open borders constitute a requirement of global justice." },
+  { id:4, title:"Infrastructure as Politics: Roads, Power, and the Post-Colonial State",
+    cat:"Political Economy", year:2023, date:"July 2023",
+    kw:["Infrastructure","Colonialism","Development","State Power"],
+    time:"16 min", type:"Academic",
+    summary:"A study of how physical infrastructure — roads, ports, railways — functions as an instrument of political power and social ordering in post-colonial contexts." },
+  { id:5, title:"Notes on the Future of the Nation-State",
+    cat:"Research Notes", year:2023, date:"May 2023",
+    kw:["Sovereignty","Globalization","Nation-State","International Order"],
+    time:"8 min", type:"Research Note",
+    summary:"Speculative notes on whether the nation-state as a form of political organization is in structural decline, and what might replace it as the primary locus of collective identity and governance." },
+  { id:6, title:"The Market Cannot Save Us: A Critique of Green Capitalism",
+    cat:"Op-Eds", year:2024, date:"February 2024",
+    kw:["Climate","Capitalism","Green Economy","Political Economy"],
+    time:"9 min", type:"Op-Ed",
+    summary:"A polemical argument against the prevailing orthodoxy that market mechanisms and private investment can adequately address the structural causes of ecological collapse." },
+  { id:7, title:"On Uncertainty: Epistemic Humility in a World of Experts",
+    cat:"Essays", year:2022, date:"November 2022",
+    kw:["Epistemology","Expertise","Uncertainty","Knowledge"],
+    time:"13 min", type:"Essay",
+    summary:"A philosophical meditation on the limits of expert knowledge and the virtues of intellectual humility, written in the aftermath of compounding institutional failures." },
+  { id:8, title:"State Capacity and the Paradox of Weak Strong States",
+    cat:"Policy Analysis", year:2022, date:"August 2022",
+    kw:["State Capacity","Governance","Public Administration","Development"],
+    time:"15 min", type:"Academic",
+    summary:"An investigation into why states that appear powerful by conventional metrics often fail at basic service delivery, and what this reveals about the nature of political power." }
+];
+
+const featPapers = papers.filter(p => p.featured);
+const N = featPapers.length;
+
+/* ── TYPEWRITER ── */
+const lines = [
+  "Essays, notes, and arguments — attempts to understand the world a little better.",
+  "Some academic. Some speculative. All written in good faith.",
+  "Written across years of travel, study, and careful attention.",
+  "A scholar\u2019s desk, left open."
+];
+let li=0, ci=0, del=false;
+const twEl = document.getElementById('tw-el');
+function tick() {
+  const s = lines[li];
+  if (!del) { twEl.textContent = s.slice(0,++ci); if(ci===s.length){del=true;setTimeout(tick,2800);return;} }
+  else { twEl.textContent = s.slice(0,--ci); if(ci===0){del=false;li=(li+1)%lines.length;} }
+  setTimeout(tick, del?14:46);
+}
+setTimeout(tick, 1400);
+
+
+/* ════════════════════════════════════
+   FEATURED CAROUSEL — blend-mode safe
+   Transitions use animation re-trigger only (no opacity/transform on
+   blend-mode elements — those create stacking contexts that break the blend).
+   Technique: set style.animation='none', force reflow, set style.animation=''
+   to restart the CSS @keyframes heroTitleIn and slideUp animations.
+════════════════════════════════════ */
+let featIdx = 0;
+let autoTimer = null;
+const AUTO_DURATION = 8000;
+
+function triggerFeatAnim() {
+  /* Re-fire entry animations by clearing then restoring animation prop.
+     Must use `top` keyframes (heroTitleIn) — NOT transform — on blend elements. */
+  const blendEls = document.querySelectorAll('.feat-kicker,.feat-title,.feat-summary,.feat-kws,.feat-meta,.btn-read');
+  blendEls.forEach(el => { el.style.animation = 'none'; });
+  void document.getElementById('feat-content').offsetWidth; // force reflow
+  blendEls.forEach(el => { el.style.animation = ''; });
+}
+
+function updateFeat(idx) {
+  const p = featPapers[idx];
+  const title = document.getElementById('feat-title');
+  document.getElementById('feat-kicker').textContent = p.cat;
+  title.textContent = p.title;
+  title.onclick = () => openPaper(p.id);
+  document.getElementById('feat-summary').textContent = p.summary;
+  document.getElementById('feat-kws').innerHTML =
+    p.kw.map(k => `<span class="feat-kw">${k}</span>`).join('');
+  document.getElementById('feat-meta').innerHTML = `
+    <span>${p.date}</span>
+    <span class="feat-meta-dot"></span>
+    <span>${p.time} read</span>
+    <span class="feat-meta-dot"></span>
+    <span>${p.type}</span>`;
+  document.getElementById('feat-btn').onclick = () => openPaper(p.id);
+  document.getElementById('feat-ghost').textContent = String(idx+1).padStart(2,'0');
+  const ctr = document.getElementById('feat-ctr-sd');
+  if (ctr) ctr.textContent = `0${idx+1} of 0${N}`;
+  document.querySelectorAll('.feat-dot').forEach((d,i) =>
+    d.classList.toggle('active', i === idx));
+  triggerFeatAnim();
+}
+
+function buildFeatDots() {
+  document.getElementById('feat-dots').innerHTML =
+    featPapers.map((_,i) =>
+      `<div class="feat-dot${i===0?' active':''}" onclick="goFeat(${i})"></div>`
+    ).join('');
+}
+
+function goFeat(newIdx) {
+  newIdx = ((newIdx % N) + N) % N;
+  if (newIdx === featIdx) return;
+  featIdx = newIdx;
+  updateFeat(featIdx);
+  resetAutoTimer();
+}
+
+function moveFeat(dir) { goFeat(featIdx + dir); }
+
+function resetAutoTimer() {
+  clearInterval(autoTimer);
+  autoTimer = setInterval(() => goFeat(featIdx + 1), AUTO_DURATION);
+}
+
+/* Initialise */
+updateFeat(0);
+buildFeatDots();
+resetAutoTimer();
+
+/* Keyboard navigation */
+document.addEventListener('keydown', e => {
+  if (document.getElementById('overlay').classList.contains('open')) return;
+  if (e.key === 'ArrowRight') moveFeat(1);
+  if (e.key === 'ArrowLeft')  moveFeat(-1);
+});
+
+
+/* ── LIBRARY ── */
+function buildList(list) {
+  const el = document.getElementById('papers-list');
+  document.getElementById('paper-count').textContent =
+    list.length + ' paper' + (list.length !== 1 ? 's' : '');
+  el.innerHTML = '';
+  if (!list.length) {
+    el.innerHTML = '<div class="no-results">No papers match your search.</div>';
+    return;
+  }
+  list.forEach((p,i) => {
+    const row = document.createElement('div');
+    row.className = 'paper-row';
+    row.onclick = () => openPaper(p.id);
+    row.innerHTML = `
+      <div class="row-n">${String(i+1).padStart(2,'0')}</div>
+      <div class="row-body">
+        <div class="row-cat">${p.cat}</div>
+        <div class="row-title">${p.title}</div>
+        <div class="row-kws">${p.kw.map(k=>`<span class="row-kw">${k}</span>`).join('')}</div>
+        <div class="row-preview">${p.summary}</div>
+      </div>
+      <div class="row-aside">
+        <div class="row-date">${p.date}</div>
+        <div class="row-time">${p.time} read</div>
+        <div class="row-arrow">&#8594;</div>
+      </div>`;
+    el.appendChild(row);
+  });
+}
+buildList(papers);
+
+function doFilter() {
+  const q   = document.getElementById('s-in').value.toLowerCase();
+  const cat = document.getElementById('f-cat').value;
+  const yr  = document.getElementById('f-yr').value;
+  const tp  = document.getElementById('f-tp').value;
+  buildList(papers.filter(p => {
+    const m = !q || [p.title,p.summary,...p.kw,p.cat].some(x=>x.toLowerCase().includes(q));
+    return m && (!cat||p.cat===cat) && (!yr||p.year===+yr) && (!tp||p.type===tp);
+  }));
+}
+
+
+/* ── CITATION ── */
+const citStyles = ['APA','MLA','Chicago','Harvard','BibTeX'];
+function cite(p, s) {
+  const t=p.title, yr=p.year, d=p.date;
+  switch(s){
+    case'APA':    return `Grunewald, B. (${yr}). <em>${t}</em>. <em>Stories From Abroad</em>.`;
+    case'MLA':    return `Grunewald, Birkley. "${t}." <em>Stories From Abroad</em>, ${d}.`;
+    case'Chicago':return `Grunewald, Birkley. "${t}." <em>Stories From Abroad</em>. ${d}.`;
+    case'Harvard':return `Grunewald, B. (${yr}) '${t}', <em>Stories From Abroad</em>.`;
+    case'BibTeX': return `@article{grunewald${yr},\n  author={Grunewald, Birkley},\n  title={${t}},\n  year={${yr}},\n  journal={Stories From Abroad}\n}`;
+  }
+}
+function setCit(pid, s) {
+  document.getElementById('cit-out').innerHTML = cite(papers.find(x=>x.id===pid), s);
+  document.querySelectorAll('.cs-btn').forEach(b => b.classList.toggle('active', b.dataset.s===s));
+}
+
+
+/* ── OPEN PAPER ── */
+function openPaper(id) {
+  const p = papers.find(x=>x.id===id);
+  document.getElementById('ov-label').textContent = p.date + ' · ' + p.time + ' read';
+  document.getElementById('ov-body').innerHTML = `
+    <div class="ov-kicker">${p.cat}</div>
+    <h1 class="ov-title">${p.title}</h1>
+    <div class="ov-meta">
+      <div class="ov-mc"><div class="ov-ml">Author</div><div class="ov-mv">Birkley Grunewald</div></div>
+      <div class="ov-mc"><div class="ov-ml">Date</div><div class="ov-mv">${p.date}</div></div>
+      <div class="ov-mc"><div class="ov-ml">Reading Time</div><div class="ov-mv">${p.time}</div></div>
+      <div class="ov-mc"><div class="ov-ml">Keywords</div><div class="ov-mv">${p.kw.join(' · ')}</div></div>
+    </div>
+    <div class="ov-cite">
+      <div class="ov-cite-body">
+        <div class="ov-cite-lbl">Cite This Paper</div>
+        <div class="ov-cite-txt" id="cit-out">${cite(p,'APA')}</div>
+      </div>
+      <div class="ov-cite-styles">
+        ${citStyles.map(s=>`<button class="cs-btn${s==='APA'?' active':''}" data-s="${s}" onclick="setCit(${p.id},'${s}')">${s}</button>`).join('')}
+      </div>
+    </div>
+    <div class="ov-abstract">
+      <div class="ov-abs-lbl">Abstract</div>
+      <p>${p.summary}</p>
+      <p>The argument is situated within broader debates in comparative political economy and international relations, drawing on historical case studies and theoretical frameworks to illuminate patterns often obscured by narrowly empirical approaches.</p>
+      <p>The paper ultimately suggests that structural conditions constrain but do not determine political possibilities — leaving open questions about agency, contingency, and the potential for deliberate institutional reform.</p>
+    </div>
+    <div class="ov-text">
+      <span class="sec-mark">I.</span>
+      <p>The question at the heart of this essay is neither new nor easily answered. It has occupied political economists, philosophers, and policymakers for decades — yet it returns with new urgency whenever institutions that were supposed to hold fail visibly, or when the gap between official explanation and lived experience becomes too wide to ignore.</p>
+      <h2>The Problem of Governance</h2>
+      <p>To understand what is at stake, we must first resist the temptation of abstraction. The forces under examination are not theoretical constructs but practical realities — they shape who gets what, when, and how. They determine whether hospitals receive funding, whether courts function with independence, whether citizens can trust the systems they live within.</p>
+      <blockquote>The strength of an institution lies not in its formal powers but in the expectations that surround it — in what people believe others believe about how it will behave.</blockquote>
+      <p>This is not merely an academic concern. The erosion of institutional trust has measurable consequences: for economic performance, for public health outcomes, for the willingness of citizens to participate in collective life.</p>
+      <h2>Structure and Agency</h2>
+      <span class="sec-mark">II.</span>
+      <p>A second complication arises from the relationship between structure and agency. Structural arguments locate the causes of political outcomes in long-run economic forces, historical legacies, or international power configurations. They are indispensable but insufficient — explaining why certain paths are difficult without explaining why some actors navigate them successfully while others do not.</p>
+      <p>The cases examined here suggest that agency matters most at critical junctures: moments when structural constraints are loosened by crisis, when existing arrangements have manifestly failed, and when political actors face genuine choices about institutional reform.</p>
+    </div>
+    <div class="ov-dls">
+      <button class="btn-dl dl-pdf">&#8595; Download PDF</button>
+      <button class="btn-dl dl-txt">&#8595; Clean Text</button>
+      <button class="btn-dl dl-cit">&#8595; Export Citation</button>
+    </div>
+  `;
+  const ov = document.getElementById('overlay');
+  ov.classList.add('open');
+  ov.scrollTop = 0;
+  document.body.style.overflow = 'hidden';
+}
+
+function closeOverlay() {
+  document.getElementById('overlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+/* ── NAV ── */
+function navTo(el, id) {
+  document.querySelectorAll('.nav-links a').forEach(a=>a.classList.remove('active'));
+  el.classList.add('active');
+  const t = document.getElementById(id);
+  window.scrollTo({ top: t.offsetTop - 58, behavior:'smooth' });
+}
+
+document.addEventListener('keydown', e => { if(e.key==='Escape') closeOverlay(); });
+</script>
+</body>
+</html>

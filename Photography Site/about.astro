@@ -1,0 +1,439 @@
+---
+// src/pages/about.astro
+import Layout from "../layouts/Layout.astro";
+
+const currently = [
+  { label: "Reading",  value: "The Poverty of Nations — Grudem & Asmus" },
+  { label: "Based",    value: "Kunshan, China" },
+  { label: "Studying", value: "Quantitative Political Economy, DKU" },
+  { label: "Working",  value: "AI consulting — systems & policy" },
+];
+
+const links = [
+  { label: "Stories From Abroad",      href: "https://storiesfromabroad.com", accent: "#FF2D78",  desc: "Main site — essays, dispatches, fiction"    },
+  { label: "Research & Writing",       href: "/writing",                       accent: "#1478FF",  desc: "Academic work and long-form essays"          },
+  { label: "Photography",              href: "/photography",                   accent: "#FF6500",  desc: "Visual archive across four continents"       },
+];
+
+const photoPreview = [
+  { src: "https://picsum.photos/seed/ab1/480/620", alt: "Tokyo rain" },
+  { src: "https://picsum.photos/seed/ab2/480/620", alt: "Shanghai light" },
+  { src: "https://picsum.photos/seed/ab3/480/620", alt: "Desert landscape" },
+];
+---
+
+<Layout title="About" activePage="about">
+
+  <!-- ══════════════════════════════════════
+       HEADER
+  ══════════════════════════════════════ -->
+  <section class="ab-header">
+    <div class="ab-tag fu fu-1">About</div>
+
+    <h1 class="ab-name fu fu-2">
+      BIRKLEY<br />
+      <span class="ab-name-oline">FOURIE</span>
+    </h1>
+
+    <div class="ab-role fu fu-3">
+      <span class="ab-pill" style="--c: #FF2D78">Student</span>
+      <span class="ab-sep">—</span>
+      <span class="ab-pill" style="--c: #1478FF">Consultant</span>
+      <span class="ab-sep">—</span>
+      <span class="ab-pill" style="--c: #FF6500">Photographer</span>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════
+       BIO
+  ══════════════════════════════════════ -->
+  <section class="ab-bio">
+    <div class="ab-bio-left">
+      <div class="sec-label">Biography</div>
+    </div>
+    <div class="ab-bio-right">
+      <p class="bio-p">
+        I'm South African–born, currently studying
+        <em>Quantitative Political Economy</em> at Duke Kunshan University in China.
+        Having lived across four continents, I've developed a lasting
+        curiosity about how different societies structure their economies —
+        and their lives.
+      </p>
+      <p class="bio-p">
+        My academic interests centre on macroeconomic systems, political
+        governance, and the deeper questions that sit beneath them: what it
+        means to live well, find purpose, and build institutions that allow
+        people to flourish.
+      </p>
+      <p class="bio-p">
+        Alongside my studies, I work in consulting — focused on AI startups
+        designing systems and policies that improve organisational clarity
+        and long-term growth.
+      </p>
+      <p class="bio-p bio-p--closing">
+        This site brings together research, essays, photography, and fiction.
+        Different ways of observing the same world. Nothing here is definitive.
+        Most of it is an attempt to learn — and to better understand the places
+        and people I encounter.
+      </p>
+    </div>
+  </section>
+
+  <hr class="rule ab-rule" />
+
+  <!-- ══════════════════════════════════════
+       CURRENTLY
+  ══════════════════════════════════════ -->
+  <section class="ab-current">
+    <div class="sec-label">Currently</div>
+    <div class="ab-cur-grid">
+      {currently.map(c => (
+        <div class="ab-cur-row">
+          <span class="ab-cur-k">{c.label}</span>
+          <span class="ab-cur-v">{c.value}</span>
+        </div>
+      ))}
+    </div>
+  </section>
+
+  <hr class="rule ab-rule" />
+
+  <!-- ══════════════════════════════════════
+       WORK / LINKS
+  ══════════════════════════════════════ -->
+  <section class="ab-links">
+    <div class="sec-label">Work</div>
+    <div class="ab-links-grid">
+      {links.map((l, i) => (
+        <a
+          class="ab-link-card"
+          href={l.href}
+          target={l.href.startsWith("http") ? "_blank" : "_self"}
+          rel={l.href.startsWith("http") ? "noopener" : undefined}
+          style={`--accent: ${l.accent}; animation-delay: ${i * 0.08}s`}
+        >
+          <div class="alc-dot" style={`background: ${l.accent}`}></div>
+          <div class="alc-body">
+            <div class="alc-title">{l.label}</div>
+            <div class="alc-desc">{l.desc}</div>
+          </div>
+          <div class="alc-arr">↗</div>
+          <div class="alc-bar"></div>
+        </a>
+      ))}
+    </div>
+  </section>
+
+  <hr class="rule ab-rule" />
+
+  <!-- ══════════════════════════════════════
+       PHOTOGRAPHY PREVIEW
+  ══════════════════════════════════════ -->
+  <section class="ab-photos">
+    <div class="ab-photos-head">
+      <div>
+        <div class="sec-label">Photography</div>
+        <div class="sec-title">THE ARCHIVE</div>
+      </div>
+      <a class="ab-photos-link" href="/photography">
+        View all shoots ↗
+      </a>
+    </div>
+    <div class="ab-photos-grid">
+      {photoPreview.map((p, i) => (
+        <a class="ab-photo" href="/photography" style={`animation-delay: ${i * 0.1}s`}>
+          <img src={p.src} alt={p.alt} loading="lazy" />
+          <div class="ab-photo-veil"></div>
+        </a>
+      ))}
+    </div>
+    <p class="ab-photos-note">
+      Visual work from Japan, China, the US, South Africa, and beyond.
+    </p>
+  </section>
+
+  <hr class="rule ab-rule" />
+
+  <!-- ══════════════════════════════════════
+       CONTACT
+  ══════════════════════════════════════ -->
+  <section class="ab-contact">
+    <div class="ab-contact-inner">
+      <div class="sec-label">Contact</div>
+      <h2 class="ab-contact-h">
+        LET'S<br />
+        <span class="ab-contact-oline">TALK</span>
+      </h2>
+      <p class="ab-contact-sub">
+        For consulting enquiries, research collaboration, or just a good conversation
+        about political economy and photography.
+      </p>
+      <div class="ab-contact-links">
+        <a class="ab-clink" href="mailto:hello@storiesfromabroad.com">
+          <span class="ab-clink-label">Email</span>
+          <span class="ab-clink-val">hello@storiesfromabroad.com</span>
+        </a>
+        <a class="ab-clink" href="https://storiesfromabroad.com" target="_blank" rel="noopener">
+          <span class="ab-clink-label">Site</span>
+          <span class="ab-clink-val">storiesfromabroad.com</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Decorative accent block -->
+    <div class="ab-contact-deco" aria-hidden="true">
+      <div class="deco-bar" style="background:#FF2D78; height:28%"></div>
+      <div class="deco-bar" style="background:#1478FF; height:44%"></div>
+      <div class="deco-bar" style="background:#FF6500; height:28%"></div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="foot-l">BIRKLEY</div>
+    <div class="foot-r">
+      <a href="https://storiesfromabroad.com" target="_blank" rel="noopener" style="color:inherit">storiesfromabroad.com</a>
+      &nbsp;— © 2025
+    </div>
+  </footer>
+
+</Layout>
+
+<style>
+/* ── Header ── */
+.ab-header {
+  padding: 72px 40px 64px;
+  border-bottom: 1px solid #1A1A1A;
+}
+.ab-tag {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px; letter-spacing: 6px; text-transform: uppercase;
+  color: #FF2D78; margin-bottom: 28px;
+  display: flex; align-items: center; gap: 12px;
+}
+.ab-tag::before {
+  content: ""; display: inline-block;
+  width: 32px; height: 1px; background: #FF2D78;
+}
+.ab-name {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(72px, 11vw, 148px);
+  line-height: .88; letter-spacing: -1px;
+  margin-bottom: 36px;
+}
+.ab-name-oline {
+  -webkit-text-stroke: 1.5px #F0EFEB;
+  color: transparent;
+}
+.ab-role {
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+}
+.ab-pill {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px; letter-spacing: 3px; text-transform: uppercase;
+  color: var(--c); border: 1px solid var(--c);
+  padding: 5px 14px;
+}
+.ab-sep {
+  color: #282828;
+  font-family: 'IBM Plex Mono', monospace;
+}
+
+/* ── Bio ── */
+.ab-bio {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  gap: 0 64px;
+  padding: 64px 40px;
+  align-items: start;
+}
+.ab-bio-left { padding-top: 6px; }
+.ab-bio-right { max-width: 620px; }
+
+.bio-p {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 20px; line-height: 1.72;
+  color: #888;
+  margin-bottom: 28px;
+}
+.bio-p em { font-style: italic; color: #F0EFEB; }
+.bio-p--closing {
+  color: #505050; font-size: 18px; font-style: italic;
+  padding-top: 10px; border-top: 1px solid #1A1A1A;
+  margin-top: 10px;
+}
+
+/* ── Rule ── */
+.ab-rule { margin: 0 40px; }
+
+/* ── Currently ── */
+.ab-current {
+  padding: 48px 40px;
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  gap: 0 64px;
+  align-items: start;
+}
+.ab-cur-grid { display: flex; flex-direction: column; gap: 0; }
+.ab-cur-row {
+  display: flex;
+  gap: 32px;
+  padding: 16px 0;
+  border-bottom: 1px solid #1A1A1A;
+  align-items: baseline;
+}
+.ab-cur-row:first-child { border-top: 1px solid #1A1A1A; }
+.ab-cur-k {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 8.5px; letter-spacing: 3px; text-transform: uppercase;
+  color: #505050; min-width: 88px;
+}
+.ab-cur-v {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 17px; color: #F0EFEB;
+}
+
+/* ── Work links ── */
+.ab-links {
+  padding: 48px 40px;
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  gap: 0 64px;
+  align-items: start;
+}
+.ab-links-grid {
+  display: flex; flex-direction: column; gap: 2px;
+}
+.ab-link-card {
+  display: flex; align-items: center; gap: 20px;
+  padding: 22px 24px;
+  background: #111; border-left: 2px solid transparent;
+  transition: border-color .25s, background .25s;
+  position: relative; overflow: hidden;
+  text-decoration: none;
+}
+.ab-link-card:hover {
+  border-left-color: var(--accent);
+  background: #141414;
+}
+.alc-dot {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+}
+.alc-body { flex: 1; }
+.alc-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 22px; letter-spacing: 1px; color: #F0EFEB;
+  margin-bottom: 3px;
+}
+.alc-desc {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 13px; font-style: italic; color: #505050;
+}
+.alc-arr {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 14px; color: #282828;
+  transition: color .25s, transform .25s;
+}
+.ab-link-card:hover .alc-arr {
+  color: var(--accent);
+  transform: translate(3px, -3px);
+}
+.alc-bar {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  height: 1px; background: var(--accent); transform: scaleX(0);
+  transform-origin: left; transition: transform .3s cubic-bezier(.25,.46,.45,.94);
+}
+.ab-link-card:hover .alc-bar { transform: scaleX(1); }
+
+/* ── Photo preview ── */
+.ab-photos {
+  padding: 48px 40px 56px;
+}
+.ab-photos-head {
+  display: flex; justify-content: space-between; align-items: flex-end;
+  margin-bottom: 32px;
+}
+.ab-photos-link {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px; letter-spacing: 3px; text-transform: uppercase;
+  color: #505050; border-bottom: 1px solid #282828;
+  padding-bottom: 3px; transition: color .2s, border-color .2s;
+  margin-bottom: 4px;
+}
+.ab-photos-link:hover { color: #FF6500; border-color: #FF6500; }
+.ab-photos-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 3px;
+  margin-bottom: 20px;
+}
+.ab-photo {
+  display: block; position: relative; overflow: hidden; aspect-ratio: 3/4;
+  background: #111;
+}
+.ab-photo img {
+  width: 100%; height: 100%; object-fit: cover;
+  filter: brightness(.8) saturate(.9);
+  transition: transform .6s cubic-bezier(.25,.46,.45,.94), filter .4s;
+}
+.ab-photo:hover img { transform: scale(1.05); filter: brightness(1) saturate(1); }
+.ab-photo-veil {
+  position: absolute; inset: 0;
+  background: linear-gradient(to top, rgba(8,8,8,.5) 0%, transparent 60%);
+  opacity: 0; transition: opacity .3s;
+}
+.ab-photo:hover .ab-photo-veil { opacity: 1; }
+.ab-photos-note {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 14px; font-style: italic; color: #505050;
+}
+
+/* ── Contact ── */
+.ab-contact {
+  padding: 64px 40px 72px;
+  display: flex; gap: 80px; align-items: flex-start;
+  position: relative; overflow: hidden;
+}
+.ab-contact-inner { flex: 1; max-width: 560px; }
+.ab-contact-h {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(56px, 8vw, 110px);
+  line-height: .88; letter-spacing: -1px;
+  margin: 20px 0 28px;
+}
+.ab-contact-oline {
+  -webkit-text-stroke: 1.5px #F0EFEB;
+  color: transparent;
+}
+.ab-contact-sub {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 18px; font-style: italic; color: #505050;
+  line-height: 1.65; margin-bottom: 40px; max-width: 440px;
+}
+.ab-contact-links { display: flex; flex-direction: column; gap: 0; }
+.ab-clink {
+  display: flex; align-items: baseline; gap: 24px;
+  padding: 18px 0; border-bottom: 1px solid #1A1A1A;
+  transition: border-color .2s; text-decoration: none;
+}
+.ab-clink:first-child { border-top: 1px solid #1A1A1A; }
+.ab-clink:hover { border-bottom-color: #FF2D78; }
+.ab-clink-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 8px; letter-spacing: 3px; text-transform: uppercase;
+  color: #505050; min-width: 48px;
+}
+.ab-clink-val {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 18px; color: #F0EFEB;
+  transition: color .2s;
+}
+.ab-clink:hover .ab-clink-val { color: #FF2D78; }
+
+/* Decorative right side bars */
+.ab-contact-deco {
+  width: 32px; align-self: stretch;
+  display: flex; flex-direction: column; gap: 3px;
+  margin-left: auto; flex-shrink: 0;
+}
+.deco-bar { width: 100%; border-radius: 1px; opacity: .55; }
+</style>

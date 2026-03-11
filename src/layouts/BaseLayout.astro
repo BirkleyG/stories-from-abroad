@@ -1,0 +1,88 @@
+---
+import "../styles/global.css";
+
+const {
+  title = "Stories From Abroad",
+  description = "Essays, images, and fiction from somewhere else.",
+  bodyClass = "",
+} = Astro.props;
+
+const base = import.meta.env.BASE_URL ?? "/";
+const basePath = base.endsWith("/") ? base : `${base}/`;
+const currentPath = Astro.url.pathname.endsWith("/")
+  ? Astro.url.pathname
+  : `${Astro.url.pathname}/`;
+
+const navItems = [
+  { label: "Home", href: basePath, route: "/" },
+  { label: "Selected Papers", href: `${basePath}selected-papers/`, route: "/selected-papers/" },
+  { label: "Photography", href: `${basePath}photography/`, route: "/photography/" },
+  { label: "Travel Stories", href: `${basePath}travel-stories/`, route: "/travel-stories/" },
+  { label: "Faces of the World", href: `${basePath}faces-of-the-world/`, route: "/faces-of-the-world/" },
+];
+
+const currentRoute = currentPath.startsWith(basePath)
+  ? `/${currentPath.slice(basePath.length)}`.replace(/\/+/g, "/")
+  : currentPath;
+
+const pageTitle = title ? `${title} | Stories From Abroad` : "Stories From Abroad";
+---
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{pageTitle}</title>
+    <meta name="description" content={description} />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=EB+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=Cormorant+SC:wght@300;400;500&family=Cormorant:ital,wght@0,300;0,400;0,600;1,300;1,400;1,600&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400;1,500&family=Lora:ital,wght@0,400;0,500;1,400;1,500&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body class={bodyClass}>
+    <header class="site-nav" id="site-nav">
+      <a class="nav-wordmark" href={basePath}>Stories From Abroad</a>
+      <nav>
+        <ul class="nav-links">
+          {navItems.map((item) => (
+            <li>
+              <a href={item.href} class={currentRoute === item.route ? "active" : ""}>
+                {item.label}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </nav>
+      <a class="nav-cta" href={`${basePath}selected-papers/`}>Read</a>
+    </header>
+
+    <main>
+      <slot />
+    </main>
+
+    <footer class="site-footer">
+      <span class="footer-wordmark">Stories From Abroad</span>
+      <div class="footer-links">
+        <a href={basePath}>Home</a>
+        <a href={`${basePath}selected-papers/`}>Selected Papers</a>
+        <a href={`${basePath}photography/`}>Photography</a>
+      </div>
+      <hr />
+      <p class="footer-copy">&copy; 2026 Stories From Abroad. All rights reserved.</p>
+    </footer>
+
+    <script is:inline>
+      const nav = document.getElementById("site-nav");
+      if (nav) {
+        const onScroll = () => {
+          nav.classList.toggle("scrolled", window.scrollY > 30);
+        };
+        window.addEventListener("scroll", onScroll, { passive: true });
+        onScroll();
+      }
+    </script>
+  </body>
+</html>

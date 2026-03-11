@@ -1,0 +1,390 @@
+---
+// src/pages/photography/index.astro
+import Layout from "../../layouts/Layout.astro";
+
+// ── Featured individual photos (one per shoot, hand-picked) ──
+const featured = [
+  {
+    src:      "/photos/featured/tokyo-rain.jpg",
+    demo:     "https://picsum.photos/seed/bk_tok/1600/900",
+    title:    "Tokyo Rain",
+    location: "Shibuya, Japan",
+    shoot:    "tokyo-fragments",
+    accent:   "#FF2D78",
+  },
+  {
+    src:      "/photos/featured/shanghai-bund.jpg",
+    demo:     "https://picsum.photos/seed/bk_shg/1600/900",
+    title:    "The Bund at Dusk",
+    location: "Shanghai, China",
+    shoot:    "shanghai-nights",
+    accent:   "#1478FF",
+  },
+  {
+    src:      "/photos/featured/desert-bloom.jpg",
+    demo:     "https://picsum.photos/seed/bk_dsr/1600/900",
+    title:    "Desert Bloom",
+    location: "Mojave, USA",
+    shoot:    "desert-bloom",
+    accent:   "#FF6500",
+  },
+  {
+    src:      "/photos/featured/pacific-dawn.jpg",
+    demo:     "https://picsum.photos/seed/bk_pac/1600/900",
+    title:    "Pacific Dawn",
+    location: "Highway 1, California",
+    shoot:    "pacific-coast",
+    accent:   "#1478FF",
+  },
+  {
+    src:      "/photos/featured/studio-i.jpg",
+    demo:     "https://picsum.photos/seed/bk_std/1600/900",
+    title:    "Studio I",
+    location: "New York, USA",
+    shoot:    "studio-series",
+    accent:   "#FF2D78",
+  },
+  {
+    src:      "/photos/featured/kyoto-winter.jpg",
+    demo:     "https://picsum.photos/seed/bk_kyt/1600/900",
+    title:    "Kyoto in Winter",
+    location: "Kyoto, Japan",
+    shoot:    "kyoto-winter",
+    accent:   "#FF6500",
+  },
+];
+
+// ── All shoots index ──
+const shoots = [
+  { slug: "tokyo-fragments", title: "Tokyo Fragments",     desc: "Quiet moments in a city that never stops moving.",  date: "Nov 2024", loc: "Tokyo, Japan",      tags: ["street","night","japan"],      accent: "#FF2D78", cover: "https://picsum.photos/seed/tky/480/620", count: 12 },
+  { slug: "shanghai-nights", title: "Shanghai After Dark",  desc: "The city transforms when the lights come on.",      date: "Sep 2024", loc: "Shanghai, China",    tags: ["architecture","neon"],         accent: "#1478FF", cover: "https://picsum.photos/seed/shg/480/620", count: 10 },
+  { slug: "desert-bloom",    title: "Desert Bloom",         desc: "Silence, scale, and impossible colour.",            date: "Mar 2024", loc: "Mojave, USA",        tags: ["landscape","golden hour"],     accent: "#FF6500", cover: "https://picsum.photos/seed/dsr/480/620", count:  8 },
+  { slug: "pacific-coast",   title: "Pacific Coast",        desc: "Highway 1, from the top to the bottom.",           date: "Jul 2024", loc: "California, USA",    tags: ["road trip","ocean"],           accent: "#1478FF", cover: "https://picsum.photos/seed/pac/480/620", count:  9 },
+  { slug: "studio-series",   title: "Studio Series I",      desc: "Controlled light, unguarded moments.",             date: "Jan 2025", loc: "New York, USA",      tags: ["portrait","studio","fashion"], accent: "#FF2D78", cover: "https://picsum.photos/seed/std/480/620", count:  7 },
+  { slug: "kyoto-winter",    title: "Kyoto in Winter",      desc: "Ancient temples under pale grey skies.",           date: "Feb 2025", loc: "Kyoto, Japan",       tags: ["travel","temples"],            accent: "#FF6500", cover: "https://picsum.photos/seed/kyt/480/620", count: 11 },
+];
+---
+
+<Layout title="Photography" activePage="photography">
+
+  <!-- ══════════════════════════════════════
+       FEATURED — Full-screen parallax stack
+  ══════════════════════════════════════ -->
+  <section class="feat" id="featured" aria-label="Featured photographs">
+
+    <!-- Intro slide -->
+    <div class="feat-intro">
+      <div class="fi-label">Photography</div>
+      <h1 class="fi-h1">
+        SEEN<br />
+        <span class="fi-oline">FELT</span><br />
+        <span class="fi-accent">KEPT</span>
+      </h1>
+      <p class="fi-sub">Scroll to move through the work.</p>
+      <div class="scroll-hint" aria-hidden="true">
+        <span></span>
+      </div>
+    </div>
+
+    <!-- Parallax photo panels -->
+    {featured.map((photo, i) => (
+      <div
+        class="fp"
+        data-index={i}
+        data-accent={photo.accent}
+        style={`--accent: ${photo.accent};`}
+      >
+        <!-- Parallax bg image -->
+        <div
+          class="fp-bg"
+          style={`background-image: url('${photo.demo}');`}
+          aria-hidden="true"
+        ></div>
+
+        <!-- Gradient overlay -->
+        <div class="fp-veil"></div>
+
+        <!-- Hover caption -->
+        <div class="fp-caption">
+          <div class="fp-cap-inner">
+            <div class="fp-cap-loc">{photo.location}</div>
+            <div class="fp-cap-title">{photo.title}</div>
+            <a class="fp-cap-link" href={`/photography/${photo.shoot}`}>
+              View shoot <span>↗</span>
+            </a>
+          </div>
+        </div>
+
+        <!-- Corner index -->
+        <div class="fp-idx" aria-hidden="true">
+          {String(i + 1).padStart(2, "0")} / {String(featured.length).padStart(2, "0")}
+        </div>
+      </div>
+    ))}
+  </section>
+
+  <!-- ══════════════════════════════════════
+       ALL SHOOTS
+  ══════════════════════════════════════ -->
+  <section class="shoots" id="shoots">
+    <div class="shoots-head">
+      <div class="sec-label">Archive</div>
+      <div class="sec-title">ALL SHOOTS</div>
+    </div>
+
+    <div class="shoots-grid">
+      {shoots.map(s => (
+        <a class="sc" href={`/photography/${s.slug}`} style={`--accent: ${s.accent};`}>
+          <div class="sc-img-w">
+            <img class="sc-img" src={s.cover} alt={s.title} loading="lazy" />
+          </div>
+          <div class="sc-body">
+            <div class="sc-top">
+              <span class="sc-date">{s.date}</span>
+              <span class="sc-ct">{s.count} frames</span>
+            </div>
+            <div class="sc-title">{s.title}</div>
+            <div class="sc-desc">{s.desc}</div>
+            <div class="sc-tags">
+              {s.tags.map(t => <span class="tag">{t}</span>)}
+            </div>
+            <div class="sc-loc">{s.loc}</div>
+          </div>
+          <div class="sc-bar"></div>
+        </a>
+      ))}
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="foot-l">BIRKLEY</div>
+    <div class="foot-r">© 2025 — All rights reserved</div>
+  </footer>
+
+</Layout>
+
+<style>
+/* ── Featured Stack ── */
+.feat {
+  position: relative;
+}
+
+/* Intro slide */
+.feat-intro {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0 40px;
+  border-bottom: 1px solid #1A1A1A;
+  position: relative;
+}
+.fi-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px; letter-spacing: 6px; text-transform: uppercase;
+  color: #FF2D78; margin-bottom: 22px;
+  display: flex; align-items: center; gap: 12px;
+}
+.fi-label::before {
+  content: ""; display: inline-block;
+  width: 32px; height: 1px; background: #FF2D78;
+}
+.fi-h1 {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(80px, 13vw, 168px);
+  line-height: .88; letter-spacing: -1px;
+  animation: fadeUp .8s ease both;
+}
+.fi-oline {
+  -webkit-text-stroke: 1.5px #F0EFEB;
+  color: transparent;
+}
+.fi-accent { color: #FF2D78; }
+.fi-sub {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 16px; font-style: italic; color: #505050;
+  margin-top: 32px;
+  animation: fadeUp .8s .2s ease both;
+}
+
+/* Scroll hint */
+.scroll-hint {
+  position: absolute; bottom: 36px; left: 50%;
+  transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+}
+.scroll-hint span {
+  display: block; width: 1px; height: 56px;
+  background: linear-gradient(to bottom, #505050, transparent);
+  animation: scrollPulse 2s ease infinite;
+}
+@keyframes scrollPulse {
+  0%,100% { opacity: .3; transform: scaleY(1); }
+  50%      { opacity: 1;  transform: scaleY(1.15); }
+}
+
+/* Parallax photo panels */
+.fp {
+  position: relative;
+  height: 100vh;
+  overflow: hidden;
+  cursor: crosshair;
+}
+
+.fp-bg {
+  position: absolute;
+  inset: -20% 0;           /* extra height for parallax travel */
+  background-size: cover;
+  background-position: center;
+  will-change: transform;
+  transition: filter .4s;
+}
+
+.fp-veil {
+  position: absolute; inset: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(8,8,8,.15) 0%,
+    rgba(8,8,8,.05) 40%,
+    rgba(8,8,8,.45) 100%
+  );
+  transition: background .4s;
+}
+
+/* Caption — hidden by default, shown on hover */
+.fp-caption {
+  position: absolute; inset: 0;
+  display: flex; align-items: flex-end;
+  padding: 48px 44px;
+  opacity: 0;
+  transition: opacity .45s cubic-bezier(.25,.46,.45,.94);
+}
+.fp:hover .fp-caption { opacity: 1; }
+.fp:hover .fp-veil {
+  background: linear-gradient(
+    to bottom,
+    rgba(8,8,8,.2) 0%,
+    rgba(8,8,8,.1) 35%,
+    rgba(8,8,8,.72) 100%
+  );
+}
+
+.fp-cap-inner {
+  transform: translateY(10px);
+  transition: transform .45s cubic-bezier(.25,.46,.45,.94);
+}
+.fp:hover .fp-cap-inner { transform: translateY(0); }
+
+.fp-cap-loc {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px; letter-spacing: 4px; text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 8px;
+}
+.fp-cap-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(42px, 6vw, 80px);
+  line-height: .9; letter-spacing: 1px;
+  color: #F0EFEB;
+  margin-bottom: 20px;
+}
+.fp-cap-link {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px; letter-spacing: 3px; text-transform: uppercase;
+  color: #F0EFEB;
+  border-bottom: 1px solid var(--accent);
+  padding-bottom: 2px;
+  display: inline-flex; gap: 6px;
+  transition: color .2s;
+}
+.fp-cap-link:hover { color: var(--accent); }
+
+/* Corner index */
+.fp-idx {
+  position: absolute; top: 24px; right: 32px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px; letter-spacing: 3px;
+  color: rgba(240,239,235,.3);
+}
+
+/* Accent bar at bottom of each panel */
+.fp::after {
+  content: "";
+  position: absolute; bottom: 0; left: 0; right: 0; height: 2px;
+  background: var(--accent);
+  opacity: .7;
+}
+
+/* ── Shoots section ── */
+.shoots { border-top: 1px solid #1A1A1A; }
+.shoots-head { padding: 64px 40px 40px; }
+.shoots-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2px;
+  padding: 0 0 0 0;
+}
+
+.sc {
+  display: block;
+  background: #111;
+  overflow: hidden;
+  transition: transform .35s cubic-bezier(.25,.46,.45,.94);
+  text-decoration: none;
+}
+.sc:hover { transform: translateY(-6px); }
+
+.sc-img-w { overflow: hidden; }
+.sc-img {
+  width: 100%; aspect-ratio: 3/4; object-fit: cover;
+  filter: brightness(.85);
+  transition: transform .55s cubic-bezier(.25,.46,.45,.94), filter .35s;
+}
+.sc:hover .sc-img { transform: scale(1.05); filter: brightness(1); }
+
+.sc-body { padding: 18px 20px 8px; }
+.sc-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.sc-date { font-family: 'IBM Plex Mono', monospace; font-size: 8.5px; letter-spacing: 2px; color: #505050; }
+.sc-ct   { font-family: 'IBM Plex Mono', monospace; font-size: 7.5px; letter-spacing: 2px; text-transform: uppercase; padding: 2px 8px; color: var(--accent); border: 1px solid var(--accent); }
+.sc-title { font-family: 'Bebas Neue', sans-serif; font-size: 26px; letter-spacing: 1px; color: #F0EFEB; margin-bottom: 7px; }
+.sc-desc  { font-family: 'Cormorant Garamond', serif; font-size: 13px; font-style: italic; color: #888; margin-bottom: 14px; line-height: 1.55; }
+.sc-tags  { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 12px; }
+.sc-loc   { font-family: 'IBM Plex Mono', monospace; font-size: 8.5px; letter-spacing: 1.5px; color: #505050; margin-bottom: 18px; }
+.sc-bar   { height: 3px; background: var(--accent); transition: height .25s; }
+.sc:hover .sc-bar { height: 5px; }
+</style>
+
+<script>
+// ══════════════════════════════════════════
+//  PARALLAX — scroll-driven background shift
+// ══════════════════════════════════════════
+(function () {
+  const panels = document.querySelectorAll('.fp');
+
+  function onScroll() {
+    const scrollY = window.scrollY;
+    const winH    = window.innerHeight;
+
+    panels.forEach((panel) => {
+      const rect = panel.getBoundingClientRect();
+
+      // Only process panels in or near the viewport
+      if (rect.bottom < -winH || rect.top > winH * 2) return;
+
+      // progress: -1 (above) → 0 (centred) → +1 (below)
+      const center   = rect.top + rect.height / 2 - winH / 2;
+      const progress = center / winH;
+
+      // Move bg image at ~40% of scroll speed (slower = more depth)
+      const shift = progress * 40;  // px offset — tweak for intensity
+
+      const bg = panel.querySelector('.fp-bg');
+      if (bg) bg.style.transform = `translateY(${shift}px)`;
+    });
+  }
+
+  // Passive listener for performance
+  window.addEventListener('scroll', onScroll, { passive: true });
+  onScroll(); // run once on load
+})();
+</script>

@@ -1,0 +1,51 @@
+---
+// src/layouts/Layout.astro
+export interface Props {
+  title: string;
+  description?: string;
+  activePage?: string;
+}
+
+const {
+  title,
+  description = "Birkley — Research, essays, photography, and fiction from across four continents.",
+  activePage = ""
+} = Astro.props;
+---
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content={description} />
+  <title>{title} — Birkley</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap"
+    rel="stylesheet"
+  />
+  <link rel="stylesheet" href="/styles/global.css" />
+</head>
+<body>
+
+  <!-- ── Navigation ── -->
+  <nav class="nav">
+    <a class="nav-logo" href="/">BIRKLEY</a>
+    <div class="nav-right">
+      <a class="nav-link" href="https://storiesfromabroad.com" target="_blank" rel="noopener">Stories</a>
+      <a class="nav-link" href="/writing"       data-active={activePage === "writing"       ? "" : undefined}>Writing</a>
+      <a class="nav-link" href="/photography"   data-active={activePage === "photography"   ? "" : undefined}>Photography</a>
+      <a class="nav-link" href="/about"         data-active={activePage === "about"         ? "" : undefined}>About</a>
+      <div class="nav-dot"></div>
+    </div>
+  </nav>
+
+  <!-- ── Page Content ── -->
+  <main class="page">
+    <slot />
+  </main>
+
+</body>
+</html>

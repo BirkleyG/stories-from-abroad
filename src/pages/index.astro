@@ -1,0 +1,65 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+
+const base = import.meta.env.BASE_URL ?? "/";
+const basePath = base.endsWith("/") ? base : `${base}/`;
+---
+
+<BaseLayout title="Stories From Abroad" description="Essays, photography, and field notes from the margins of the map.">
+  <section class="hero">
+    <div class="hero-eyebrow">Est. 2025 &middot; Dispatches from the World</div>
+    <h1 class="hero-title">
+      Stories<br />
+      <em>From Abroad</em>
+    </h1>
+    <p class="hero-subtitle">
+      Writing, photography, and reflection from the spaces between belonging.
+    </p>
+    <div class="hero-ornament">
+      <span>&#10022;</span>
+    </div>
+    <p class="hero-mission">
+      Essays, images, and field notes gathered across cities, borders, and quiet rooms. A private letter,
+      published.
+    </p>
+    <div class="hero-cta">
+      <a class="btn-solid" href={`${basePath}selected-papers/`}>Read the Papers</a>
+      <a class="btn-ghost" href={`${basePath}travel-stories/`}>Travel Stories</a>
+    </div>
+  </section>
+
+  <section class="home-previews">
+    <div class="container">
+      <span class="section-label">Sections</span>
+      <h2 class="hero-title" style="font-size:clamp(2rem,5vw,3rem);margin-bottom:0.5rem;">
+        The Library
+      </h2>
+      <p style="color:var(--text-muted);max-width:520px;margin:0 auto;">
+        Four rooms, four ways of paying attention.
+      </p>
+    </div>
+
+    <div class="previews-grid">
+      <a class="preview-card" href={`${basePath}selected-papers/`}>
+        <span class="preview-icon">&#10022;</span>
+        <h3>Selected Papers &amp; Op-Eds</h3>
+        <p>Essays, criticism, and analysis from the field.</p>
+      </a>
+      <a class="preview-card" href={`${basePath}photography/`}>
+        <span class="preview-icon">&#9671;</span>
+        <h3>Photography</h3>
+        <p>Collections and single frames from the road.</p>
+      </a>
+      <a class="preview-card" href={`${basePath}travel-stories/`}>
+        <span class="preview-icon">&#9670;</span>
+        <h3>Travel Stories</h3>
+        <p>Writing from the road, honest accounts of getting somewhere.</p>
+      </a>
+      <a class="preview-card" href={`${basePath}faces-of-the-world/`}>
+        <span class="preview-icon">&#10020;</span>
+        <h3>Faces of the World</h3>
+        <p>Portraits and short notes from people met along the way.</p>
+      </a>
+    </div>
+  </section>
+</BaseLayout>

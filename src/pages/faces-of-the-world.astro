@@ -1,0 +1,131 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+---
+
+<BaseLayout title="Faces of the World" description="Portraits and notes from people met along the way.">
+  <section class="page-header">
+    <span class="section-label">Portrait Series</span>
+    <h1>Faces of the World</h1>
+    <p>Portraits and short notes from people met along the way.</p>
+  </section>
+
+  <section class="faces-wrap">
+    <div class="container-wide">
+      <div class="faces-grid" id="faces-grid"></div>
+    </div>
+  </section>
+
+  <script type="module">
+    import { collection, getDocs } from "firebase/firestore";
+    import { db, firestoreReady } from "../lib/firebaseClient";
+    import { fallbackFaces } from "../lib/fallbackData";
+
+    const grid = document.getElementById("faces-grid");
+
+    function normalizeFace(p, idx) {
+      return {
+        id: p.id ?? `face-${idx}`,
+        name: p.name ?? "Unknown",
+        location: p.location ?? "",
+        year: Number(p.year) || new Date().getFullYear(),
+        note: p.note ?? "",
+        image: p.image ?? "",
+        color: p.color ?? "linear-gradient(135deg,#2E2C28,#8B7040)",
+      };
+    }
+
+    async function loadFaces() {
+      if (!firestoreReady || !db) {
+        return fallbackFaces.map(normalizeFace);
+      }
+      try {
+        const snap = await getDocs(collection(db, "faces"));
+        const data = snap.docs.map((doc, idx) => normalizeFace({ id: doc.id, ...doc.data() }, idx));
+        return data.length ? data : fallbackFaces.map(normalizeFace);
+      } catch (err) {
+        console.warn("Firestore unavailable, using fallback.", err);
+        return fallbackFaces.map(normalizeFace);
+      }
+    }
+
+    function renderFaces(items) {
+      grid.innerHTML = items
+        .map((face) => {
+          const portraitStyle = face.image
+            ? `background-image:url('${face.image}');`
+            : `background:${face.color};`;
+          return `
+            <article class="face-card">
+              <div class="face-portrait" style="${portraitStyle}"></div>
+              <div class="face-meta">
+                <h2>${face.name}</h2>
+                <p class="face-location">${face.location} &middot; ${face.year}</p>
+                <p class="face-note">${face.note}</p>
+              </div>
+            </article>
+          `;
+        })
+        .join("");
+    }
+
+    loadFaces().then(renderFaces);
+  </script>
+
+  <style>
+    .faces-wrap {
+      padding: 3rem 0 6rem;
+    }
+
+    .faces-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 28px;
+    }
+
+    .face-card {
+      border: 1px solid var(--rule);
+      background: var(--bg-warm);
+      display: flex;
+      flex-direction: column;
+      min-height: 420px;
+      transition: transform 0.3s ease, border-color 0.3s ease;
+    }
+
+    .face-card:hover {
+      transform: translateY(-4px);
+      border-color: var(--green);
+    }
+
+    .face-portrait {
+      width: 100%;
+      aspect-ratio: 3 / 4;
+      background-size: cover;
+      background-position: center;
+    }
+
+    .face-meta {
+      padding: 18px 18px 24px;
+    }
+
+    .face-meta h2 {
+      font-family: var(--font-title);
+      font-size: 1.3rem;
+      margin-bottom: 6px;
+    }
+
+    .face-location {
+      font-family: var(--font-sc);
+      font-size: 0.68rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+    }
+
+    .face-note {
+      font-size: 0.95rem;
+      color: var(--text-mid);
+      line-height: 1.6;
+    }
+  </style>
+</BaseLayout>

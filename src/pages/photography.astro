@@ -1,0 +1,384 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+---
+
+<BaseLayout title="Photography" description="Collections and single frames from the field.">
+  <section class="page-header">
+    <span class="section-label">Visual Work</span>
+    <h1>Photography</h1>
+    <p>Collections and single frames from the field.</p>
+  </section>
+
+  <section class="gallery-wrap">
+    <div class="gallery-controls">
+      <span class="layout-label">Layout</span>
+      <button class="layout-btn" data-cols="1" title="1 Column">
+        <span class="layout-block"></span>
+      </button>
+    <button class="layout-btn" data-cols="2" title="2 Columns">
+      <span class="layout-grid" data-cols="2">
+        <span></span><span></span><span></span><span></span>
+      </span>
+    </button>
+    <button class="layout-btn active" data-cols="3" title="3 Columns">
+      <span class="layout-grid" data-cols="3">
+        <span></span><span></span><span></span>
+        <span></span><span></span><span></span>
+      </span>
+    </button>
+    <button class="layout-btn" data-cols="4" title="4 Columns">
+      <span class="layout-grid" data-cols="4">
+        <span></span><span></span><span></span><span></span>
+        <span></span><span></span><span></span><span></span>
+      </span>
+    </button>
+    </div>
+
+    <div class="container-wide">
+      <div class="gallery-grid cols-3" id="gallery-grid"></div>
+    </div>
+  </section>
+
+  <div class="lightbox" id="lightbox">
+    <button class="lightbox-close" id="lightbox-close">Close</button>
+    <button class="lightbox-nav lightbox-prev" id="lightbox-prev">&#8249;</button>
+    <button class="lightbox-nav lightbox-next" id="lightbox-next">&#8250;</button>
+    <div class="lightbox-image" id="lightbox-img"></div>
+    <p class="lightbox-caption" id="lightbox-caption"></p>
+  </div>
+
+  <script type="module">
+    import { collection, getDocs } from "firebase/firestore";
+    import { db, firestoreReady } from "../lib/firebaseClient";
+    import { fallbackPhotos } from "../lib/fallbackData";
+
+    const grid = document.getElementById("gallery-grid");
+    const lightbox = document.getElementById("lightbox");
+    const lightboxImg = document.getElementById("lightbox-img");
+    const lightboxCaption = document.getElementById("lightbox-caption");
+
+    let galleryData = [];
+    let lightboxIndex = 0;
+
+    function normalizePhoto(p, idx) {
+      return {
+        id: p.id ?? `photo-${idx}`,
+        title: p.title ?? "Untitled",
+        location: p.location ?? "",
+        date: p.date ?? "",
+        image: p.image ?? "",
+        color: p.color ?? "linear-gradient(135deg,#2C3E2D,#4A6741)",
+      };
+    }
+
+    async function loadPhotos() {
+      if (!firestoreReady || !db) {
+        return fallbackPhotos.map(normalizePhoto);
+      }
+      try {
+        const snap = await getDocs(collection(db, "photography"));
+        const data = snap.docs.map((doc, idx) => normalizePhoto({ id: doc.id, ...doc.data() }, idx));
+        return data.length ? data : fallbackPhotos.map(normalizePhoto);
+      } catch (err) {
+        console.warn("Firestore unavailable, using fallback.", err);
+        return fallbackPhotos.map(normalizePhoto);
+      }
+    }
+
+    function renderGallery(items) {
+      galleryData = items;
+      grid.innerHTML = items
+        .map((photo, i) => {
+          const thumbStyle = photo.image
+            ? `background-image: url('${photo.image}');`
+            : `background: ${photo.color};`;
+          return `
+            <div class="gallery-item" data-index="${i}">
+              <div class="gallery-thumb" style="${thumbStyle}">
+                <span>&#9675;</span>
+              </div>
+              <div class="gallery-caption">
+                <h3>${photo.title}</h3>
+                <p>${photo.location} ${photo.date ? `&mdash; ${photo.date}` : ""}</p>
+              </div>
+            </div>
+          `;
+        })
+        .join("");
+
+      grid.querySelectorAll(".gallery-item").forEach((item) => {
+        item.addEventListener("click", () => openLightbox(Number(item.dataset.index)));
+      });
+    }
+
+    function openLightbox(index) {
+      lightboxIndex = index;
+      updateLightbox();
+      lightbox.classList.add("open");
+      document.body.style.overflow = "hidden";
+    }
+
+    function closeLightbox() {
+      lightbox.classList.remove("open");
+      document.body.style.overflow = "";
+    }
+
+    function updateLightbox() {
+      const item = galleryData[lightboxIndex];
+      if (!item) return;
+      const style = item.image
+        ? `background-image: url('${item.image}');`
+        : `background: ${item.color};`;
+      lightboxImg.setAttribute("style", style);
+      lightboxCaption.textContent = `${item.title} - ${item.location}${item.date ? " -- " + item.date : ""}`;
+    }
+
+    function moveLightbox(dir) {
+      if (!galleryData.length) return;
+      lightboxIndex = (lightboxIndex + dir + galleryData.length) % galleryData.length;
+      updateLightbox();
+    }
+
+    document.getElementById("lightbox-close").addEventListener("click", closeLightbox);
+    document.getElementById("lightbox-prev").addEventListener("click", () => moveLightbox(-1));
+    document.getElementById("lightbox-next").addEventListener("click", () => moveLightbox(1));
+    lightbox.addEventListener("click", (e) => {
+      if (e.target === lightbox) closeLightbox();
+    });
+    document.addEventListener("keydown", (e) => {
+      if (!lightbox.classList.contains("open")) return;
+      if (e.key === "Escape") closeLightbox();
+      if (e.key === "ArrowLeft") moveLightbox(-1);
+      if (e.key === "ArrowRight") moveLightbox(1);
+    });
+
+    document.querySelectorAll(".layout-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const cols = btn.dataset.cols;
+        grid.className = `gallery-grid cols-${cols}`;
+        document.querySelectorAll(".layout-btn").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+      });
+    });
+
+    loadPhotos().then(renderGallery);
+  </script>
+
+  <style>
+    .gallery-wrap {
+      padding: 3rem 0 6rem;
+    }
+
+    .gallery-controls {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      margin-bottom: 2.5rem;
+      font-family: var(--font-sc);
+      text-transform: uppercase;
+      font-size: 0.65rem;
+      letter-spacing: 0.16em;
+      color: var(--text-muted);
+    }
+
+    .layout-label {
+      margin-right: 0.5rem;
+    }
+
+    .layout-btn {
+      border: 1px solid var(--rule);
+      background: transparent;
+      width: 42px;
+      height: 32px;
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+    }
+
+    .layout-btn.active {
+      border-color: var(--green);
+    }
+
+    .layout-block {
+      display: block;
+      width: 22px;
+      height: 14px;
+      background: var(--rule);
+    }
+
+    .layout-grid {
+      display: grid;
+      width: 22px;
+      height: 14px;
+      gap: 2px;
+      background: transparent;
+      grid-auto-rows: 1fr;
+    }
+
+    .layout-grid[data-cols="2"] {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    .layout-grid[data-cols="3"] {
+      grid-template-columns: repeat(3, 1fr);
+    }
+
+    .layout-grid[data-cols="4"] {
+      grid-template-columns: repeat(4, 1fr);
+    }
+
+    .layout-grid span {
+      display: block;
+      background: var(--rule);
+      width: 100%;
+      height: 100%;
+    }
+
+    .gallery-grid {
+      display: grid;
+      gap: 18px;
+    }
+
+    .gallery-grid.cols-1 {
+      grid-template-columns: 1fr;
+    }
+
+    .gallery-grid.cols-2 {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    .gallery-grid.cols-3 {
+      grid-template-columns: repeat(3, 1fr);
+    }
+
+    .gallery-grid.cols-4 {
+      grid-template-columns: repeat(4, 1fr);
+    }
+
+    .gallery-item {
+      cursor: pointer;
+      border: 1px solid var(--rule);
+      background: var(--bg);
+      transition: transform 0.3s ease, border-color 0.3s ease;
+    }
+
+    .gallery-item:hover {
+      transform: translateY(-4px);
+      border-color: var(--green);
+    }
+
+    .gallery-thumb {
+      width: 100%;
+      aspect-ratio: 3 / 4;
+      display: grid;
+      place-items: center;
+      color: rgba(255, 255, 255, 0.6);
+      background-size: cover;
+      background-position: center;
+    }
+
+    .gallery-caption {
+      padding: 14px 16px 18px;
+    }
+
+    .gallery-caption h3 {
+      font-family: var(--font-title);
+      font-size: 1.1rem;
+      margin-bottom: 6px;
+    }
+
+    .gallery-caption p {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+
+    .lightbox {
+      position: fixed;
+      inset: 0;
+      background: rgba(8, 8, 8, 0.92);
+      opacity: 0;
+      pointer-events: none;
+      display: grid;
+      place-items: center;
+      z-index: 2000;
+      transition: opacity 0.3s ease;
+    }
+
+    .lightbox.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .lightbox-image {
+      width: min(70vw, 900px);
+      aspect-ratio: 3 / 4;
+      background-size: cover;
+      background-position: center;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .lightbox-caption {
+      color: #f0efeb;
+      margin-top: 18px;
+      font-family: var(--font-title);
+      font-style: italic;
+      text-align: center;
+    }
+
+    .lightbox-close {
+      position: absolute;
+      top: 24px;
+      right: 24px;
+      background: transparent;
+      border: 1px solid rgba(255, 255, 255, 0.4);
+      color: #f0efeb;
+      padding: 8px 16px;
+      text-transform: uppercase;
+      letter-spacing: 0.2em;
+      font-size: 0.65rem;
+      cursor: pointer;
+    }
+
+    .lightbox-nav {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 44px;
+      height: 44px;
+      border: 1px solid rgba(255, 255, 255, 0.4);
+      background: transparent;
+      color: #f0efeb;
+      font-size: 1.4rem;
+      cursor: pointer;
+    }
+
+    .lightbox-prev {
+      left: 24px;
+    }
+
+    .lightbox-next {
+      right: 24px;
+    }
+
+    @media (max-width: 900px) {
+      .gallery-grid.cols-3,
+      .gallery-grid.cols-4 {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 640px) {
+      .gallery-grid.cols-2,
+      .gallery-grid.cols-3,
+      .gallery-grid.cols-4 {
+        grid-template-columns: 1fr;
+      }
+
+      .lightbox-image {
+        width: 80vw;
+      }
+    }
+  </style>
+</BaseLayout>
+

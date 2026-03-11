@@ -1,0 +1,2151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stories From Abroad</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=EB+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=Cormorant+SC:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  /* ─── TOKENS ─────────────────────────────────────────── */
+  :root {
+    --bg:          #F3EDE2;
+    --bg-warm:     #EDE5D8;
+    --bg-dark:     #E4DCCF;
+    --green:       #1B3A28;
+    --green-mid:   #2C5A3E;
+    --green-light: #3D7A54;
+    --text:        #1C1815;
+    --text-mid:    #4A4340;
+    --text-muted:  #7A716A;
+    --gold:        #8B7040;
+    --rule:        #C8BCA8;
+    --rule-dark:   #A89880;
+    --white:       #FAF7F2;
+    --transition:  cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* ─── RESET ──────────────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; font-size: 16px; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'EB Garamond', Georgia, serif;
+    font-size: 1.125rem;
+    line-height: 1.75;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ─── NOISE TEXTURE OVERLAY ──────────────────────────── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 9999;
+    opacity: 0.5;
+  }
+
+  /* ─── NAVIGATION ─────────────────────────────────────── */
+  nav {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    padding: 0 2rem;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: transparent;
+    transition: background 0.5s var(--transition), 
+                box-shadow 0.5s var(--transition),
+                backdrop-filter 0.5s var(--transition);
+  }
+  nav.scrolled {
+    background: rgba(243, 237, 226, 0.92);
+    backdrop-filter: blur(12px);
+    box-shadow: 0 1px 0 var(--rule);
+  }
+
+  .nav-wordmark {
+    font-family: 'Cormorant SC', serif;
+    font-weight: 400;
+    font-size: 0.85rem;
+    letter-spacing: 0.18em;
+    color: var(--green);
+    text-decoration: none;
+    cursor: pointer;
+    text-transform: uppercase;
+  }
+
+  .nav-links {
+    display: flex;
+    gap: 2rem;
+    list-style: none;
+  }
+  .nav-links a {
+    font-family: 'Cormorant SC', serif;
+    font-size: 0.75rem;
+    font-weight: 400;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-mid);
+    text-decoration: none;
+    cursor: pointer;
+    position: relative;
+    padding-bottom: 2px;
+    transition: color 0.3s;
+  }
+  .nav-links a::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 100%;
+    height: 1px;
+    background: var(--green);
+    transition: right 0.3s var(--transition);
+  }
+  .nav-links a:hover { color: var(--green); }
+  .nav-links a:hover::after { right: 0; }
+
+  .nav-subscribe {
+    font-family: 'Cormorant SC', serif;
+    font-size: 0.72rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--green);
+    border: 1px solid var(--green);
+    background: transparent;
+    padding: 0.45rem 1.1rem;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background 0.3s, color 0.3s;
+  }
+  .nav-subscribe:hover {
+    background: var(--green);
+    color: var(--bg);
+  }
+
+  /* ─── PAGE SYSTEM ────────────────────────────────────── */
+  .page {
+    display: none;
+    opacity: 0;
+    transform: translateY(12px);
+    transition: opacity 0.55s var(--transition), transform 0.55s var(--transition);
+    min-height: 100vh;
+    padding-top: 64px;
+  }
+  .page.active {
+    display: block;
+  }
+  .page.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* ─── ORNAMENT / RULES ───────────────────────────────── */
+  .ornament {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    color: var(--rule-dark);
+    font-size: 0.85rem;
+    letter-spacing: 0.1em;
+    margin: 2rem auto;
+  }
+  .ornament::before,
+  .ornament::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--rule);
+  }
+
+  .rule { 
+    border: none; 
+    border-top: 1px solid var(--rule); 
+    margin: 3rem 0; 
+  }
+  .rule-double {
+    border: none;
+    border-top: 3px double var(--rule-dark);
+    margin: 3rem 0;
+  }
+
+  /* ─── SECTION LABEL ──────────────────────────────────── */
+  .section-label {
+    font-family: 'Cormorant SC', serif;
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    display: block;
+    margin-bottom: 0.5rem;
+  }
+
+  /* ─── CONTAINER ──────────────────────────────────────── */
+  .container {
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 0 2rem;
+  }
+  .container-wide {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 2rem;
+  }
+
+  /* ─── BUTTONS ────────────────────────────────────────── */
+  .btn-ghost {
+    font-family: 'Cormorant SC', serif;
+    font-size: 0.78rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--green);
+    border: 1px solid var(--green);
+    background: transparent;
+    padding: 0.75rem 2rem;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-block;
+    transition: background 0.3s, color 0.3s, letter-spacing 0.3s;
+  }
+  .btn-ghost:hover {
+    background: var(--green);
+    color: var(--bg);
+    letter-spacing: 0.22em;
+  }
+
+  .btn-solid {
+    font-family: 'Cormorant SC', serif;
+    font-size: 0.78rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--bg);
+    border: 1px solid var(--green);
+    background: var(--green);
+    padding: 0.75rem 2rem;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-block;
+    transition: background 0.3s, color 0.3s;
+  }
+  .btn-solid:hover {
+    background: var(--green-mid);
+    border-color: var(--green-mid);
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     LANDING PAGE
+  ═══════════════════════════════════════════════════════ */
+  #page-home {
+    background: var(--bg);
+  }
+
+  .hero {
+    min-height: calc(100vh - 64px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 4rem 2rem;
+    position: relative;
+  }
+
+  /* Subtle green gradient corners */
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 300px; height: 300px;
+    background: radial-gradient(circle at top left, rgba(27, 58, 40, 0.07), transparent 70%);
+    pointer-events: none;
+  }
+  .hero::after {
+    content: '';
+    position: absolute;
+    bottom: 0; right: 0;
+    width: 300px; height: 300px;
+    background: radial-gradient(circle at bottom right, rgba(27, 58, 40, 0.07), transparent 70%);
+    pointer-events: none;
+  }
+
+  .hero-eyebrow {
+    font-family: 'Cormorant SC', serif;
+    font-size: 0.68rem;
+    font-weight: 400;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 2rem;
+    animation: fadeUp 1s var(--transition) 0.1s both;
+  }
+
+  .hero-title {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-size: clamp(3rem, 8vw, 6.5rem);
+    font-weight: 400;
+    line-height: 1.05;
+    letter-spacing: -0.01em;
+    color: var(--text);
+    margin-bottom: 0.25rem;
+    animation: fadeUp 1s var(--transition) 0.2s both;
+  }
+  .hero-title em {
+    font-style: italic;
+    color: var(--green-mid);
+  }
+
+  .hero-subtitle {
+    font-family: 'Playfair Display', serif;
+    font-style: italic;
+    font-size: clamp(1rem, 2.5vw, 1.3rem);
+    color: var(--text-muted);
+    margin-bottom: 3.5rem;
+    animation: fadeUp 1s var(--transition) 0.35s both;
+  }
+
+  .hero-ornament {
+    display: flex;
+    align-items: center;
+    gap: 1.2rem;
+    margin-bottom: 2.5rem;
+    animation: fadeUp 1s var(--transition) 0.4s both;
+  }
+  .hero-ornament span { 
+    color: var(--green); 
+    font-size: 1.1rem; 
+  }
+  .hero-ornament::before,
+  .hero-ornament::after {
+    content: '';
+    width: 60px;
+    height: 1px;
+    background: var(--rule-dark);
+  }
+
+  .hero-mission {
+    max-width: 480px;
+    font-size: 1.1rem;
+    color: var(--text-mid);
+    line-height: 1.85;
+    margin-bottom: 3rem;
+    animation: fadeUp 1s var(--transition) 0.5s both;
+  }
+
+  .hero-cta {
+    animation: fadeUp 1s var(--transition) 0.65s both;
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  /* Preview cards on home */
+  .home-previews {
+    padding: 6rem 2rem;
+    background: var(--bg-warm);
+    position: relative;
+  }
+  .home-previews::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(to right, transparent, var(--rule-dark), transparent);
+  }
+
+  .previews-grid {
+    max-width: 1000px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 2.5rem;
+    margin-top: 3rem;
+  }
+
+  .preview-card {
+    text-align: center;
+    cursor: pointer;
+    padding: 2rem 1rem;
+    border-top: 1px solid var(--rule);
+    transition: border-color 0.3s;
+  }
+  .preview-card:hover { border-color: var(--green); }
+
+  .preview-icon {
+    font-size: 1.6rem;
+    margin-bottom: 1rem;
+    display: block;
+    color: var(--green);
+    opacity: 0.7;
+  }
+  .preview-card h3 {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.1rem;
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+    color: var(--text);
+  }
+  .preview-card p {
+    font-size: 0.92rem;
+    color: var(--text-muted);
+    line-height: 1.6;
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     ABOUT PAGE
+  ═══════════════════════════════════════════════════════ */
+  .about-header {
+    padding: 5rem 2rem 3rem;
+    text-align: center;
+  }
+
+  .about-body {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 4rem;
+    padding: 3rem 0 6rem;
+    align-items: start;
+  }
+
+  .about-portrait-col {
+    position: sticky;
+    top: 90px;
+  }
+
+  .portrait-frame {
+    position: relative;
+    display: inline-block;
+    width: 100%;
+  }
+  .portrait-frame::before {
+    content: '';
+    position: absolute;
+    top: -8px; left: -8px;
+    right: 8px; bottom: 8px;
+    border: 1px solid var(--rule-dark);
+    z-index: 0;
+  }
+  .portrait-img {
+    width: 100%;
+    aspect-ratio: 3/4;
+    object-fit: cover;
+    display: block;
+    position: relative;
+    z-index: 1;
+    background: var(--bg-dark);
+    filter: saturate(0.85) contrast(1.05);
+  }
+  .portrait-placeholder {
+    width: 100%;
+    aspect-ratio: 3/4;
+    background: linear-gradient(145deg, var(--bg-dark), var(--bg-warm));
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    font-family: 'Cormorant SC', serif;
+    font-size: 0.7rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    position: relative;
+    z-index: 1;
+    gap: 0.75rem;
+    border: 1px solid var(--rule);
+  }
+  .portrait-placeholder span { font-size: 2.5rem; opacity: 0.3; }
+
+  .about-text-col h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    font-weight: 400;
+    line-height: 1.15;
+    margin-bottom: 0.5rem;
+  }
+  .about-text-col h1 em { 
+    font-style: italic; 
+    color: var(--green-mid); 
+  }
+  .about-tagline {
+    font-family: 'Playfair Display', serif;
+    font-style: italic;
+    font-size: 1.05rem;
+    color: var(--text-muted);
+    margin-bottom: 2.5rem;
+  }
+  .about-text-col p {
+    margin-bottom: 1.5rem;
+    font-size: 1.08rem;
+    line-height: 1.85;
+    color: var(--text-mid);
+  }
+  .about-text-col p:first-of-type::first-letter {
+    font-family: 'Playfair Display', serif;
+    font-size: 3.8em;
+    line-height: 0.8;
+    float: left;
+    margin-right: 0.08em;
+    margin-top: 0.05em;
+    color: var(--green);
+  }
+
+  .about-credentials {
+    margin-top: 2.5rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--rule);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2rem;
+  }
+  .credential h4 {
+    font-family: 'Cormorant SC', serif;
+    font-size: 0.7rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 0.3rem;
+  }
+  .credential p {
+    font-size: 0.95rem;
+    color: var(--text);
+    margin: 0;
+    line-height: 1.5;
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     ARTICLE LIST PAGE
+  ═══════════════════════════════════════════════════════ */
+  .page-header {
+    padding: 5rem 2rem 4rem;
+    text-align: center;
+    border-bottom: 1px solid var(--rule);
+  }
+  .page-header h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(2.2rem, 5vw, 3.8rem);
+    font-weight: 400;
+    line-height: 1.15;
+    margin-bottom: 0.75rem;
+  }
+  .page-header p {
+    font-family: 'Playfair Display', serif;
+    font-style: italic;
+    color: var(--text-muted);
+    font-size: 1.05rem;
+  }
+
+  .article-list {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 3rem 2rem 6rem;
+  }
+  .article-item {
+    padding: 2.5rem 0;
+    border-bottom: 1px solid var(--rule);
+    cursor: pointer;
+    transition: border-color 0.3s;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 2rem;
+    align-items: start;
+  }
+  .article-item:hover { border-color: var(--green); }
+  .article-item:first-child { border-top: 1px solid var(--rule); }
+  .article-meta-top {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    margin-bottom: 0.6rem;
+  }
+  .tag {
+    font-family: 'Cormorant SC', serif;
+    font-size: 0.65rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--green);
+    border: 1px solid currentColor;
+    padding: 0.15rem 0.5rem;
+  }
+  .article-date {
+    font-family: 'Cormorant SC', serif;
+    font-size: 0.68rem;
+    letter-spacing: 0.12em;
+    color: var(--text-muted);
+    text-transform: uppercase;
+  }
+  .article-item h2 {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.5rem;
+    font-weight: 500;
+    line-height: 1.3;
+    margin-bottom: 0.6rem;
+    transition: color 0.3s;
+  }
+  .article-item:hover h2 { color: var(--green); }
+  .article-item p {
+    font-size: 0.97rem;
+    color: var(--text-muted);
+    line-height: 1.7;
+  }
+  .read-time {
+    font-family: 'Cormorant SC', serif;
+    font-size: 0.65rem;
+    letter-spacing: 0.12em;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    white-space: nowrap;
+    margin-top: 0.5rem;
+  }
+  .article-arrow {
+    color: var(--green);
+    opacity: 0;
+    transition: opacity 0.3s, transform 0.3s;
+    font-size: 1.2rem;
+  }
+  .article-item:hover .article-arrow {
+    opacity: 1;
+    transform: translateX(4px);
+  }
+
+  /* ─── SINGLE ARTICLE ─────────────────────────────────── */
+  .article-single {
+    max-width: 660px;
+    margin: 0 auto;
+    padding: 4rem 2rem 8rem;
+  }
+  .article-single-header { text-align: center; margin-bottom: 3rem; }
+  .article-single-header h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(1.8rem, 4vw, 2.8rem);
+    font-weight: 400;
+    line-height: 1.2;
+    margin: 1rem 0;
+  }
+  .article-single-header .subtitle {
+    font-family: 'Playfair Display', serif;
+    font-style: italic;
+    font-size: 1.15rem;
+    color: var(--text-muted);
+    margin-bottom: 1.5rem;
+  }
+  .article-single-meta {
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+  }
+  .article-body { font-size: 1.1rem; line-height: 1.9; }
+  .article-body p { margin-bottom: 1.5rem; }
+  .article-body h2 {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.4rem;
+    font-weight: 500;
+    margin: 2.5rem 0 1rem;
+  }
+  .article-body blockquote {
+    border-left: 3px solid var(--green);
+    padding-left: 1.5rem;
+    margin: 2rem 0;
+    color: var(--text-mid);
+    font-style: italic;
+    font-size: 1.15rem;
+    line-height: 1.75;
+  }
+  .article-body p:first-of-type::first-letter {
+    font-family: 'Playfair Display', serif;
+    font-size: 4em;
+    line-height: 0.8;
+    float: left;
+    margin-right: 0.08em;
+    margin-top: 0.05em;
+    color: var(--green);
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     PHOTOGRAPHY PAGE
+  ═══════════════════════════════════════════════════════ */
+  .gallery-controls {
+    display: flex;
+    justify-content: center;
+    gap: 0.75rem;
+    padding: 2rem;
+    border-bottom: 1px solid var(--rule);
+  }
+  .layout-btn {
+    width: 36px; height: 36px;
+    border: 1px solid var(--rule-dark);
+    background: transparent;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    transition: border-color 0.2s, background 0.2s;
+    padding: 6px;
+  }
+  .layout-btn.active, .layout-btn:hover {
+    border-color: var(--green);
+    background: var(--bg-dark);
+  }
+  .layout-btn .dot {
+    background: var(--text-mid);
+    border-radius: 1px;
+    transition: background 0.2s;
+  }
+  .layout-btn.active .dot, .layout-btn:hover .dot { background: var(--green); }
+
+  .gallery-grid {
+    padding: 2.5rem;
+    display: grid;
+    gap: 1rem;
+    transition: all 0.4s var(--transition);
+  }
+  .gallery-grid.cols-1 { grid-template-columns: 1fr; max-width: 700px; margin: 0 auto; }
+  .gallery-grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
+  .gallery-grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+  .gallery-grid.cols-4 { grid-template-columns: repeat(4, 1fr); }
+
+  .gallery-item {
+    cursor: pointer;
+    overflow: hidden;
+    position: relative;
+    background: var(--bg-dark);
+    border: 1px solid var(--rule);
+  }
+  .gallery-thumb {
+    width: 100%;
+    aspect-ratio: 4/3;
+    background: linear-gradient(145deg, var(--bg-dark), var(--bg-warm));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.5rem;
+    color: var(--rule-dark);
+    transition: transform 0.5s var(--transition);
+    overflow: hidden;
+  }
+  .gallery-item:hover .gallery-thumb { transform: scale(1.04); }
+  .gallery-caption {
+    padding: 0.75rem 1rem;
+    border-top: 1px solid var(--rule);
+  }
+  .gallery-caption h3 {
+    font-family: 'Playfair Display', serif;
+    font-size: 0.92rem;
+    font-weight: 500;
+    margin-bottom: 0.15rem;
+  }
+  .gallery-caption p {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    font-style: italic;
+  }
+
+  /* Lightbox */
+  .lightbox {
+    position: fixed;
+    inset: 0;
+    background: rgba(20, 15, 10, 0.93);
+    z-index: 2000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 1.5rem;
+    padding: 2rem;
+    backdrop-filter: blur(8px);
+  }
+  .lightbox.open { display: flex; }
+  .lightbox-img {
+    max-width: 90vw;
+    max-height: 75vh;
+    object-fit: contain;
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+  .lightbox-placeholder {
+    width: 70vw;
+    max-width: 700px;
+    height: 60vh;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 4rem;
+    color: rgba(255,255,255,0.2);
+  }
+  .lightbox-caption {
+    color: rgba(255,255,255,0.7);
+    font-style: italic;
+    font-size: 0.95rem;
+    text-align: center;
+  }
+  .lightbox-close {
+    position: fixed;
+    top: 1.5rem; right: 1.5rem;
+    background: none;
+    border: none;
+    color: rgba(255,255,255,0.6);
+    font-size: 1.5rem;
+    cursor: pointer;
+    font-family: 'Cormorant SC', serif;
+    letter-spacing: 0.1em;
+    transition: color 0.2s;
+    line-height: 1;
+  }
+  .lightbox-close:hover { color: white; }
+  .lightbox-nav {
+    position: fixed;
+    top: 50%; transform: translateY(-50%);
+    background: none;
+    border: 1px solid rgba(255,255,255,0.2);
+    color: rgba(255,255,255,0.7);
+    width: 44px; height: 44px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    font-size: 1.2rem;
+    transition: border-color 0.2s, color 0.2s;
+  }
+  .lightbox-nav:hover { border-color: rgba(255,255,255,0.6); color: white; }
+  .lightbox-prev { left: 1.5rem; }
+  .lightbox-next { right: 1.5rem; }
+
+  /* ═══════════════════════════════════════════════════════
+     SHORT STORIES PAGE
+  ═══════════════════════════════════════════════════════ */
+  .stories-list {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 3rem 2rem 6rem;
+  }
+  .story-card {
+    padding: 2.5rem 0;
+    border-bottom: 1px solid var(--rule);
+    cursor: pointer;
+  }
+  .story-card:first-child { border-top: 1px solid var(--rule); }
+  .story-card:hover h2 { color: var(--green); }
+  .story-card h2 {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.55rem;
+    font-weight: 400;
+    line-height: 1.25;
+    margin: 0.6rem 0;
+    transition: color 0.3s;
+  }
+  .story-card .excerpt {
+    font-style: italic;
+    color: var(--text-muted);
+    font-size: 1rem;
+    line-height: 1.7;
+    margin-top: 0.5rem;
+    border-left: 2px solid var(--rule-dark);
+    padding-left: 1rem;
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     TRAVEL PAGE
+  ═══════════════════════════════════════════════════════ */
+  .travel-feed {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 3rem 2rem 6rem;
+  }
+  .travel-entry {
+    display: grid;
+    grid-template-columns: 100px 1fr;
+    gap: 2rem;
+    padding: 2.5rem 0;
+    border-bottom: 1px solid var(--rule);
+    cursor: pointer;
+  }
+  .travel-entry:first-child { border-top: 1px solid var(--rule); }
+  .travel-date-col {
+    text-align: right;
+    padding-top: 0.25rem;
+  }
+  .travel-date-col .month {
+    font-family: 'Cormorant SC', serif;
+    font-size: 0.68rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    display: block;
+  }
+  .travel-date-col .year {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.3rem;
+    color: var(--green);
+    display: block;
+  }
+  .travel-entry-body h2 {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.4rem;
+    font-weight: 500;
+    margin-bottom: 0.3rem;
+    transition: color 0.3s;
+  }
+  .travel-entry:hover h2 { color: var(--green); }
+  .travel-location {
+    font-family: 'Cormorant SC', serif;
+    font-size: 0.7rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--green);
+    margin-bottom: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .travel-entry-body p {
+    font-size: 0.97rem;
+    color: var(--text-muted);
+    line-height: 1.7;
+  }
+  .travel-thumb {
+    margin-top: 1rem;
+    width: 100%;
+    max-width: 300px;
+    aspect-ratio: 16/9;
+    background: linear-gradient(145deg, var(--bg-dark), var(--bg-warm));
+    border: 1px solid var(--rule);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    color: var(--rule-dark);
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     SUBSCRIBE MODAL
+  ═══════════════════════════════════════════════════════ */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(20, 15, 10, 0.6);
+    z-index: 1500;
+    display: none;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 2rem;
+    overflow-y: auto;
+    backdrop-filter: blur(4px);
+  }
+  .modal-overlay.open { display: flex; }
+
+  .modal {
+    background: var(--bg);
+    border: 1px solid var(--rule-dark);
+    max-width: 500px;
+    width: 100%;
+    padding: 3rem;
+    position: relative;
+    box-shadow: 0 32px 80px rgba(0,0,0,0.2);
+    margin: auto;
+  }
+  .modal::before {
+    content: '';
+    position: absolute;
+    top: 6px; left: 6px; right: -6px; bottom: -6px;
+    border: 1px solid var(--rule);
+    z-index: -1;
+    pointer-events: none;
+  }
+
+  .modal-close {
+    position: absolute;
+    top: 1.25rem; right: 1.25rem;
+    background: none; border: none;
+    font-size: 1.1rem;
+    cursor: pointer;
+    color: var(--text-muted);
+    font-family: 'Cormorant SC', serif;
+    letter-spacing: 0.1em;
+    transition: color 0.2s;
+  }
+  .modal-close:hover { color: var(--text); }
+
+  .modal h2 {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.7rem;
+    font-weight: 400;
+    margin-bottom: 0.5rem;
+  }
+  .modal-sub {
+    font-style: italic;
+    color: var(--text-muted);
+    font-size: 0.97rem;
+    margin-bottom: 2rem;
+    line-height: 1.6;
+  }
+
+  .form-group { margin-bottom: 1.25rem; }
+  .form-label {
+    display: block;
+    font-family: 'Cormorant SC', serif;
+    font-size: 0.68rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 0.4rem;
+  }
+  .form-input {
+    width: 100%;
+    padding: 0.7rem 1rem;
+    background: transparent;
+    border: 1px solid var(--rule-dark);
+    font-family: 'EB Garamond', serif;
+    font-size: 1rem;
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .form-input:focus { border-color: var(--green); }
+  .form-input::placeholder { color: var(--text-muted); }
+
+  .pref-label {
+    font-family: 'Cormorant SC', serif;
+    font-size: 0.68rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 0.75rem;
+    display: block;
+  }
+  .checkboxes { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1.75rem; }
+  .checkbox-row {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    cursor: pointer;
+  }
+  .checkbox-row input[type=checkbox] {
+    width: 14px; height: 14px;
+    accent-color: var(--green);
+    cursor: pointer;
+  }
+  .checkbox-row span {
+    font-size: 0.95rem;
+    color: var(--text-mid);
+  }
+
+  .modal-success {
+    text-align: center;
+    padding: 1rem 0;
+    display: none;
+  }
+  .modal-success .check { font-size: 2.5rem; color: var(--green); margin-bottom: 1rem; }
+  .modal-success h3 {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+  }
+  .modal-success p { color: var(--text-muted); font-style: italic; }
+
+  /* ═══════════════════════════════════════════════════════
+     FOOTER
+  ═══════════════════════════════════════════════════════ */
+  footer {
+    background: var(--green);
+    color: rgba(243, 237, 226, 0.7);
+    padding: 4rem 2rem;
+    text-align: center;
+  }
+  .footer-wordmark {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.5rem;
+    font-weight: 400;
+    color: var(--bg);
+    margin-bottom: 0.5rem;
+    display: block;
+  }
+  footer p {
+    font-size: 0.85rem;
+    font-style: italic;
+    margin-bottom: 2rem;
+    line-height: 1.6;
+  }
+  .footer-links {
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+    flex-wrap: wrap;
+    margin-bottom: 2.5rem;
+  }
+  .footer-links a {
+    font-family: 'Cormorant SC', serif;
+    font-size: 0.65rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: rgba(243, 237, 226, 0.55);
+    text-decoration: none;
+    cursor: pointer;
+    transition: color 0.2s;
+  }
+  .footer-links a:hover { color: var(--bg); }
+  footer hr {
+    border: none;
+    border-top: 1px solid rgba(243, 237, 226, 0.15);
+    margin: 0 auto 1.5rem;
+    max-width: 200px;
+  }
+  .footer-copy {
+    font-family: 'Cormorant SC', serif;
+    font-size: 0.62rem;
+    letter-spacing: 0.14em;
+    color: rgba(243, 237, 226, 0.3);
+  }
+
+  /* ─── ANIMATIONS ─────────────────────────────────────── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ─── SCROLLBAR ──────────────────────────────────────── */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg-warm); }
+  ::-webkit-scrollbar-thumb { background: var(--rule-dark); border-radius: 3px; }
+
+  /* ─── RESPONSIVE ─────────────────────────────────────── */
+  @media (max-width: 768px) {
+    .nav-links { display: none; }
+    .about-body { grid-template-columns: 1fr; }
+    .about-portrait-col { position: static; }
+    .travel-entry { grid-template-columns: 70px 1fr; gap: 1rem; }
+    .gallery-grid.cols-3, .gallery-grid.cols-4 { grid-template-columns: repeat(2, 1fr); }
+    .hero-title { font-size: clamp(2.4rem, 12vw, 4rem); }
+    .modal { padding: 2rem; }
+    .about-credentials { flex-direction: column; gap: 1rem; }
+  }
+
+  /* ─── BACK BUTTON ────────────────────────────────────── */
+  .back-btn {
+    font-family: 'Cormorant SC', serif;
+    font-size: 0.68rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    background: none;
+    border: none;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 2.5rem;
+    padding: 0;
+    transition: color 0.2s;
+  }
+  .back-btn:hover { color: var(--green); }
+
+  /* Admin dashboard */
+  .admin-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+    margin: 2rem 0;
+  }
+  .stat-card {
+    background: var(--bg-warm);
+    border: 1px solid var(--rule);
+    padding: 1.75rem;
+    text-align: center;
+  }
+  .stat-card .number {
+    font-family: 'Playfair Display', serif;
+    font-size: 2.5rem;
+    color: var(--green);
+    display: block;
+    line-height: 1.2;
+  }
+  .stat-card .label {
+    font-family: 'Cormorant SC', serif;
+    font-size: 0.65rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-top: 0.3rem;
+    display: block;
+  }
+  .email-composer {
+    background: var(--bg-warm);
+    border: 1px solid var(--rule);
+    padding: 2rem;
+    margin-top: 2rem;
+  }
+  .email-composer h3 {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.2rem;
+    margin-bottom: 1.25rem;
+  }
+  .audience-checks { display: flex; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.25rem; }
+  textarea.form-input {
+    min-height: 120px;
+    resize: vertical;
+    font-family: 'EB Garamond', serif;
+  }
+  .admin-warning {
+    background: rgba(27,58,40,0.06);
+    border: 1px solid var(--green-light);
+    padding: 1rem 1.5rem;
+    margin-bottom: 2rem;
+    font-size: 0.9rem;
+    color: var(--green);
+    font-style: italic;
+  }
+
+  /* Preferences center */
+  .prefs-card {
+    max-width: 480px;
+    margin: 4rem auto 6rem;
+    padding: 3rem;
+    border: 1px solid var(--rule-dark);
+    background: var(--white);
+    position: relative;
+  }
+  .prefs-card::before {
+    content: '';
+    position: absolute;
+    top: 6px; left: 6px; right: -6px; bottom: -6px;
+    border: 1px solid var(--rule);
+    z-index: -1;
+    pointer-events: none;
+  }
+  .danger-zone {
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--rule);
+  }
+  .btn-danger {
+    font-family: 'Cormorant SC', serif;
+    font-size: 0.72rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #8B2020;
+    border: 1px solid #C4A0A0;
+    background: transparent;
+    padding: 0.6rem 1.2rem;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+  }
+  .btn-danger:hover { background: #8B2020; color: white; border-color: #8B2020; }
+</style>
+</head>
+<body>
+
+<!-- ═══ NAVIGATION ═══════════════════════════════════════════ -->
+<nav id="main-nav">
+  <span class="nav-wordmark" onclick="showPage('home')">SFA</span>
+  <ul class="nav-links">
+    <li><a onclick="showPage('about')">About</a></li>
+    <li><a onclick="showPage('articles')">Articles</a></li>
+    <li><a onclick="showPage('photography')">Photography</a></li>
+    <li><a onclick="showPage('stories')">Stories</a></li>
+    <li><a onclick="showPage('travel')">Travel</a></li>
+  </ul>
+  <button class="nav-subscribe" onclick="openModal()">Subscribe</button>
+</nav>
+
+<!-- ═══ PAGES ════════════════════════════════════════════════ -->
+
+<!-- HOME -->
+<div id="page-home" class="page active">
+  <section class="hero">
+    <p class="hero-eyebrow">Est. 2025 &nbsp;·&nbsp; Dispatches from the World</p>
+    <h1 class="hero-title">Stories<br><em>From Abroad</em></h1>
+    <div class="hero-ornament"><span>❧</span></div>
+    <p class="hero-mission">
+      Writing, photography, and reflection from the margins of the map. 
+      Essays, fictions, and the kind of observations that only distance makes possible.
+    </p>
+    <div class="hero-cta">
+      <button class="btn-ghost" onclick="openModal()">Subscribe to the Letter</button>
+      <button class="btn-ghost" style="border-color:var(--rule-dark);color:var(--text-muted)" onclick="showPage('about')">Read the Story</button>
+    </div>
+  </section>
+
+  <section class="home-previews">
+    <div style="text-align:center">
+      <span class="section-label">What You'll Find Here</span>
+      <h2 style="font-family:'Playfair Display',serif;font-size:1.8rem;font-weight:400">Four Ways of Seeing</h2>
+    </div>
+    <div class="previews-grid">
+      <div class="preview-card" onclick="showPage('articles')">
+        <span class="preview-icon">✒</span>
+        <h3>Articles & Op-Eds</h3>
+        <p>Long-form essays, cultural criticism, and analysis from far-flung vantage points.</p>
+      </div>
+      <div class="preview-card" onclick="showPage('photography')">
+        <span class="preview-icon">◎</span>
+        <h3>Photography</h3>
+        <p>Visual stories — collections from the places words alone can't quite reach.</p>
+      </div>
+      <div class="preview-card" onclick="showPage('stories')">
+        <span class="preview-icon">❦</span>
+        <h3>Short Stories</h3>
+        <p>Original fiction, rooted in real geographies and imagined lives.</p>
+      </div>
+      <div class="preview-card" onclick="showPage('travel')">
+        <span class="preview-icon">◈</span>
+        <h3>Travel</h3>
+        <p>Field notes, reflections, and honest accounts from the road.</p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <span class="footer-wordmark">Stories From Abroad</span>
+    <p>Essays, images, and fiction from somewhere else.<br>A private letter, published.</p>
+    <div class="footer-links">
+      <a onclick="showPage('about')">About</a>
+      <a onclick="showPage('articles')">Articles</a>
+      <a onclick="showPage('photography')">Photography</a>
+      <a onclick="showPage('stories')">Stories</a>
+      <a onclick="showPage('travel')">Travel</a>
+      <a onclick="openModal()">Subscribe</a>
+      <a onclick="showPage('preferences')">Preferences</a>
+    </div>
+    <hr>
+    <p class="footer-copy">© 2025 Stories From Abroad · All rights reserved</p>
+  </footer>
+</div>
+
+<!-- ABOUT -->
+<div id="page-about" class="page">
+  <div class="container">
+    <div class="about-text-col" style="padding-top:5rem;padding-bottom:2rem">
+      <span class="section-label">The Writer</span>
+    </div>
+  </div>
+  <div class="container-wide">
+    <div class="about-body">
+      <div class="about-portrait-col">
+        <div class="portrait-frame">
+          <div class="portrait-placeholder">
+            <span>◎</span>
+            Portrait
+          </div>
+        </div>
+        <div style="margin-top:1.5rem">
+          <div class="about-credentials">
+            <div class="credential">
+              <h4>Education</h4>
+              <p>University of Edinburgh<br><em style="font-size:0.9em;color:var(--text-muted)">MA, International Relations</em></p>
+            </div>
+            <div class="credential">
+              <h4>Based In</h4>
+              <p>Nomadic<br><em style="font-size:0.9em;color:var(--text-muted)">Currently: Lisbon, PT</em></p>
+            </div>
+            <div class="credential">
+              <h4>Writing Since</h4>
+              <p>2019</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="about-text-col">
+        <span class="section-label">About</span>
+        <h1>The Author<br><em>& the Project</em></h1>
+        <p class="about-tagline">Writing from the spaces between belonging.</p>
+        <div class="rule"></div>
+        <p>
+          There is a particular clarity that comes from being foreign — from navigating a city whose signs you cannot read, 
+          a conversation whose subtext escapes you, a ceremony whose meaning you must ask someone to explain. 
+          This project was born in that discomfort, and in the conviction that such discomfort is worth documenting.
+        </p>
+        <p>
+          Stories From Abroad is a personal dispatch — part literary journal, part field notebook. 
+          It exists in the tradition of writers who believed that observation, if patient enough, 
+          becomes a form of understanding. It is not journalism, exactly. It is not memoir, quite. 
+          It is something in between: witnessed and imagined, reported and felt.
+        </p>
+        <p>
+          The photography is shot on film where possible. The essays take as long as they need to. 
+          The fiction draws on real places and invented people. Each section has its own logic, 
+          but they share a common conviction: that the world is worth paying attention to.
+        </p>
+        <div class="ornament">❧</div>
+        <p>
+          Academically, the work is informed by studies in international relations and political economy — 
+          a framework that colours how power and place are understood in these pages, even when the subject 
+          is something as small as a shared meal or a missed train.
+        </p>
+        <p>
+          If you've found your way here, you're warmly invited to stay. Subscribe to receive dispatches 
+          when new work is published — no algorithms, no advertising. Just writing, when it's ready.
+        </p>
+        <div style="margin-top:2.5rem">
+          <button class="btn-ghost" onclick="openModal()">Subscribe to Dispatches</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <footer>
+    <span class="footer-wordmark">Stories From Abroad</span>
+    <p>Essays, images, and fiction from somewhere else.</p>
+    <div class="footer-links">
+      <a onclick="showPage('home')">Home</a>
+      <a onclick="showPage('articles')">Articles</a>
+      <a onclick="openModal()">Subscribe</a>
+    </div>
+    <hr>
+    <p class="footer-copy">© 2025 Stories From Abroad</p>
+  </footer>
+</div>
+
+<!-- ARTICLES LIST -->
+<div id="page-articles" class="page">
+  <div class="page-header">
+    <span class="section-label">Long-form Writing</span>
+    <h1>Articles &amp; Op-Eds</h1>
+    <p>Essays, criticism, and analysis from the field</p>
+  </div>
+  <div class="article-list">
+    <div class="article-item" onclick="showArticle('1')">
+      <div>
+        <div class="article-meta-top">
+          <span class="tag">Essay</span>
+          <span class="article-date">14 November 2025</span>
+        </div>
+        <h2>On Belonging Nowhere in Particular</h2>
+        <p>What a decade of movement teaches you about home — and why the absence of a fixed address can be its own kind of rootedness.</p>
+        <div class="read-time" style="margin-top:0.75rem">12 min read</div>
+      </div>
+      <div>
+        <div class="article-arrow">→</div>
+        <div class="read-time">Essay</div>
+      </div>
+    </div>
+    <div class="article-item" onclick="showArticle('2')">
+      <div>
+        <div class="article-meta-top">
+          <span class="tag">Op-Ed</span>
+          <span class="article-date">3 October 2025</span>
+        </div>
+        <h2>The Myth of the Authentic Experience</h2>
+        <p>Tourism has always been a form of performance. The real question is: who is performing for whom?</p>
+        <div class="read-time" style="margin-top:0.75rem">8 min read</div>
+      </div>
+      <div>
+        <div class="article-arrow">→</div>
+        <div class="read-time">Op-Ed</div>
+      </div>
+    </div>
+    <div class="article-item" onclick="showArticle('3')">
+      <div>
+        <div class="article-meta-top">
+          <span class="tag">Essay</span>
+          <span class="article-date">18 August 2025</span>
+        </div>
+        <h2>What the Markets Know That We've Forgotten</h2>
+        <p>From the souks of Marrakesh to the wet markets of Chiang Mai, on the political economy of a vegetable and what it reveals about a place.</p>
+        <div class="read-time" style="margin-top:0.75rem">15 min read</div>
+      </div>
+      <div>
+        <div class="article-arrow">→</div>
+        <div class="read-time">Essay</div>
+      </div>
+    </div>
+  </div>
+  <footer>
+    <span class="footer-wordmark">Stories From Abroad</span>
+    <div class="footer-links">
+      <a onclick="showPage('home')">Home</a>
+      <a onclick="openModal()">Subscribe</a>
+    </div>
+    <hr>
+    <p class="footer-copy">© 2025 Stories From Abroad</p>
+  </footer>
+</div>
+
+<!-- SINGLE ARTICLE -->
+<div id="page-article-single" class="page">
+  <div class="article-single">
+    <button class="back-btn" onclick="showPage('articles')">← Back to Articles</button>
+    <div class="article-single-header">
+      <div class="article-meta-top" style="justify-content:center">
+        <span class="tag" id="article-tag">Essay</span>
+        <span class="article-date" id="article-date">14 November 2025</span>
+      </div>
+      <h1 id="article-title">On Belonging Nowhere in Particular</h1>
+      <p class="subtitle" id="article-subtitle">What movement teaches us about home</p>
+      <div class="article-single-meta">
+        <span class="read-time" id="article-readtime">12 min read</span>
+      </div>
+    </div>
+    <div class="ornament">❧</div>
+    <div class="article-body" id="article-body">
+      <p>
+        There is a photograph on my phone — taken three years ago, somewhere in the Balkans — of a kitchen window with a 
+        cracked sill and a potted geranium that had given up flowering. I kept it not for aesthetic reasons but because 
+        something about it felt like the truth of a place: the ordinary persistence of things that haven't quite managed 
+        to be beautiful.
+      </p>
+      <p>
+        I have lived in eleven cities across four continents. I do not say this to impress — it is, in fact, increasingly 
+        difficult to explain without sounding either boastful or evasive — but because it is the condition from which this 
+        writing comes. A person who has lived in eleven cities is not an expert in any of them. But they have developed a 
+        sensitivity to the texture of unfamiliarity that has its own uses.
+      </p>
+      <blockquote>
+        "To be at home everywhere is to be at home nowhere. But there are worse fates than that."
+      </blockquote>
+      <h2>The Grammar of Elsewhere</h2>
+      <p>
+        Every new city requires a period of grammatical study — not the language, necessarily, but the underlying logic 
+        of how the place works. Where do people eat on a Tuesday? What time does quiet arrive? What is the unspoken rule 
+        about eye contact on public transport? These are the things no guidebook tells you, and learning them takes months.
+      </p>
+      <p>
+        The philosopher Simone Weil wrote about the need for roots — the hunger, she argued, is one of the most important 
+        and most overlooked of the human soul. I believe her. And yet I have found, over years of deliberate rootlessness, 
+        that roots need not be geographical. They can be carried.
+      </p>
+    </div>
+  </div>
+  <footer>
+    <span class="footer-wordmark">Stories From Abroad</span>
+    <div class="footer-links">
+      <a onclick="showPage('articles')">← All Articles</a>
+      <a onclick="openModal()">Subscribe</a>
+    </div>
+    <hr>
+    <p class="footer-copy">© 2025 Stories From Abroad</p>
+  </footer>
+</div>
+
+<!-- PHOTOGRAPHY -->
+<div id="page-photography" class="page">
+  <div class="page-header">
+    <span class="section-label">Visual Work</span>
+    <h1>Photography</h1>
+    <p>Collections and single frames from the field</p>
+  </div>
+
+  <div class="gallery-controls">
+    <span style="font-family:'Cormorant SC',serif;font-size:0.65rem;letter-spacing:0.16em;text-transform:uppercase;color:var(--text-muted);margin-right:0.5rem">Layout</span>
+    <button class="layout-btn" onclick="setGalleryLayout(1)" title="1 Column">
+      <div style="display:flex;flex-direction:column;gap:2px;width:100%">
+        <div class="dot" style="height:4px;width:100%;"></div>
+        <div class="dot" style="height:4px;width:100%;"></div>
+        <div class="dot" style="height:4px;width:100%;"></div>
+      </div>
+    </button>
+    <button class="layout-btn" onclick="setGalleryLayout(2)" title="2 Columns">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px;width:100%">
+        <div class="dot" style="height:10px;"></div>
+        <div class="dot" style="height:10px;"></div>
+        <div class="dot" style="height:10px;"></div>
+        <div class="dot" style="height:10px;"></div>
+      </div>
+    </button>
+    <button class="layout-btn active" onclick="setGalleryLayout(3)" title="3 Columns">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:2px;width:100%">
+        <div class="dot" style="height:8px;"></div>
+        <div class="dot" style="height:8px;"></div>
+        <div class="dot" style="height:8px;"></div>
+        <div class="dot" style="height:8px;"></div>
+        <div class="dot" style="height:8px;"></div>
+        <div class="dot" style="height:8px;"></div>
+      </div>
+    </button>
+    <button class="layout-btn" onclick="setGalleryLayout(4)" title="4 Columns">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:2px;width:100%">
+        <div class="dot" style="height:6px;"></div>
+        <div class="dot" style="height:6px;"></div>
+        <div class="dot" style="height:6px;"></div>
+        <div class="dot" style="height:6px;"></div>
+        <div class="dot" style="height:6px;"></div>
+        <div class="dot" style="height:6px;"></div>
+        <div class="dot" style="height:6px;"></div>
+        <div class="dot" style="height:6px;"></div>
+      </div>
+    </button>
+  </div>
+
+  <div class="container-wide">
+    <div class="gallery-grid cols-3" id="gallery-grid">
+      <div class="gallery-item" onclick="openLightbox(0)">
+        <div class="gallery-thumb" style="background:linear-gradient(135deg,#2C3E2D,#4A6741)"><span>◎</span></div>
+        <div class="gallery-caption"><h3>The Green Door</h3><p>Tbilisi, Georgia — October 2025</p></div>
+      </div>
+      <div class="gallery-item" onclick="openLightbox(1)">
+        <div class="gallery-thumb" style="background:linear-gradient(135deg,#3D3328,#6B5540)"><span>◎</span></div>
+        <div class="gallery-caption"><h3>Morning Prayer</h3><p>Fez, Morocco — July 2025</p></div>
+      </div>
+      <div class="gallery-item" onclick="openLightbox(2)">
+        <div class="gallery-thumb" style="background:linear-gradient(135deg,#243040,#3D5A7A)"><span>◎</span></div>
+        <div class="gallery-caption"><h3>January Ferry</h3><p>Piraeus, Greece — January 2025</p></div>
+      </div>
+      <div class="gallery-item" onclick="openLightbox(3)">
+        <div class="gallery-thumb" style="background:linear-gradient(135deg,#3A2C22,#7A5A3E)"><span>◎</span></div>
+        <div class="gallery-caption"><h3>The Barber</h3><p>Palermo, Italy — March 2025</p></div>
+      </div>
+      <div class="gallery-item" onclick="openLightbox(4)">
+        <div class="gallery-thumb" style="background:linear-gradient(135deg,#1E2E1A,#3D5A30)"><span>◎</span></div>
+        <div class="gallery-caption"><h3>Harvest Season</h3><p>Alentejo, Portugal — September 2025</p></div>
+      </div>
+      <div class="gallery-item" onclick="openLightbox(5)">
+        <div class="gallery-thumb" style="background:linear-gradient(135deg,#2A2030,#5A4070)"><span>◎</span></div>
+        <div class="gallery-caption"><h3>Dusk Market</h3><p>Chiang Mai, Thailand — February 2025</p></div>
+      </div>
+    </div>
+  </div>
+  <footer>
+    <span class="footer-wordmark">Stories From Abroad</span>
+    <div class="footer-links">
+      <a onclick="showPage('home')">Home</a>
+      <a onclick="openModal()">Subscribe</a>
+    </div>
+    <hr>
+    <p class="footer-copy">© 2025 Stories From Abroad</p>
+  </footer>
+</div>
+
+<!-- SHORT STORIES -->
+<div id="page-stories" class="page">
+  <div class="page-header">
+    <span class="section-label">Creative Fiction</span>
+    <h1>Short Stories</h1>
+    <p>Original fiction rooted in real geographies</p>
+  </div>
+  <div class="stories-list">
+    <div class="story-card" onclick="showStory('1')">
+      <div class="article-meta-top">
+        <span class="tag">Fiction</span>
+        <span class="article-date">2 December 2025</span>
+        <span class="read-time">· 22 min read</span>
+      </div>
+      <h2>The Interpreter</h2>
+      <p class="excerpt">
+        "She had translated so many other people's urgencies that she had, over the years, 
+        lost the ability to identify her own."
+      </p>
+      <p style="font-size:0.9rem;color:var(--text-muted);margin-top:0.75rem">
+        A story set across three cities: Beirut, Oslo, and a room above a laundromat in the 18th arrondissement.
+      </p>
+    </div>
+    <div class="story-card" onclick="showStory('2')">
+      <div class="article-meta-top">
+        <span class="tag">Fiction</span>
+        <span class="article-date">15 October 2025</span>
+        <span class="read-time">· 14 min read</span>
+      </div>
+      <h2>A Very Small Inheritance</h2>
+      <p class="excerpt">
+        "He had inherited, from a grandfather he'd never met, a watch that didn't keep time 
+        and an address in a city that no longer existed under that name."
+      </p>
+      <p style="font-size:0.9rem;color:var(--text-muted);margin-top:0.75rem">
+        On legacy, displacement, and the objects we carry across borders.
+      </p>
+    </div>
+    <div class="story-card" onclick="showStory('3')">
+      <div class="article-meta-top">
+        <span class="tag">Fiction</span>
+        <span class="article-date">7 August 2025</span>
+        <span class="read-time">· 9 min read</span>
+      </div>
+      <h2>What the Neighbor Knew</h2>
+      <p class="excerpt">
+        "In a building where seven languages were spoken, silence had become the only shared one."
+      </p>
+      <p style="font-size:0.9rem;color:var(--text-muted);margin-top:0.75rem">
+        A brief portrait of an apartment block in Bucharest, and the life that passes between floors.
+      </p>
+    </div>
+  </div>
+  <footer>
+    <span class="footer-wordmark">Stories From Abroad</span>
+    <div class="footer-links">
+      <a onclick="showPage('home')">Home</a>
+      <a onclick="openModal()">Subscribe</a>
+    </div>
+    <hr>
+    <p class="footer-copy">© 2025 Stories From Abroad</p>
+  </footer>
+</div>
+
+<!-- TRAVEL -->
+<div id="page-travel" class="page">
+  <div class="page-header">
+    <span class="section-label">Field Notes</span>
+    <h1>Travel</h1>
+    <p>Writing from the road — honest accounts of getting somewhere</p>
+  </div>
+  <div class="travel-feed">
+    <div class="travel-entry" onclick="showPage('articles')">
+      <div class="travel-date-col">
+        <span class="month">Nov</span>
+        <span class="year">2025</span>
+      </div>
+      <div class="travel-entry-body">
+        <div class="travel-location">◈ Tbilisi, Georgia</div>
+        <h2>The City That Refused to Be Ruined</h2>
+        <p>On the strange grace of a place that has absorbed invasion, Soviet modernism, and a thousand years of earthquake without losing its particular warmth.</p>
+        <div class="travel-thumb">◎</div>
+      </div>
+    </div>
+    <div class="travel-entry" onclick="showPage('articles')">
+      <div class="travel-date-col">
+        <span class="month">Sep</span>
+        <span class="year">2025</span>
+      </div>
+      <div class="travel-entry-body">
+        <div class="travel-location">◈ Alentejo, Portugal</div>
+        <h2>Slow Country</h2>
+        <p>A week in the interior of Portugal, where the heat is serious and the wine is generous and almost nothing happens — which turns out to be the point.</p>
+        <div class="travel-thumb">◎</div>
+      </div>
+    </div>
+    <div class="travel-entry" onclick="showPage('articles')">
+      <div class="travel-date-col">
+        <span class="month">Feb</span>
+        <span class="year">2025</span>
+      </div>
+      <div class="travel-entry-body">
+        <div class="travel-location">◈ Chiang Mai, Thailand</div>
+        <h2>Learning to Eat Alone</h2>
+        <p>Notes on solo dining, on the particular loneliness of eating well without anyone to tell, and on the markets that taught me how to want less.</p>
+      </div>
+    </div>
+  </div>
+  <footer>
+    <span class="footer-wordmark">Stories From Abroad</span>
+    <div class="footer-links">
+      <a onclick="showPage('home')">Home</a>
+      <a onclick="openModal()">Subscribe</a>
+    </div>
+    <hr>
+    <p class="footer-copy">© 2025 Stories From Abroad</p>
+  </footer>
+</div>
+
+<!-- PREFERENCES CENTER -->
+<div id="page-preferences" class="page">
+  <div class="container">
+    <div style="padding-top:5rem">
+      <span class="section-label">Subscriber Portal</span>
+      <h1 style="font-family:'Playfair Display',serif;font-size:2rem;font-weight:400;margin-bottom:0.5rem">Your Preferences</h1>
+      <p style="font-style:italic;color:var(--text-muted);margin-bottom:2.5rem">Manage your subscription to Stories From Abroad</p>
+    </div>
+    <div class="prefs-card">
+      <h2 style="font-family:'Playfair Display',serif;font-size:1.4rem;font-weight:400;margin-bottom:0.3rem">Dispatch Preferences</h2>
+      <p style="font-size:0.92rem;color:var(--text-muted);margin-bottom:1.75rem;font-style:italic">Choose which updates you'd like to receive.</p>
+      <span class="pref-label">I'd like to hear about</span>
+      <div class="checkboxes">
+        <label class="checkbox-row"><input type="checkbox" checked><span>All updates</span></label>
+        <label class="checkbox-row"><input type="checkbox" checked><span>Articles &amp; Op-Eds</span></label>
+        <label class="checkbox-row"><input type="checkbox"><span>Photography</span></label>
+        <label class="checkbox-row"><input type="checkbox" checked><span>Short Stories</span></label>
+        <label class="checkbox-row"><input type="checkbox"><span>Travel</span></label>
+      </div>
+      <button class="btn-solid" style="width:100%">Save Preferences</button>
+      <div class="danger-zone">
+        <p style="font-size:0.88rem;color:var(--text-muted);margin-bottom:1rem;font-style:italic">To stop receiving all emails from Stories From Abroad:</p>
+        <button class="btn-danger">Unsubscribe completely</button>
+      </div>
+    </div>
+  </div>
+  <footer>
+    <span class="footer-wordmark">Stories From Abroad</span>
+    <div class="footer-links">
+      <a onclick="showPage('home')">Home</a>
+    </div>
+    <hr>
+    <p class="footer-copy">© 2025 Stories From Abroad</p>
+  </footer>
+</div>
+
+<!-- ADMIN DASHBOARD -->
+<div id="page-admin" class="page">
+  <div class="container">
+    <div style="padding-top:5rem">
+      <span class="section-label">Admin · Private</span>
+      <h1 style="font-family:'Playfair Display',serif;font-size:2rem;font-weight:400;margin-bottom:1.5rem">Dashboard</h1>
+      <div class="admin-warning">
+        🔒 You are viewing the private admin area. This page is only visible to authenticated editors.
+      </div>
+    </div>
+
+    <h2 style="font-family:'Playfair Display',serif;font-size:1.2rem;font-weight:500;margin-bottom:1rem">Subscriber Overview</h2>
+    <div class="admin-grid">
+      <div class="stat-card"><span class="number">247</span><span class="label">Total Subscribers</span></div>
+      <div class="stat-card"><span class="number">189</span><span class="label">Confirmed</span></div>
+      <div class="stat-card"><span class="number">142</span><span class="label">Articles</span></div>
+      <div class="stat-card"><span class="number">98</span><span class="label">Photography</span></div>
+      <div class="stat-card"><span class="number">110</span><span class="label">Stories</span></div>
+      <div class="stat-card"><span class="number">134</span><span class="label">Travel</span></div>
+    </div>
+
+    <div class="email-composer">
+      <h3>Send Notification Email</h3>
+      <div class="form-group">
+        <label class="form-label">Post Title</label>
+        <input type="text" class="form-input" placeholder="New Story from Abroad — ">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Short Preview</label>
+        <textarea class="form-input" placeholder="A brief excerpt or description to entice readers..."></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Post URL</label>
+        <input type="text" class="form-input" placeholder="https://storiesfromabroad.com/articles/...">
+      </div>
+      <span class="pref-label" style="margin-top:0.5rem">Send To</span>
+      <div class="audience-checks">
+        <label class="checkbox-row"><input type="checkbox" checked><span>All subscribers</span></label>
+        <label class="checkbox-row"><input type="checkbox"><span>Articles</span></label>
+        <label class="checkbox-row"><input type="checkbox"><span>Photography</span></label>
+        <label class="checkbox-row"><input type="checkbox"><span>Stories</span></label>
+        <label class="checkbox-row"><input type="checkbox"><span>Travel</span></label>
+      </div>
+      <button class="btn-solid">Send Email Notification</button>
+    </div>
+    <div style="padding-bottom:5rem"></div>
+  </div>
+  <footer>
+    <span class="footer-wordmark">Stories From Abroad</span>
+    <hr>
+    <p class="footer-copy">© 2025 Stories From Abroad · Admin</p>
+  </footer>
+</div>
+
+<!-- ═══ SUBSCRIBE MODAL ═══════════════════════════════════════ -->
+<div class="modal-overlay" id="subscribe-modal" onclick="closeModalOnOverlay(event)">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()">✕ Close</button>
+    <div id="modal-form-view">
+      <div class="ornament" style="margin:0 0 1.5rem;justify-content:flex-start">
+        <span style="color:var(--green);font-size:1rem">❧</span>
+        <div style="flex:0;height:1px;width:40px;background:var(--rule)"></div>
+      </div>
+      <h2>Subscribe to<br><em style="font-family:'Playfair Display',serif">Dispatches</em></h2>
+      <p class="modal-sub">No algorithms. No advertising. Just writing, when it's ready — delivered directly to you.</p>
+      <div class="form-group">
+        <label class="form-label">Email Address *</label>
+        <input type="email" class="form-input" id="sub-email" placeholder="your@email.com">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Name (Optional)</label>
+        <input type="text" class="form-input" id="sub-name" placeholder="How shall I address you?">
+      </div>
+      <span class="pref-label">I'm interested in</span>
+      <div class="checkboxes">
+        <label class="checkbox-row"><input type="checkbox" id="pref-all" checked><span>All updates</span></label>
+        <label class="checkbox-row"><input type="checkbox" id="pref-articles"><span>Articles &amp; Op-Eds</span></label>
+        <label class="checkbox-row"><input type="checkbox" id="pref-photo"><span>Photography</span></label>
+        <label class="checkbox-row"><input type="checkbox" id="pref-stories"><span>Short Stories</span></label>
+        <label class="checkbox-row"><input type="checkbox" id="pref-travel"><span>Travel</span></label>
+      </div>
+      <button class="btn-ghost" style="width:100%" onclick="submitSubscribe()">Subscribe to the Letter</button>
+    </div>
+    <div class="modal-success" id="modal-success-view">
+      <div class="check">✦</div>
+      <h3>Welcome Aboard</h3>
+      <p>A confirmation email is on its way.<br>Check your inbox to complete your subscription.</p>
+      <div style="margin-top:2rem">
+        <div class="ornament">❧</div>
+        <p style="font-size:0.88rem;color:var(--text-muted)">You can manage your preferences at any time via the link in each email.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ LIGHTBOX ═════════════════════════════════════════════ -->
+<div class="lightbox" id="lightbox">
+  <button class="lightbox-close" onclick="closeLightbox()">✕ Close</button>
+  <button class="lightbox-nav lightbox-prev" onclick="lightboxNav(-1)">‹</button>
+  <button class="lightbox-nav lightbox-next" onclick="lightboxNav(1)">›</button>
+  <div class="lightbox-placeholder" id="lightbox-img">◎</div>
+  <p class="lightbox-caption" id="lightbox-caption">The Green Door · Tbilisi, Georgia</p>
+</div>
+
+<!-- ═══ JAVASCRIPT ════════════════════════════════════════════ -->
+<script>
+  // ════════════════════════════════════════════════════════
+  // ✏️  CONTENT — Edit all your site text right here
+  // ════════════════════════════════════════════════════════
+  const CONTENT = {
+
+    site: {
+      name:       "Stories From Abroad",
+      tagline:    "Essays, images, and fiction from somewhere else. A private letter, published.",
+      established:"Est. 2025 · Dispatches from the World",
+      copyright:  "© 2025 Stories From Abroad · All rights reserved",
+    },
+
+    hero: {
+      eyebrow:    "Est. 2025 · Dispatches from the World",
+      titleLine1: "Stories",
+      titleLine2: "From Abroad",             // rendered in italic green
+      subtitle:   "Writing, photography, and reflection from the margins of the map. Essays, fictions, and the kind of observations that only distance makes possible.",
+      ctaPrimary: "Subscribe to the Letter",
+      ctaSecondary: "Read the Story",
+    },
+
+    about: {
+      name:       "The Author & the Project",
+      tagline:    "Writing from the spaces between belonging.",
+      // Each string becomes its own paragraph. First paragraph gets a drop cap.
+      paragraphs: [
+        "There is a particular clarity that comes from being foreign — from navigating a city whose signs you cannot read, a conversation whose subtext escapes you, a ceremony whose meaning you must ask someone to explain. This project was born in that discomfort, and in the conviction that such discomfort is worth documenting.",
+        "Stories From Abroad is a personal dispatch — part literary journal, part field notebook. It exists in the tradition of writers who believed that observation, if patient enough, becomes a form of understanding. It is not journalism, exactly. It is not memoir, quite. It is something in between: witnessed and imagined, reported and felt.",
+        "The photography is shot on film where possible. The essays take as long as they need to. The fiction draws on real places and invented people. Each section has its own logic, but they share a common conviction: that the world is worth paying attention to.",
+        "Academically, the work is informed by studies in international relations and political economy — a framework that colours how power and place are understood in these pages, even when the subject is something as small as a shared meal or a missed train.",
+        "If you've found your way here, you're warmly invited to stay. Subscribe to receive dispatches when new work is published — no algorithms, no advertising. Just writing, when it's ready.",
+      ],
+      credentials: [
+        { label: "Education",     value: "University of Edinburgh",  sub: "MA, International Relations" },
+        { label: "Based In",      value: "Nomadic",                  sub: "Currently: Lisbon, PT"       },
+        { label: "Writing Since", value: "2019",                     sub: ""                            },
+      ],
+    },
+
+    subscribe: {
+      heading:    "Subscribe to Dispatches",
+      subtext:    "No algorithms. No advertising. Just writing, when it's ready — delivered directly to you.",
+      namePlaceholder:  "How shall I address you?",
+      emailPlaceholder: "your@email.com",
+      buttonText: "Subscribe to the Letter",
+      successHeading: "Welcome Aboard",
+      successBody:    "A confirmation email is on its way.\nCheck your inbox to complete your subscription.",
+      successNote:    "You can manage your preferences at any time via the link in each email.",
+    },
+
+    sections: {
+      articles:    { heading: "Articles & Op-Eds",  desc: "Essays, criticism, and analysis from the field" },
+      photography: { heading: "Photography",        desc: "Collections and single frames from the field" },
+      stories:     { heading: "Short Stories",      desc: "Original fiction rooted in real geographies" },
+      travel:      { heading: "Travel",             desc: "Writing from the road — honest accounts of getting somewhere" },
+    },
+
+    // ── Articles ──────────────────────────────────────────
+    articles: [
+      {
+        id: "1",
+        tag: "Essay",
+        date: "14 November 2025",
+        title: "On Belonging Nowhere in Particular",
+        subtitle: "What a decade of movement teaches you about home",
+        excerpt: "What a decade of movement teaches you about home — and why the absence of a fixed address can be its own kind of rootedness.",
+        readtime: "12 min read",
+      },
+      {
+        id: "2",
+        tag: "Op-Ed",
+        date: "3 October 2025",
+        title: "The Myth of the Authentic Experience",
+        subtitle: "Tourism has always been a form of performance",
+        excerpt: "Tourism has always been a form of performance. The real question is: who is performing for whom?",
+        readtime: "8 min read",
+      },
+      {
+        id: "3",
+        tag: "Essay",
+        date: "18 August 2025",
+        title: "What the Markets Know That We've Forgotten",
+        subtitle: "On the political economy of a vegetable",
+        excerpt: "From the souks of Marrakesh to the wet markets of Chiang Mai, on the political economy of a vegetable and what it reveals about a place.",
+        readtime: "15 min read",
+      },
+    ],
+
+    // ── Stories ───────────────────────────────────────────
+    stories: [
+      {
+        id: "1",
+        date: "2 December 2025",
+        title: "The Interpreter",
+        openingQuote: "She had translated so many other people's urgencies that she had, over the years, lost the ability to identify her own.",
+        desc: "A story set across three cities: Beirut, Oslo, and a room above a laundromat in the 18th arrondissement.",
+        readtime: "22 min read",
+      },
+      {
+        id: "2",
+        date: "15 October 2025",
+        title: "A Very Small Inheritance",
+        openingQuote: "He had inherited, from a grandfather he'd never met, a watch that didn't keep time and an address in a city that no longer existed under that name.",
+        desc: "On legacy, displacement, and the objects we carry across borders.",
+        readtime: "14 min read",
+      },
+      {
+        id: "3",
+        date: "7 August 2025",
+        title: "What the Neighbor Knew",
+        openingQuote: "In a building where seven languages were spoken, silence had become the only shared one.",
+        desc: "A brief portrait of an apartment block in Bucharest, and the life that passes between floors.",
+        readtime: "9 min read",
+      },
+    ],
+
+    // ── Travel ────────────────────────────────────────────
+    travel: [
+      {
+        month: "Nov", year: "2025",
+        location: "Tbilisi, Georgia",
+        title: "The City That Refused to Be Ruined",
+        body: "On the strange grace of a place that has absorbed invasion, Soviet modernism, and a thousand years of earthquake without losing its particular warmth.",
+        hasPhoto: true,
+      },
+      {
+        month: "Sep", year: "2025",
+        location: "Alentejo, Portugal",
+        title: "Slow Country",
+        body: "A week in the interior of Portugal, where the heat is serious and the wine is generous and almost nothing happens — which turns out to be the point.",
+        hasPhoto: true,
+      },
+      {
+        month: "Feb", year: "2025",
+        location: "Chiang Mai, Thailand",
+        title: "Learning to Eat Alone",
+        body: "Notes on solo dining, on the particular loneliness of eating well without anyone to tell, and on the markets that taught me how to want less.",
+        hasPhoto: false,
+      },
+    ],
+
+    // ── Photography ───────────────────────────────────────
+    gallery: [
+      { caption: "The Green Door · Tbilisi, Georgia — October 2025",       color: "linear-gradient(135deg,#2C3E2D,#4A6741)" },
+      { caption: "Morning Prayer · Fez, Morocco — July 2025",              color: "linear-gradient(135deg,#3D3328,#6B5540)" },
+      { caption: "January Ferry · Piraeus, Greece — January 2025",         color: "linear-gradient(135deg,#243040,#3D5A7A)" },
+      { caption: "The Barber · Palermo, Italy — March 2025",               color: "linear-gradient(135deg,#3A2C22,#7A5A3E)" },
+      { caption: "Harvest Season · Alentejo, Portugal — September 2025",   color: "linear-gradient(135deg,#1E2E1A,#3D5A30)" },
+      { caption: "Dusk Market · Chiang Mai, Thailand — February 2025",     color: "linear-gradient(135deg,#2A2030,#5A4070)" },
+    ],
+
+  };
+  // ════════════════════════════════════════════════════════
+  // End of CONTENT config
+  // ════════════════════════════════════════════════════════
+
+  // ─ Navigation Scroll ─
+  const nav = document.getElementById('main-nav');
+  window.addEventListener('scroll', () => {
+    nav.classList.toggle('scrolled', window.scrollY > 30);
+  });
+
+  // ─ Page System ─
+  let currentPage = 'home';
+  function showPage(id) {
+    const pages = document.querySelectorAll('.page');
+    pages.forEach(p => {
+      p.classList.remove('active', 'visible');
+    });
+    const next = document.getElementById('page-' + id);
+    if (!next) return;
+    next.classList.add('active');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setTimeout(() => next.classList.add('visible'), 40);
+    currentPage = id;
+  }
+
+  // Activate first page
+  setTimeout(() => {
+    document.getElementById('page-home').classList.add('visible');
+  }, 40);
+
+  // ─ Article navigation ─
+  const articles = {
+    '1': { tag:'Essay', date:'14 November 2025', title:'On Belonging Nowhere in Particular', subtitle:'What a decade of movement teaches you about home', readtime:'12 min read' },
+    '2': { tag:'Op-Ed', date:'3 October 2025', title:'The Myth of the Authentic Experience', subtitle:'Tourism has always been a form of performance', readtime:'8 min read' },
+    '3': { tag:'Essay', date:'18 August 2025', title:'What the Markets Know That We\'ve Forgotten', subtitle:'On the political economy of a vegetable', readtime:'15 min read' },
+  };
+  function showArticle(id) {
+    const a = articles[id];
+    if (!a) return;
+    document.getElementById('article-tag').textContent = a.tag;
+    document.getElementById('article-date').textContent = a.date;
+    document.getElementById('article-title').textContent = a.title;
+    document.getElementById('article-subtitle').textContent = a.subtitle;
+    document.getElementById('article-readtime').textContent = a.readtime;
+    showPage('article-single');
+  }
+
+  function showStory(id) { showPage('article-single'); }
+
+  // ─ Gallery Layout ─
+  function setGalleryLayout(cols) {
+    const grid = document.getElementById('gallery-grid');
+    grid.className = 'gallery-grid cols-' + cols;
+    document.querySelectorAll('.layout-btn').forEach((btn, i) => {
+      btn.classList.toggle('active', i === cols - 1);
+    });
+  }
+
+  // ─ Lightbox ─
+  const galleryData = [
+    { caption: 'The Green Door · Tbilisi, Georgia — October 2025' },
+    { caption: 'Morning Prayer · Fez, Morocco — July 2025' },
+    { caption: 'January Ferry · Piraeus, Greece — January 2025' },
+    { caption: 'The Barber · Palermo, Italy — March 2025' },
+    { caption: 'Harvest Season · Alentejo, Portugal — September 2025' },
+    { caption: 'Dusk Market · Chiang Mai, Thailand — February 2025' },
+  ];
+  let lightboxIndex = 0;
+
+  function openLightbox(i) {
+    lightboxIndex = i;
+    updateLightbox();
+    document.getElementById('lightbox').classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeLightbox() {
+    document.getElementById('lightbox').classList.remove('open');
+    document.body.style.overflow = '';
+  }
+  function lightboxNav(dir) {
+    lightboxIndex = (lightboxIndex + dir + galleryData.length) % galleryData.length;
+    updateLightbox();
+  }
+  function updateLightbox() {
+    document.getElementById('lightbox-caption').textContent = galleryData[lightboxIndex].caption;
+  }
+  document.getElementById('lightbox').addEventListener('click', function(e) {
+    if (e.target === this) closeLightbox();
+  });
+  document.addEventListener('keydown', e => {
+    if (document.getElementById('lightbox').classList.contains('open')) {
+      if (e.key === 'Escape') closeLightbox();
+      if (e.key === 'ArrowLeft') lightboxNav(-1);
+      if (e.key === 'ArrowRight') lightboxNav(1);
+    }
+  });
+
+  // ─ Subscribe Modal ─
+  function openModal() {
+    document.getElementById('subscribe-modal').classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeModal() {
+    document.getElementById('subscribe-modal').classList.remove('open');
+    document.body.style.overflow = '';
+    setTimeout(() => {
+      document.getElementById('modal-form-view').style.display = '';
+      document.getElementById('modal-success-view').style.display = 'none';
+    }, 300);
+  }
+  function closeModalOnOverlay(e) {
+    if (e.target === document.getElementById('subscribe-modal')) closeModal();
+  }
+  function submitSubscribe() {
+    const email = document.getElementById('sub-email').value.trim();
+    if (!email || !email.includes('@')) {
+      document.getElementById('sub-email').style.borderColor = '#8B2020';
+      document.getElementById('sub-email').focus();
+      return;
+    }
+    document.getElementById('modal-form-view').style.display = 'none';
+    document.getElementById('modal-success-view').style.display = 'block';
+  }
+</script>
+</body>
+</html>
