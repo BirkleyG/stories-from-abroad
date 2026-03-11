@@ -4,13 +4,13 @@ import "../styles/photography.css";
 export interface Props {
   title: string;
   description?: string;
-  activePage?: string;
+  navLabel?: string;
 }
 
 const {
   title,
   description = "Stories From Abroad photography",
-  activePage = ""
+  navLabel = "Photography"
 } = Astro.props;
 
 const base = import.meta.env.BASE_URL ?? "/";
@@ -33,13 +33,9 @@ const basePath = base.endsWith("/") ? base : `${base}/`;
 </head>
 <body>
   <nav class="nav">
-    <a class="nav-logo" href={basePath}>SFA</a>
+    <a class="nav-back" href={basePath}>&larr; Back</a>
     <div class="nav-right">
-      <a class="nav-link" href={`${basePath}read-the-story/`} data-active={activePage === "about" ? "" : undefined}>About</a>
-      <a class="nav-link" href={`${basePath}selected-papers/`} data-active={activePage === "articles" ? "" : undefined}>Articles</a>
-      <a class="nav-link" href={`${basePath}photography/`} data-active={activePage === "photography" ? "" : undefined}>Photography</a>
-      <a class="nav-link" href={`${basePath}faces-of-the-world/`} data-active={activePage === "faces" ? "" : undefined}>Faces</a>
-      <a class="nav-link" href={`${basePath}travel-stories/`} data-active={activePage === "travel" ? "" : undefined}>Travel</a>
+      <span class="nav-label">{navLabel}</span>
       <div class="nav-dot"></div>
     </div>
   </nav>

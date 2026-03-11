@@ -5,7 +5,12 @@ const base = import.meta.env.BASE_URL ?? "/";
 const basePath = base.endsWith("/") ? base : `${base}/`;
 ---
 
-<BaseLayout title="Read the Story" description="The author and the project.">
+<BaseLayout
+  title="Read the Story"
+  description="The author and the project."
+  navMode="single"
+  navLabel="About"
+>
   <section class="page-header">
     <span class="section-label">About</span>
     <h1>Read the Story</h1>

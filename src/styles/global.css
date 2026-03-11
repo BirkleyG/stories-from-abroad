@@ -125,6 +125,33 @@ body.theme-papers .site-nav.scrolled {
   color: var(--green);
 }
 
+.nav-back {
+  font-family: var(--font-sc);
+  font-size: 0.62rem;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--green);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.nav-single-right {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 1.6rem;
+}
+
+.nav-single-label {
+  font-family: var(--font-sc);
+  font-size: 0.62rem;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--text-mid);
+}
+
 .nav-links {
   display: flex;
   gap: 2rem;

@@ -76,6 +76,17 @@ body::after {
   border-bottom: 1px solid var(--g2);
 }
 
+.nav-back {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  color: var(--g5);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .nav::after {
   content: "";
   position: absolute;
@@ -87,33 +98,18 @@ body::after {
   opacity: 0.55;
 }
 
-.nav-logo {
-  font-family: var(--font-display);
-  font-size: 17px;
-  letter-spacing: 5px;
-  color: var(--w);
-  cursor: pointer;
-}
-
 .nav-right {
   display: flex;
   gap: 28px;
   align-items: center;
 }
 
-.nav-link {
-  font-family: var(--font-mono);
-  font-size: 9px;
-  letter-spacing: 2.5px;
-  text-transform: uppercase;
-  color: var(--g5);
-  cursor: pointer;
-  transition: color 0.2s;
-}
-
-.nav-link:hover,
-.nav-link[data-active] {
+.nav-label {
+  font-family: var(--font-display);
+  font-size: 16px;
+  letter-spacing: 4px;
   color: var(--w);
+  text-transform: uppercase;
 }
 
 .nav-dot {
