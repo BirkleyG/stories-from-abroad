@@ -554,10 +554,11 @@ body.theme-papers .site-nav.scrolled {
 }
 
 .site-footer {
-  padding: 2.5rem 2rem 3rem;
+  padding: 3rem 2rem 3.5rem;
   text-align: center;
-  border-top: 1px solid var(--rule);
-  background: var(--bg);
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  background: radial-gradient(circle at top, #2c5a3e 0%, #1b3a28 55%, #142a1f 100%);
+  color: #f3ede2;
 }
 
 .footer-wordmark {
@@ -565,7 +566,7 @@ body.theme-papers .site-nav.scrolled {
   font-size: 0.75rem;
   letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: var(--green);
+  color: #f3ede2;
   display: block;
   margin-bottom: 0.5rem;
 }
@@ -578,7 +579,7 @@ body.theme-papers .site-nav.scrolled {
   font-size: 0.68rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--text-muted);
+  color: rgba(243, 237, 226, 0.75);
   margin-bottom: 1rem;
 }
 
@@ -588,14 +589,14 @@ body.theme-papers .site-nav.scrolled {
 
 .site-footer hr {
   border: none;
-  border-top: 1px solid var(--rule);
+  border-top: 1px solid rgba(243, 237, 226, 0.25);
   margin: 1.2rem auto;
   max-width: 420px;
 }
 
 .footer-copy {
   font-size: 0.85rem;
-  color: var(--text-muted);
+  color: rgba(243, 237, 226, 0.75);
 }
 
 @keyframes fadeUp {
