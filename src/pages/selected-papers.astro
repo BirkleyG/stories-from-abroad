@@ -20,12 +20,12 @@ const basePath = base.endsWith("/") ? base : `${base}/`;
         --ink: #111110;
         --ink2: #2e2c28;
         --ink3: #7a7570;
-        --green: #c4922a;
-        --green2: #d9a83e;
-        --gold: #c4922a;
-        --gold2: #d9a83e;
-        --gold3: #a67820;
-        --border: #e2ddd4;
+        --green: #c79a33;
+        --green2: #dfb35a;
+        --gold: #c79a33;
+        --gold2: #dfb35a;
+        --gold3: #b07d20;
+        --border: #e7e0d4;
         --nav-h: 58px;
       }
       *,
@@ -510,20 +510,22 @@ const basePath = base.endsWith("/") ? base : `${base}/`;
       }
 
       .search-bar {
-        display: grid;
-        grid-template-columns: 1fr auto auto auto;
-        gap: 12px;
+        display: flex;
         align-items: center;
         background: var(--white);
         border: 1px solid var(--border);
+        border-radius: 999px;
+        overflow: hidden;
         margin-bottom: 22px;
       }
       .s-wrap {
         display: flex;
         align-items: center;
         gap: 10px;
-        padding: 14px 16px;
+        padding: 14px 18px;
         color: var(--ink3);
+        flex: 1;
+        min-height: 54px;
       }
       .s-input {
         border: none;
@@ -534,22 +536,22 @@ const basePath = base.endsWith("/") ? base : `${base}/`;
         background: transparent;
       }
       .s-sep {
-        width: 1px;
-        height: 28px;
-        background: var(--border);
+        display: none;
       }
       .f-sel {
         border: none;
         outline: none;
-        padding: 16px 16px;
+        padding: 0 18px;
         font-family: "Cormorant Garamond", serif;
         font-size: 11px;
         letter-spacing: 0.2em;
         text-transform: uppercase;
         color: var(--ink3);
         background: transparent;
-        min-width: 140px;
+        min-width: 150px;
         cursor: pointer;
+        height: 54px;
+        border-left: 1px solid var(--border);
       }
 
       .papers-list {
@@ -1040,7 +1042,7 @@ const basePath = base.endsWith("/") ? base : `${base}/`;
           max-width: 80%;
         }
         .author-content {
-          padding: 72px 40px 72px 38%;
+          padding: 72px 40px 72px 4%;
         }
         .lib-ink {
           width: 75%;
@@ -1057,6 +1059,16 @@ const basePath = base.endsWith("/") ? base : `${base}/`;
         }
         .feat-ghost {
           font-size: 140px;
+        }
+        .search-bar {
+          flex-direction: column;
+          align-items: stretch;
+          border-radius: 18px;
+        }
+        .f-sel {
+          border-left: none;
+          border-top: 1px solid var(--border);
+          min-width: 100%;
         }
         .paper-row {
           grid-template-columns: 36px 1fr;
@@ -1528,42 +1540,45 @@ const basePath = base.endsWith("/") ? base : `${base}/`;
       <div class="ov-body" id="ov-body"></div>
     </div>
 
+    <script>
+      (function () {
+        const lines = [
+          "Essays, notes, and arguments -- attempts to understand the world a little better.",
+          "Some academic. Some speculative. All written in good faith.",
+          "Written across years of travel, study, and careful attention.",
+          "A scholar's desk, left open.",
+        ];
+        let li = 0;
+        let ci = 0;
+        let del = false;
+        const twEl = document.getElementById("tw-el");
+        if (!twEl) return;
+        twEl.textContent = lines[0];
+        function tick() {
+          const s = lines[li];
+          if (!del) {
+            twEl.textContent = s.slice(0, ++ci);
+            if (ci === s.length) {
+              del = true;
+              setTimeout(tick, 2800);
+              return;
+            }
+          } else {
+            twEl.textContent = s.slice(0, --ci);
+            if (ci === 0) {
+              del = false;
+              li = (li + 1) % lines.length;
+            }
+          }
+          setTimeout(tick, del ? 14 : 46);
+        }
+        setTimeout(tick, 1400);
+      })();
+    </script>
     <script type="module">
       import { collection, getDocs } from "firebase/firestore";
       import { db, firestoreReady } from "../lib/firebaseClient";
       import { fallbackPapers } from "../lib/fallbackData";
-
-      const lines = [
-        "Essays, notes, and arguments -- attempts to understand the world a little better.",
-        "Some academic. Some speculative. All written in good faith.",
-        "Written across years of travel, study, and careful attention.",
-        "A scholar's desk, left open.",
-      ];
-
-      let li = 0;
-      let ci = 0;
-      let del = false;
-      const twEl = document.getElementById("tw-el");
-
-      function tick() {
-        const s = lines[li];
-        if (!del) {
-          twEl.textContent = s.slice(0, ++ci);
-          if (ci === s.length) {
-            del = true;
-            setTimeout(tick, 2800);
-            return;
-          }
-        } else {
-          twEl.textContent = s.slice(0, --ci);
-          if (ci === 0) {
-            del = false;
-            li = (li + 1) % lines.length;
-          }
-        }
-        setTimeout(tick, del ? 14 : 46);
-      }
-      setTimeout(tick, 1400);
 
       const state = {
         papers: [],
