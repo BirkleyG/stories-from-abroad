@@ -1,0 +1,110 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+
+const base = import.meta.env.BASE_URL ?? "/";
+const basePath = base.endsWith("/") ? base : `${base}/`;
+---
+
+<BaseLayout title="Read the Story" description="The author and the project.">
+  <section class="page-header">
+    <span class="section-label">About</span>
+    <h1>Read the Story</h1>
+    <p>The author and the project behind Stories From Abroad.</p>
+  </section>
+
+  <section class="about-wrap">
+    <div class="container-wide">
+      <div class="about-grid">
+        <div class="about-portrait">
+          <div class="portrait-frame">
+            <div class="portrait-placeholder">Portrait Placeholder</div>
+          </div>
+        </div>
+        <div class="about-body">
+          <h2>The Author and the Project</h2>
+          <p>
+            There is a particular clarity that comes from being foreign, from navigating a city whose
+            signs you cannot read, a conversation whose subtext escapes you, a ceremony whose meaning
+            you must ask someone to explain. This project was born in that discomfort, and in the
+            conviction that such discomfort is worth documenting.
+          </p>
+          <p>
+            Stories From Abroad is a personal dispatch, part literary journal, part field notebook. It
+            exists in the tradition of writers who believed that observation, if patient enough, becomes
+            a form of understanding. It is not journalism, exactly. It is not memoir, quite. It is
+            something in between: witnessed and imagined, reported and felt.
+          </p>
+          <p>
+            The photography is shot on film where possible. The essays take as long as they need to.
+            Each section has its own logic, but they share a common conviction: that the world is worth
+            paying attention to.
+          </p>
+          <p>
+            If you have found your way here, you are warmly invited to stay. Subscribe to receive
+            dispatches when new work is published. No algorithms, no advertising. Just writing, when
+            it is ready.
+          </p>
+          <div class="about-cta">
+            <button class="btn-ghost" type="button" data-modal-open="subscribe">Subscribe</button>
+            <a class="btn-solid" href={`${basePath}selected-papers/`}>Read the Papers</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <style>
+    .about-wrap {
+      padding: 4rem 0 6rem;
+    }
+
+    .about-grid {
+      display: grid;
+      grid-template-columns: minmax(240px, 320px) 1fr;
+      gap: 3.5rem;
+      align-items: start;
+    }
+
+    .portrait-frame {
+      border: 1px solid var(--rule);
+      padding: 0.8rem;
+      background: var(--bg-warm);
+    }
+
+    .portrait-placeholder {
+      background: linear-gradient(135deg, var(--bg-dark), var(--bg-warm));
+      aspect-ratio: 3 / 4;
+      display: grid;
+      place-items: center;
+      font-family: var(--font-sc);
+      font-size: 0.65rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    .about-body h2 {
+      font-family: var(--font-title);
+      font-size: clamp(1.8rem, 3.6vw, 2.8rem);
+      margin-bottom: 1rem;
+    }
+
+    .about-body p {
+      margin-bottom: 1.2rem;
+      color: var(--text-mid);
+    }
+
+    .about-cta {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-top: 1.5rem;
+    }
+
+    @media (max-width: 900px) {
+      .about-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</BaseLayout>

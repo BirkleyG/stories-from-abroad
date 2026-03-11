@@ -23,43 +23,110 @@ const basePath = base.endsWith("/") ? base : `${base}/`;
       published.
     </p>
     <div class="hero-cta">
-      <a class="btn-solid" href={`${basePath}selected-papers/`}>Read the Papers</a>
-      <a class="btn-ghost" href={`${basePath}travel-stories/`}>Travel Stories</a>
+      <a class="btn-solid" href={`${basePath}read-the-story/`}>Read the Story</a>
+      <button class="btn-ghost" type="button" data-modal-open="subscribe">Subscribe</button>
     </div>
   </section>
 
   <section class="home-previews">
     <div class="container">
-      <span class="section-label">Sections</span>
-      <h2 class="hero-title" style="font-size:clamp(2rem,5vw,3rem);margin-bottom:0.5rem;">
-        The Library
-      </h2>
-      <p style="color:var(--text-muted);max-width:520px;margin:0 auto;">
-        Four rooms, four ways of paying attention.
-      </p>
+      <span class="section-label">What you will find here</span>
+      <h2 class="home-title">Four Ways of Seeing</h2>
     </div>
 
-    <div class="previews-grid">
-      <a class="preview-card" href={`${basePath}selected-papers/`}>
-        <span class="preview-icon">&#10022;</span>
-        <h3>Selected Papers &amp; Op-Eds</h3>
-        <p>Essays, criticism, and analysis from the field.</p>
+    <div class="four-grid">
+      <a class="four-card" href={`${basePath}selected-papers/`}>
+        <div class="four-line"></div>
+        <div class="four-icon">&#10022;</div>
+        <h3>Articles &amp; Op-Eds</h3>
+        <p>Long-form essays, cultural criticism, and analysis from far-flung vantage points.</p>
       </a>
-      <a class="preview-card" href={`${basePath}photography/`}>
-        <span class="preview-icon">&#9671;</span>
+      <a class="four-card" href={`${basePath}photography/`}>
+        <div class="four-line"></div>
+        <div class="four-icon">&#9675;</div>
         <h3>Photography</h3>
-        <p>Collections and single frames from the road.</p>
+        <p>Visual stories, collections from the places words alone cannot quite reach.</p>
       </a>
-      <a class="preview-card" href={`${basePath}travel-stories/`}>
-        <span class="preview-icon">&#9670;</span>
-        <h3>Travel Stories</h3>
-        <p>Writing from the road, honest accounts of getting somewhere.</p>
-      </a>
-      <a class="preview-card" href={`${basePath}faces-of-the-world/`}>
-        <span class="preview-icon">&#10020;</span>
+      <a class="four-card" href={`${basePath}faces-of-the-world/`}>
+        <div class="four-line"></div>
+        <div class="four-icon">&#9672;</div>
         <h3>Faces of the World</h3>
         <p>Portraits and short notes from people met along the way.</p>
       </a>
+      <a class="four-card" href={`${basePath}travel-stories/`}>
+        <div class="four-line"></div>
+        <div class="four-icon">&#9671;</div>
+        <h3>Travel</h3>
+        <p>Field notes, reflections, and honest accounts from the road.</p>
+      </a>
     </div>
   </section>
+
+  <style>
+    .home-previews {
+      background: linear-gradient(180deg, #f4eee4 0%, #efe6d8 70%, #1b3a28 71%, #1b3a28 100%);
+      padding: 5rem 2rem 8rem;
+    }
+
+    .home-title {
+      font-family: var(--font-title);
+      font-size: clamp(2.2rem, 4vw, 3.4rem);
+      font-weight: 500;
+      text-align: center;
+      margin: 0.6rem 0 2.5rem;
+    }
+
+    .four-grid {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 2.5rem;
+      text-align: center;
+    }
+
+    .four-card {
+      text-decoration: none;
+      color: inherit;
+      padding: 1rem 0.6rem;
+    }
+
+    .four-line {
+      width: 90%;
+      height: 1px;
+      background: var(--rule);
+      margin: 0 auto 1.6rem;
+    }
+
+    .four-icon {
+      font-size: 1.3rem;
+      color: var(--green);
+      margin-bottom: 1rem;
+    }
+
+    .four-card h3 {
+      font-family: var(--font-title);
+      font-size: 1.2rem;
+      margin-bottom: 0.6rem;
+      color: var(--text);
+    }
+
+    .four-card p {
+      font-size: 0.95rem;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+
+    @media (max-width: 980px) {
+      .four-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 640px) {
+      .four-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
 </BaseLayout>

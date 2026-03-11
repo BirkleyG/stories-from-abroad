@@ -14,11 +14,11 @@ const currentPath = Astro.url.pathname.endsWith("/")
   : `${Astro.url.pathname}/`;
 
 const navItems = [
-  { label: "Home", href: basePath, route: "/" },
-  { label: "Selected Papers", href: `${basePath}selected-papers/`, route: "/selected-papers/" },
+  { label: "About", href: `${basePath}read-the-story/`, route: "/read-the-story/" },
+  { label: "Articles", href: `${basePath}selected-papers/`, route: "/selected-papers/" },
   { label: "Photography", href: `${basePath}photography/`, route: "/photography/" },
-  { label: "Travel Stories", href: `${basePath}travel-stories/`, route: "/travel-stories/" },
-  { label: "Faces of the World", href: `${basePath}faces-of-the-world/`, route: "/faces-of-the-world/" },
+  { label: "Faces", href: `${basePath}faces-of-the-world/`, route: "/faces-of-the-world/" },
+  { label: "Travel", href: `${basePath}travel-stories/`, route: "/travel-stories/" },
 ];
 
 const currentRoute = currentPath.startsWith(basePath)
@@ -44,7 +44,7 @@ const pageTitle = title ? `${title} | Stories From Abroad` : "Stories From Abroa
   </head>
   <body class={bodyClass}>
     <header class="site-nav" id="site-nav">
-      <a class="nav-wordmark" href={basePath}>Stories From Abroad</a>
+      <a class="nav-wordmark" href={basePath}>SFA</a>
       <nav>
         <ul class="nav-links">
           {navItems.map((item) => (
@@ -56,7 +56,7 @@ const pageTitle = title ? `${title} | Stories From Abroad` : "Stories From Abroa
           ))}
         </ul>
       </nav>
-      <a class="nav-cta" href={`${basePath}selected-papers/`}>Read</a>
+      <button class="nav-cta" type="button" data-modal-open="subscribe">Subscribe</button>
     </header>
 
     <main>
@@ -74,6 +74,43 @@ const pageTitle = title ? `${title} | Stories From Abroad` : "Stories From Abroa
       <p class="footer-copy">&copy; 2026 Stories From Abroad. All rights reserved.</p>
     </footer>
 
+    <div class="modal-overlay" id="subscribe-modal" data-modal="subscribe">
+      <div class="modal">
+        <button class="modal-close" type="button" data-modal-close>Close</button>
+        <div id="modal-form-view">
+          <div class="modal-ornament"></div>
+          <h2 class="modal-title">Subscribe to Dispatches</h2>
+          <p class="modal-sub">
+            No algorithms. No advertising. Just writing, when it is ready.
+          </p>
+          <div class="form-group">
+            <label class="form-label" for="sub-email">Email Address *</label>
+            <input type="email" class="form-input" id="sub-email" placeholder="your@email.com" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="sub-name">Name (Optional)</label>
+            <input type="text" class="form-input" id="sub-name" placeholder="How shall I address you?" />
+          </div>
+          <span class="pref-label">I am interested in</span>
+          <div class="checkboxes">
+            <label class="checkbox-row"><input type="checkbox" id="pref-all" checked /> <span>All updates</span></label>
+            <label class="checkbox-row"><input type="checkbox" id="pref-articles" /> <span>Articles and Op-Eds</span></label>
+            <label class="checkbox-row"><input type="checkbox" id="pref-photo" /> <span>Photography</span></label>
+            <label class="checkbox-row"><input type="checkbox" id="pref-faces" /> <span>Faces of the World</span></label>
+            <label class="checkbox-row"><input type="checkbox" id="pref-travel" /> <span>Travel</span></label>
+          </div>
+          <button class="btn-ghost modal-submit" type="button" id="modal-submit">
+            Subscribe to the Letter
+          </button>
+        </div>
+        <div class="modal-success" id="modal-success-view">
+          <div class="modal-check">Welcome</div>
+          <h3>Subscription received</h3>
+          <p>A confirmation email is on its way.</p>
+        </div>
+      </div>
+    </div>
+
     <script is:inline>
       const nav = document.getElementById("site-nav");
       if (nav) {
@@ -82,6 +119,60 @@ const pageTitle = title ? `${title} | Stories From Abroad` : "Stories From Abroa
         };
         window.addEventListener("scroll", onScroll, { passive: true });
         onScroll();
+      }
+
+      const modal = document.getElementById("subscribe-modal");
+      const modalSubmit = document.getElementById("modal-submit");
+      const formView = document.getElementById("modal-form-view");
+      const successView = document.getElementById("modal-success-view");
+
+      function openModal() {
+        if (!modal) return;
+        modal.classList.add("open");
+        document.body.style.overflow = "hidden";
+      }
+
+      function closeModal() {
+        if (!modal) return;
+        modal.classList.remove("open");
+        document.body.style.overflow = "";
+        if (formView && successView) {
+          formView.style.display = "";
+          successView.style.display = "none";
+        }
+      }
+
+      document.querySelectorAll("[data-modal-open='subscribe']").forEach((btn) => {
+        btn.addEventListener("click", openModal);
+      });
+
+      if (modal) {
+        modal.addEventListener("click", (event) => {
+          if (event.target === modal) closeModal();
+        });
+      }
+
+      document.querySelectorAll("[data-modal-close]").forEach((btn) => {
+        btn.addEventListener("click", closeModal);
+      });
+
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") closeModal();
+      });
+
+      if (modalSubmit) {
+        modalSubmit.addEventListener("click", () => {
+          const email = document.getElementById("sub-email");
+          if (email && !email.value.includes("@")) {
+            email.focus();
+            email.classList.add("input-error");
+            return;
+          }
+          if (formView && successView) {
+            formView.style.display = "none";
+            successView.style.display = "block";
+          }
+        });
       }
     </script>
   </body>

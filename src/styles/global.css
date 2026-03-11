@@ -98,10 +98,11 @@ main {
   align-items: center;
   justify-content: space-between;
   padding: 0 2rem;
-  background: transparent;
+  background: rgba(243, 237, 226, 0.75);
   transition: background 0.5s var(--transition),
     box-shadow 0.5s var(--transition),
     backdrop-filter 0.5s var(--transition);
+  border-bottom: 1px solid var(--rule);
 }
 
 .site-nav.scrolled {
@@ -117,8 +118,8 @@ body.theme-papers .site-nav.scrolled {
 .nav-wordmark {
   font-family: var(--font-sc);
   font-weight: 400;
-  font-size: 0.78rem;
-  letter-spacing: 0.18em;
+  font-size: 0.7rem;
+  letter-spacing: 0.38em;
   text-transform: uppercase;
   text-decoration: none;
   color: var(--green);
@@ -126,14 +127,14 @@ body.theme-papers .site-nav.scrolled {
 
 .nav-links {
   display: flex;
-  gap: 1.6rem;
+  gap: 2rem;
   list-style: none;
 }
 
 .nav-links a {
   font-family: var(--font-sc);
-  font-size: 0.7rem;
-  letter-spacing: 0.16em;
+  font-size: 0.62rem;
+  letter-spacing: 0.32em;
   text-transform: uppercase;
   color: var(--text-mid);
   text-decoration: none;
@@ -165,14 +166,15 @@ body.theme-papers .site-nav.scrolled {
 
 .nav-cta {
   font-family: var(--font-sc);
-  font-size: 0.68rem;
-  letter-spacing: 0.16em;
+  font-size: 0.6rem;
+  letter-spacing: 0.28em;
   text-transform: uppercase;
   color: var(--green);
   border: 1px solid var(--green);
   background: transparent;
-  padding: 0.4rem 1rem;
+  padding: 0.5rem 1.3rem;
   text-decoration: none;
+  cursor: pointer;
   transition: background 0.3s, color 0.3s;
 }
 
@@ -421,6 +423,134 @@ body.theme-papers .site-nav.scrolled {
   font-size: 0.92rem;
   color: var(--text-muted);
   line-height: 1.6;
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(17, 15, 12, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+  z-index: 2000;
+}
+
+.modal-overlay.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.modal {
+  width: min(520px, 92vw);
+  background: var(--white);
+  border: 1px solid var(--rule);
+  padding: 2.5rem;
+  position: relative;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+}
+
+.modal-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  border: 1px solid var(--rule);
+  background: transparent;
+  color: var(--text-mid);
+  padding: 0.3rem 0.7rem;
+  font-family: var(--font-sc);
+  font-size: 0.6rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.modal-ornament {
+  width: 40px;
+  height: 1px;
+  background: var(--rule-dark);
+  margin-bottom: 1.5rem;
+}
+
+.modal-title {
+  font-family: var(--font-title);
+  font-size: 1.8rem;
+  font-weight: 500;
+  margin-bottom: 0.6rem;
+}
+
+.modal-sub {
+  color: var(--text-muted);
+  margin-bottom: 1.8rem;
+}
+
+.form-group {
+  margin-bottom: 1rem;
+}
+
+.form-label {
+  display: block;
+  font-family: var(--font-sc);
+  font-size: 0.6rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 0.35rem;
+}
+
+.form-input {
+  width: 100%;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--rule);
+  background: transparent;
+  font-family: var(--font-body);
+}
+
+.form-input.input-error {
+  border-color: #8b2020;
+}
+
+.pref-label {
+  display: block;
+  font-family: var(--font-sc);
+  font-size: 0.6rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin: 1.2rem 0 0.6rem;
+}
+
+.checkboxes {
+  display: grid;
+  gap: 0.4rem;
+  margin-bottom: 1.5rem;
+}
+
+.checkbox-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  font-size: 0.95rem;
+  color: var(--text-mid);
+}
+
+.modal-submit {
+  width: 100%;
+}
+
+.modal-success {
+  display: none;
+  text-align: center;
+}
+
+.modal-check {
+  font-family: var(--font-sc);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--green);
+  margin-bottom: 1rem;
 }
 
 .site-footer {

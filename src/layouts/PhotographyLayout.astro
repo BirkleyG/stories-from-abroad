@@ -1,0 +1,51 @@
+---
+import "../styles/photography.css";
+
+export interface Props {
+  title: string;
+  description?: string;
+  activePage?: string;
+}
+
+const {
+  title,
+  description = "Stories From Abroad photography",
+  activePage = ""
+} = Astro.props;
+
+const base = import.meta.env.BASE_URL ?? "/";
+const basePath = base.endsWith("/") ? base : `${base}/`;
+---
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content={description} />
+  <title>{title} - Stories From Abroad</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap"
+    rel="stylesheet"
+  />
+</head>
+<body>
+  <nav class="nav">
+    <a class="nav-logo" href={basePath}>SFA</a>
+    <div class="nav-right">
+      <a class="nav-link" href={`${basePath}read-the-story/`} data-active={activePage === "about" ? "" : undefined}>About</a>
+      <a class="nav-link" href={`${basePath}selected-papers/`} data-active={activePage === "articles" ? "" : undefined}>Articles</a>
+      <a class="nav-link" href={`${basePath}photography/`} data-active={activePage === "photography" ? "" : undefined}>Photography</a>
+      <a class="nav-link" href={`${basePath}faces-of-the-world/`} data-active={activePage === "faces" ? "" : undefined}>Faces</a>
+      <a class="nav-link" href={`${basePath}travel-stories/`} data-active={activePage === "travel" ? "" : undefined}>Travel</a>
+      <div class="nav-dot"></div>
+    </div>
+  </nav>
+
+  <main class="page">
+    <slot />
+  </main>
+</body>
+</html>
