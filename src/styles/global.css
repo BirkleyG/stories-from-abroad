@@ -58,8 +58,9 @@ body.theme-papers {
   --bg: #FAFAF7;
   --bg-warm: #F2F0EB;
   --bg-dark: #E6E1D8;
-  --green: #1C4A2E;
-  --green-mid: #2D6B44;
+  --green: #C4922A;
+  --green-mid: #A67820;
+  --green-light: #D9A83E;
   --text: #111110;
   --text-mid: #2E2C28;
   --text-muted: #7A7570;
@@ -72,6 +73,10 @@ body.theme-papers {
 
 body.theme-papers::before {
   opacity: 0.25;
+}
+
+body.theme-papers .site-nav {
+  background: #ffffff;
 }
 
 a {
@@ -112,7 +117,7 @@ main {
 }
 
 body.theme-papers .site-nav.scrolled {
-  background: rgba(250, 250, 247, 0.95);
+  background: #ffffff;
 }
 
 .nav-wordmark {

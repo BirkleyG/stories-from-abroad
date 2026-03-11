@@ -163,7 +163,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     import { fallbackPapers } from "../lib/fallbackData";
 
     const typeLines = [
-      "Essays, notes, and arguments. Attempts to understand the world with care.",
+      "Essays, notes, and arguments -- attempts to understand the world a little better.",
       "Some academic. Some speculative. All written in good faith.",
       "Written across years of travel, study, and careful attention.",
       "A scholar\'s desk, left open.",
@@ -379,6 +379,14 @@ import BaseLayout from "../layouts/BaseLayout.astro";
           <p>${paper.summary}</p>
           <p>The argument is situated within broader debates in comparative political economy and international relations.</p>
           <p>The paper suggests that structural conditions constrain but do not determine political possibilities.</p>
+        </div>
+        <div class="ov-dls">
+          <div class="ov-abs-lbl">Downloads</div>
+          <div class="ov-dl-row">
+            <button class="btn-dl" disabled>Download PDF</button>
+            <button class="btn-dl" disabled>Clean Text</button>
+            <button class="btn-dl" disabled>Export Citation</button>
+          </div>
         </div>
       `;
       const overlay = document.getElementById("overlay");
@@ -1173,6 +1181,30 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       font-size: 15px;
       line-height: 1.8;
       color: var(--text-mid);
+    }
+
+    .ov-dls {
+      margin-top: 28px;
+    }
+
+    .ov-dl-row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+
+    .btn-dl {
+      font-family: "Cormorant Garamond", serif;
+      font-size: 11px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      padding: 10px 18px;
+      border: 1px solid var(--rule);
+      background: transparent;
+      color: var(--text-muted);
+      cursor: not-allowed;
+      opacity: 0.7;
     }
 
     .ov-abs-lbl {
