@@ -2,9 +2,9 @@
   --bg: #F3EDE2;
   --bg-warm: #EDE5D8;
   --bg-dark: #E4DCCF;
-  --green: #1B3A28;
-  --green-mid: #2C5A3E;
-  --green-light: #3D7A54;
+  --green: #142A1F;
+  --green-mid: #1E3B2B;
+  --green-light: #2B4F3A;
   --text: #1C1815;
   --text-mid: #4A4340;
   --text-muted: #7A716A;
@@ -584,7 +584,7 @@ body.theme-papers .site-nav.scrolled {
   padding: 3rem 2rem 3.5rem;
   text-align: center;
   border-top: 1px solid rgba(255, 255, 255, 0.15);
-  background: radial-gradient(circle at top, #2c5a3e 0%, #1b3a28 55%, #142a1f 100%);
+  background: radial-gradient(circle at top, #214233 0%, #142A1F 55%, #0f2018 100%);
   color: #f3ede2;
 }
 
