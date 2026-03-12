@@ -1,17 +1,4 @@
----
-const base = import.meta.env.BASE_URL ?? "/";
-const basePath = base.endsWith("/") ? base : `${base}/`;
-const firebaseConfig = {
-  apiKey: import.meta.env.PUBLIC_FIREBASE_API_KEY,
-  authDomain: import.meta.env.PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.PUBLIC_FIREBASE_APP_ID,
-};
----
-
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -29,8 +16,6 @@ body{font-family:var(--bod);color:var(--white);background:#000;overflow-x:hidden
 #site-nav{position:fixed;top:0;left:0;right:0;z-index:600;height:var(--nh);padding:0 2.8vw;display:flex;align-items:center;gap:1rem;background:rgba(0,0,0,.97);border-bottom:1px solid rgba(201,168,76,.14)}
 .nav-logo{font-family:var(--dis);font-size:1.04rem;font-weight:600;color:var(--gold);cursor:pointer;letter-spacing:.18em;text-transform:uppercase;margin-right:auto;flex-shrink:0}
 .nav-logo em{font-weight:300;font-style:italic;letter-spacing:.05em;text-transform:none;margin-left:.14em;color:rgba(201,168,76,.55)}
-.nav-back{font-family:var(--bod);font-size:.55rem;letter-spacing:.3em;text-transform:uppercase;color:rgba(201,168,76,.36);text-decoration:none;display:inline-flex;align-items:center;gap:.4rem;transition:color .2s}
-.nav-back:hover{color:var(--gold)}
 #nav-search-wrap{display:flex;align-items:center;overflow:hidden;transition:width .35s cubic-bezier(.4,0,.2,1);width:26px}
 #nav-search-wrap.open{width:190px}
 #nav-search-ico{width:26px;height:26px;display:flex;align-items:center;justify-content:center;color:rgba(201,168,76,.34);cursor:pointer;flex-shrink:0;transition:color .2s}
@@ -51,7 +36,7 @@ body{font-family:var(--bod);color:var(--white);background:#000;overflow-x:hidden
 .so-loc{font-family:var(--bod);font-size:.44rem;letter-spacing:.22em;text-transform:uppercase;color:rgba(201,168,76,.42)}
 .so-occ{font-family:var(--dis);font-style:italic;font-size:.76rem;color:var(--wd)}
 .so-none{padding:.9rem 1rem;font-family:var(--dis);font-style:italic;font-size:.82rem;color:rgba(201,168,76,.22);text-align:center}
-/* HERO — 4x total = 3680vh (user: still too fast, double again) */
+/* HERO â€” 4x total = 3680vh (user: still too fast, double again) */
 #hero{position:relative;height:3680vh}
 .hero-sticky{position:sticky;top:0;height:100vh;overflow:hidden;background:#000}
 #map-svg{width:100%;height:100%;display:block}
@@ -202,7 +187,6 @@ body{font-family:var(--bod);color:var(--white);background:#000;overflow-x:hidden
 <body>
 
 <nav id="site-nav">
-  <a class="nav-back" href={basePath}>&larr; Back</a>
   <span class="nav-logo" id="nav-home">Faces <em>of the World</em></span>
   <div id="nav-search-wrap">
     <div id="nav-search-ico"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="6.5" cy="6.5" r="4.5"/><line x1="10.1" y1="10.1" x2="14.5" y2="14.5"/></svg></div>
@@ -274,12 +258,11 @@ body{font-family:var(--bod);color:var(--white);background:#000;overflow-x:hidden
   <div class="prof-scroll"><div id="prof-content"></div></div>
 </div>
 
-<script is:inline src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
-<script is:inline src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
-<script is:inline define:vars={{ firebaseConfig }}>window.__facesFirebaseConfig = firebaseConfig;</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
 <script>
 /* === DATA === */
-const fallbackInterviews = [
+const interviews = [
   {slug:'amara-osei',name:'Amara Osei',age:34,religion:'Christian',occupation:'Carpenter',city:'Accra',country:'Ghana',date:'2026-03-05',lngLat:[-0.187,5.604],pic:24,descriptor:'A craftsman working with memory',excerpt:'The wood remembers everything. The grain tells you where the tree grew in shadow, where it grew in struggle.',article:[{type:'para',text:'In a courtyard workshop in Accra\'s Labadi neighborhood, Amara Osei works before dawn. By 5 a.m. the sound of hand-planing fills the still morning air.'},{type:'photo',id:'p1'},{type:'qa',q:'What does your father\'s workshop look like in your memory?',a:'Small. Always smaller than I remember. But the smell is identical \u2014 sawdust and palm oil and something underneath that I think is just time.'},{type:'pull',text:'I don\'t think of myself as making furniture. I think of myself as giving wood a second life.'},{type:'qa',q:'Do you think about who will own your furniture?',a:'Always. A chair should be made for the person who will sit in it for twenty years. Wood holds stories. So does sitting.'},{type:'photo',id:'p2'}]},
   {slug:'mei-lan-xu',name:'Mei-Lan Xu',age:67,religion:'Buddhist',occupation:'Tea Farmer',city:'Pu\'er',country:'China',date:'2026-02-18',lngLat:[101.0,22.8],pic:43,descriptor:'Keeper of ancient tea groves',excerpt:'A good tea should make you feel like you are standing in the place where the leaves were grown. That is the only test that matters.',article:[{type:'para',text:'Mei-Lan Xu has tended the same hillside tea garden in Yunnan\'s Pu\'er Prefecture for forty years. The oldest trees on her land are over three hundred years old.'},{type:'photo',id:'p1'},{type:'qa',q:'How do you decide when the tea is ready to pick?',a:'You look at the second leaf. Not the first \u2014 the first is always eager. The second leaf will tell you the truth.'},{type:'pull',text:'My grandmother told me that tea keeps memory. She thought you could taste the past in a very old tree.'},{type:'qa',q:'What do you hope for from your grove in the next hundred years?',a:'That someone will still be here to tend it. They need a person who comes every morning and pays attention.'}]},
   {slug:'sebastian-mora',name:'Sebasti\u00e1n Mora',age:28,religion:'Catholic',occupation:'Fisherman',city:'Cartagena',country:'Colombia',date:'2026-03-01',lngLat:[-75.5,10.4],pic:65,descriptor:'Young fisherman of the Colombian coast',excerpt:'The sea doesn\'t care about you personally. That\'s what I respect about it. You cannot talk your way out of a wave.',article:[{type:'para',text:'Sebasti\u00e1n Mora grew up watching his grandfather repair nets in the harbor at Bocagrande. Now he runs a three-man boat that leaves before sunrise most days of the year.'},{type:'photo',id:'p1'},{type:'qa',q:'What do you think about out on the water at night?',a:'Mostly I think about nothing. That\'s the gift of it. My mind just clears. I think that\'s the real reason people fish. Not the fish.'},{type:'pull',text:'My grandfather said the ocean would always feed us. I still believe him, mostly. Though I think we are testing that patience.'}]},
@@ -293,30 +276,10 @@ const fallbackInterviews = [
 /* === MAP === */
 const W=960, H=500;
 let proj, geoPath, worldData, countriesData;
-let svgEl;
-let svgD3;
-let mapBuilt = false;
-let mapInitAttempts = 0;
-const MAP_INIT_MAX = 180;
+const svgEl = document.getElementById('map-svg');
+const svgD3 = d3.select(svgEl);
 
 async function buildMap() {
-  if (mapBuilt) return;
-  if (!window.d3 || !window.topojson) {
-    if (mapInitAttempts++ < MAP_INIT_MAX) {
-      requestAnimationFrame(buildMap);
-      return;
-    }
-    const loading = document.getElementById('map-loading');
-    if (loading) loading.textContent = 'Map unavailable.';
-    console.error('Map libraries not loaded.');
-    return;
-  }
-  if (!svgEl) svgEl = document.getElementById('map-svg');
-  if (!svgEl) return;
-  const d3 = window.d3;
-  const topojson = window.topojson;
-  svgD3 = d3.select(svgEl);
-  mapBuilt = true;
   try {
     worldData = await d3.json('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json');
     document.getElementById('map-loading').style.display = 'none';
@@ -351,11 +314,9 @@ function cloneMap(id) {
   el.appendChild(c);
 }
 
-/* === ABOUT MAP — 1/4 of world map centered on Shanghai coast, hero-style crimson pin === */
+/* === ABOUT MAP â€” 1/4 of world map centered on Shanghai coast, hero-style crimson pin === */
 function buildAboutMap() {
   const el = document.getElementById('about-map-left'); if (!el || !proj) return;
-  const d3 = window.d3;
-  if (!d3) return;
   el.innerHTML = '';
   const NS = 'http://www.w3.org/2000/svg';
   const svg = document.createElementNS(NS, 'svg');
@@ -375,7 +336,7 @@ function buildAboutMap() {
   ['g','SourceGraphic'].forEach(s => { const n = document.createElementNS(NS,'feMergeNode'); n.setAttribute('in',s); fgm.appendChild(n); });
   fg.appendChild(fgb); fg.appendChild(fgc); fg.appendChild(fgm); defs.appendChild(fg);
 
-  /* Crimson glow for pin — matches hero map */
+  /* Crimson glow for pin â€” matches hero map */
   const fr = document.createElementNS(NS, 'filter'); fr.id = 'rg'; fr.setAttribute('x','-60%'); fr.setAttribute('y','-60%'); fr.setAttribute('width','220%'); fr.setAttribute('height','220%');
   const frb = document.createElementNS(NS, 'feGaussianBlur'); frb.setAttribute('in','SourceGraphic'); frb.setAttribute('stdDeviation','2.5'); frb.setAttribute('result','b');
   const frc = document.createElementNS(NS, 'feColorMatrix'); frc.setAttribute('in','b'); frc.setAttribute('type','matrix'); frc.setAttribute('values','1.5 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.75 0'); frc.setAttribute('result','g');
@@ -393,7 +354,7 @@ function buildAboutMap() {
   const gr = document.createElementNS(NS, 'path'); gr.setAttribute('d', grat); gr.setAttribute('fill','none'); gr.setAttribute('stroke','rgba(201,168,76,.035)'); gr.setAttribute('stroke-width','0.28'); svg.appendChild(gr);
 
   if (countriesData) {
-    /* Neighboring countries — faint */
+    /* Neighboring countries â€” faint */
     [704, 418, 356, 524, 104, 496, 398, 643, 408, 392, 410].forEach(cid => {
       const feat = countriesData.features.find(f => +f.id === cid); if (!feat) return;
       const p = document.createElementNS(NS, 'path'); p.setAttribute('d', geoPath(feat));
@@ -407,11 +368,11 @@ function buildAboutMap() {
     }
   }
 
-  /* Shanghai crimson pin — same shape as hero pins, with non-scaling stroke */
+  /* Shanghai crimson pin â€” same shape as hero pins, with non-scaling stroke */
   const [shX, shY] = proj([121.47, 31.23]);
   /* Scale pin to look similar in size to hero map pins.
-     viewBox shows 240 SVG units ≈ (at 1440px screen, 64vw=921px) scale=3.84px/unit.
-     Hero pin is 22px wide. Target: ~6 units wide → 6/20 = 0.3 scale. */
+     viewBox shows 240 SVG units â‰ˆ (at 1440px screen, 64vw=921px) scale=3.84px/unit.
+     Hero pin is 22px wide. Target: ~6 units wide â†’ 6/20 = 0.3 scale. */
   const ps = 0.3;
   const pinG = document.createElementNS(NS, 'g');
   pinG.setAttribute('transform', 'translate('+shX+','+shY+') scale('+ps+') translate(-10,-27)');
@@ -541,80 +502,8 @@ function resetPin(pin) {
 }
 
 /* === HERO SCROLL (3680vh total) === */
-let interviews = fallbackInterviews;
-let byDate = [];
-
-function setDerived() {
-  byDate = [...interviews].sort((a,b) => new Date(b.date) - new Date(a.date));
-}
-
-function normalizeInterview(iv, idx) {
-  const base = fallbackInterviews[idx % fallbackInterviews.length] || fallbackInterviews[0];
-  let dateVal = iv.date && typeof iv.date.toDate === "function" ? iv.date.toDate() : iv.date;
-  const dateObj = dateVal ? new Date(dateVal) : null;
-  const dateStr = dateObj && !isNaN(dateObj) ? dateObj.toISOString().slice(0,10) : (base ? base.date : new Date().toISOString().slice(0,10));
-  const lngLat = Array.isArray(iv.lngLat) && iv.lngLat.length === 2
-    ? iv.lngLat
-    : (typeof iv.lng === "number" && typeof iv.lat === "number")
-      ? [iv.lng, iv.lat]
-      : (base ? base.lngLat : [0,0]);
-  return {
-    slug: iv.slug || iv.id || `portrait-${idx+1}`,
-    name: iv.name || (base ? base.name : "Unknown"),
-    age: iv.age || (base ? base.age : 0),
-    religion: iv.religion || (base ? base.religion : "Unknown"),
-    occupation: iv.occupation || (base ? base.occupation : "Unknown"),
-    city: iv.city || (base ? base.city : "Unknown"),
-    country: iv.country || (base ? base.country : "Unknown"),
-    date: dateStr,
-    lngLat,
-    pic: typeof iv.pic === "number" ? iv.pic : (base ? base.pic : idx),
-    descriptor: iv.descriptor || (base ? base.descriptor : ""),
-    excerpt: iv.excerpt || (base ? base.excerpt : ""),
-    article: Array.isArray(iv.article) ? iv.article : (base ? base.article : [])
-  };
-}
-
-let firebaseApi = null;
-
-async function initFirestore() {
-  const cfg = window.__facesFirebaseConfig || {};
-  const required = ['apiKey','authDomain','projectId','storageBucket','messagingSenderId','appId'];
-  const ready = required.every((key) => cfg && cfg[key]);
-  if (!ready) return null;
-  if (firebaseApi) return firebaseApi;
-  try {
-    const appMod = await import('https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js');
-    const fsMod = await import('https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js');
-    const app = appMod.getApps().length ? appMod.getApp() : appMod.initializeApp(cfg);
-    firebaseApi = {
-      db: fsMod.getFirestore(app),
-      collection: fsMod.collection,
-      getDocs: fsMod.getDocs,
-    };
-    return firebaseApi;
-  } catch (err) {
-    console.warn('Firebase init failed, using fallback.', err);
-    return null;
-  }
-}
-
-async function loadInterviews() {
-  const fb = await initFirestore();
-  if (!fb) {
-    interviews = fallbackInterviews;
-    return;
-  }
-  try {
-    const snap = await fb.getDocs(fb.collection(fb.db, "faces"));
-    const data = snap.docs.map((doc, idx) => normalizeInterview({ id: doc.id, ...doc.data() }, idx));
-    interviews = data.length ? data : fallbackInterviews;
-  } catch (err) {
-    console.warn("Firestore unavailable, using fallback.", err);
-    interviews = fallbackInterviews;
-  }
-}
-const CART_END  = 0.06;   /* cartouche exits — 1.5× longer */
+const byDate = [...interviews].sort((a,b) => new Date(b.date) - new Date(a.date));
+const CART_END  = 0.06;   /* cartouche exits â€” 1.5Ã— longer */
 const SEQ_START = 0.07;   /* first pin */
 const PIN_STEP  = 0.0792; /* 10% faster than before */
 const TYPE_DELAY= 0.022;
@@ -629,7 +518,7 @@ function initScroll() {
   const heroEl = document.getElementById('hero');
   const cart   = document.getElementById('hero-cartouche');
 
-  /* 4. Scroll lock — block downward scroll once all pins are revealed */
+  /* 4. Scroll lock â€” block downward scroll once all pins are revealed */
   window.addEventListener('wheel', e => {
     if (heroLocked && e.deltaY > 0 && document.getElementById('main-view').style.display !== 'none') {
       e.preventDefault();
@@ -648,7 +537,7 @@ function initScroll() {
     const max = heroEl.offsetHeight - window.innerHeight; if (max <= 0) return;
     const p = Math.min(1, Math.max(0, window.scrollY / max));
 
-    /* Lock at ALL_AT — snap back if user somehow scrolled past */
+    /* Lock at ALL_AT â€” snap back if user somehow scrolled past */
     if (p >= ALL_AT) {
       if (!heroLocked) { heroLocked = true; lockScrollY = window.scrollY; }
       if (window.scrollY > lockScrollY) window.scrollTo(0, lockScrollY);
@@ -669,7 +558,7 @@ function initScroll() {
       const rev = p >= pinStart || showAll;
       if (rev) {
         if (!revealed.has(iv.slug)) { revealed.add(iv.slug); drawPin(pin); }
-        /* All pins show their name — burst pins show it immediately after draw */
+        /* All pins show their name â€” burst pins show it immediately after draw */
         if (pin.dataset.drawn) {
           const chars = Math.ceil(Math.min(1, Math.max(0, (p - typeStart) / (TYPE_DUR || 0.001))) * iv.name.length);
           tw.textContent = iv.name.slice(0, chars);
@@ -867,7 +756,7 @@ function runArch() {
   const raw = scrolled / perPx;
   let idx = Math.floor(raw), prog = raw - Math.floor(raw);
   if (idx >= archPs.length) { idx = archPs.length - 1; prog = 1; }
-  /* FINAL portrait: lock — never slide up */
+  /* FINAL portrait: lock â€” never slide up */
   const isLast = idx >= archPs.length - 1;
   if (isLast) prog = Math.min(prog, PH_HOLD + 0.005);
   const front = document.getElementById('stage-front');
@@ -880,7 +769,7 @@ function runArch() {
     const fs = makeSlide(archPs[idx], idx, archPs.length);
     fs.style.cssText = 'position:absolute;inset:0';
     front.appendChild(fs);
-    /* Back shows next portrait — always behind front */
+    /* Back shows next portrait â€” always behind front */
     back.innerHTML = '';
     if (!isLast && idx + 1 < archPs.length) {
       const bs = makeSlide(archPs[idx+1], idx+1, archPs.length);
@@ -921,12 +810,12 @@ function animSlide(slide, prog, isRight, backEl, isLast) {
     frontEl.style.transform = 'translateY(0)';
     if (backEl) backEl.style.opacity = '0';
   } else {
-    /* Slide up — back is already visible underneath (z-index lower), front lifts to reveal it */
+    /* Slide up â€” back is already visible underneath (z-index lower), front lifts to reveal it */
     const t = Math.min(1, (prog - PH_SLIDE) / (PH_DONE - PH_SLIDE));
     if (img)   img.style.filter   = 'brightness('+(0.38-t*0.3)+') saturate(0.75) blur('+(12+t*4)+'px)';
     if (panel) { const fade=Math.max(0,1-t*2.2); panel.style.opacity=String(fade); panel.style.transform='translateX('+(t*(isRight?18:-18))+'px)'; if(fade<0.05)panel.style.pointerEvents='none'; }
     frontEl.style.transform = 'translateY(-'+(t*100)+'vh)';
-    /* Back is always behind front — just make it visible so it's there when front lifts */
+    /* Back is always behind front â€” just make it visible so it's there when front lifts */
     if (backEl) backEl.style.opacity = '1';
   }
 }
@@ -996,8 +885,7 @@ function handleRoute() {
   document.getElementById('main-view').style.display = 'block';
 }
 
-function initPage() {
-  setDerived();
+document.addEventListener('DOMContentLoaded', () => {
   buildMap();
   initScroll();
   initArchiveFilters();
@@ -1007,22 +895,7 @@ function initPage() {
   document.getElementById('nav-archive-btn').addEventListener('click', goArchive);
   document.getElementById('nav-about-btn').addEventListener('click', goAbout);
   window.addEventListener('hashchange', handleRoute);
-  loadInterviews().then(() => {
-    setDerived();
-    revealed.clear();
-    buildPins();
-    positionPins();
-    if (document.getElementById('archive-view').style.display !== 'none') {
-      renderArchive(filterInterviews());
-    }
-  });
-}
-
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initPage);
-} else {
-  initPage();
-}
+});
 </script>
 </body>
 </html>
