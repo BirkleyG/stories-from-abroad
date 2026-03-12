@@ -14,6 +14,9 @@ body{font-family:var(--bod);color:var(--white);background:#000;overflow-x:hidden
 ::-webkit-scrollbar{width:3px}::-webkit-scrollbar-thumb{background:rgba(201,168,76,.16)}
 /* NAV */
 #site-nav{position:fixed;top:0;left:0;right:0;z-index:600;height:var(--nh);padding:0 2.8vw;display:flex;align-items:center;gap:1rem;background:rgba(0,0,0,.97);border-bottom:1px solid rgba(201,168,76,.14)}
+.nav-back{display:inline-flex;align-items:center;gap:.45rem;font-family:var(--bod);font-size:.6rem;letter-spacing:.3em;text-transform:uppercase;color:rgba(201,168,76,.36);text-decoration:none;transition:color .2s}
+.nav-back svg{width:14px;height:10px;stroke:currentColor;stroke-width:1.5;fill:none}
+.nav-back:hover{color:var(--gold)}
 .nav-logo{font-family:var(--dis);font-size:1.04rem;font-weight:600;color:var(--gold);cursor:pointer;letter-spacing:.18em;text-transform:uppercase;margin-right:auto;flex-shrink:0}
 .nav-logo em{font-weight:300;font-style:italic;letter-spacing:.05em;text-transform:none;margin-left:.14em;color:rgba(201,168,76,.55)}
 #nav-search-wrap{display:flex;align-items:center;overflow:hidden;transition:width .35s cubic-bezier(.4,0,.2,1);width:26px}
@@ -187,6 +190,10 @@ body{font-family:var(--bod);color:var(--white);background:#000;overflow-x:hidden
 <body>
 
 <nav id="site-nav">
+  <a class="nav-back" href="../">
+    <svg viewBox="0 0 14 10" aria-hidden="true"><line x1="13" y1="5" x2="1" y2="5"/><polyline points="5,1 1,5 5,9"/></svg>
+    Back
+  </a>
   <span class="nav-logo" id="nav-home">Faces <em>of the World</em></span>
   <div id="nav-search-wrap">
     <div id="nav-search-ico"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="6.5" cy="6.5" r="4.5"/><line x1="10.1" y1="10.1" x2="14.5" y2="14.5"/></svg></div>
