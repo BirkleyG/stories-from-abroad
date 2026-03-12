@@ -1,4 +1,5 @@
 import { defineConfig } from "astro/config";
+import react from "@astrojs/react";
 
 const isProd = process.env.NODE_ENV === "production";
 const base =
@@ -17,4 +18,5 @@ const site =
 export default defineConfig({
   site,
   base,
+  integrations: [react()],
 });
