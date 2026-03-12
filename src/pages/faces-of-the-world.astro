@@ -975,17 +975,24 @@ function handleRoute() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  setDerived();
+  buildMap();
+  initScroll();
+  initArchiveFilters();
+  initNavSearch();
+  handleRoute();
+  document.getElementById('nav-home').addEventListener('click', goHome);
+  document.getElementById('nav-archive-btn').addEventListener('click', goArchive);
+  document.getElementById('nav-about-btn').addEventListener('click', goAbout);
+  window.addEventListener('hashchange', handleRoute);
   loadInterviews().then(() => {
     setDerived();
-    buildMap();
-    initScroll();
-    initArchiveFilters();
-    initNavSearch();
-    handleRoute();
-    document.getElementById('nav-home').addEventListener('click', goHome);
-    document.getElementById('nav-archive-btn').addEventListener('click', goArchive);
-    document.getElementById('nav-about-btn').addEventListener('click', goAbout);
-    window.addEventListener('hashchange', handleRoute);
+    revealed.clear();
+    buildPins();
+    positionPins();
+    if (document.getElementById('archive-view').style.display !== 'none') {
+      renderArchive(filterInterviews());
+    }
   });
 });
 </script>
