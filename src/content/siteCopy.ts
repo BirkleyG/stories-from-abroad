@@ -5,7 +5,7 @@ export const siteCopy = {
     defaultDescription: "Essays, images, and fiction from somewhere else.",
     nav: {
       wordmark: "SFA",
-      backLabel: "<- Back",
+      backLabel: "← Back",
       cta: "Subscribe",
       items: [
         { label: "About", path: "read-the-story" },
@@ -125,7 +125,7 @@ export const siteCopy = {
       title: "Papers & Op-Eds - Stories From Abroad",
     },
     nav: {
-      backLabel: "<- Back",
+      backLabel: "← Back",
       label: "Articles",
     },
     hero: {
@@ -291,7 +291,7 @@ export const siteCopy = {
       description: "Stories From Abroad photography",
     },
     nav: {
-      backLabel: "<- Back",
+      backLabel: "← Back",
       label: "Photography",
     },
     hero: {
@@ -435,7 +435,7 @@ export const siteCopy = {
     },
     navLabel: "Faces",
     nav: {
-      backLabel: "<- Back",
+      backLabel: "← Back",
       logoMain: "Faces",
       logoEm: "of the World",
       searchPlaceholder: "Search portraits\u2026",
@@ -557,7 +557,7 @@ export const siteCopy = {
   },
   dispatches: {
     nav: {
-      backLabel: "<- Back",
+      backLabel: "← Back",
       title: "The Scrap Sheet",
       links: ["Dispatches", "About", "Subscribe"],
       searchPlaceholder: "Search...",
