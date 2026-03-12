@@ -1,13 +1,20 @@
 ---
+import { siteCopy } from "../content/siteCopy";
+
 const base = import.meta.env.BASE_URL ?? "/";
 const basePath = base.endsWith("/") ? base : `${base}/`;
+const copy = siteCopy.papers;
+const copyJson = JSON.stringify(copy);
+const initialFeatCounter = copy.featured.counterTemplate
+  .replace("{current}", "01")
+  .replace("{total}", "03");
 ---
 <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Papers &amp; Op-Eds - Stories From Abroad</title>
+    <title>{copy.meta.title}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link
       href="https://fonts.googleapis.com/css2?family=Cormorant:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,500;1,600&family=Lora:ital,wght@0,400;0,500;1,400;1,500&display=swap"
@@ -1127,8 +1134,8 @@ const basePath = base.endsWith("/") ? base : `${base}/`;
     </svg>
 
     <nav id="nav">
-      <a class="nav-back" href={basePath}>&larr; Back</a>
-      <span class="nav-label">Articles</span>
+      <a class="nav-back" href={basePath}>{copy.nav.backLabel}</a>
+      <span class="nav-label">{copy.nav.label}</span>
     </nav>
 
     <section id="hero">
@@ -1191,8 +1198,8 @@ const basePath = base.endsWith("/") ? base : `${base}/`;
       </svg>
 
       <div class="hero-content">
-        <div class="hero-kicker">Papers &amp; Op-Eds</div>
-        <h1 class="hero-title">Selected <strong>Writing</strong></h1>
+        <div class="hero-kicker">{copy.hero.kicker}</div>
+        <h1 class="hero-title">{copy.hero.titleMain} <strong>{copy.hero.titleEm}</strong></h1>
         <div class="hero-divider"></div>
         <div class="hero-placeholder" aria-hidden="true"></div>
         <div class="hero-tw-wrap">
@@ -1200,10 +1207,10 @@ const basePath = base.endsWith("/") ? base : `${base}/`;
         </div>
       </div>
 
-      <div class="hero-scroll-hint">Scroll</div>
+      <div class="hero-scroll-hint">{copy.hero.scrollHint}</div>
       <div class="hero-byline">
-        <div class="hero-byline-label">By</div>
-        <div class="hero-byline-name">Birkley Grunewald</div>
+        <div class="hero-byline-label">{copy.hero.byLabel}</div>
+        <div class="hero-byline-name">{copy.hero.byName}</div>
       </div>
     </section>
 
@@ -1220,9 +1227,9 @@ const basePath = base.endsWith("/") ? base : `${base}/`;
           <circle cx="10" cy="42" r="3" fill="#111110" opacity="0.24" />
         </g>
       </svg>
-      <span class="sd-lbl">Featured Writing</span>
+      <span class="sd-lbl">{copy.featured.label}</span>
       <div class="sd-line"></div>
-      <span class="sd-lbl" id="feat-ctr-sd">01 of 03</span>
+      <span class="sd-lbl" id="feat-ctr-sd">{initialFeatCounter}</span>
     </div>
 
     <section id="featured">
@@ -1296,7 +1303,7 @@ const basePath = base.endsWith("/") ? base : `${base}/`;
         </p>
         <div class="feat-kws" id="feat-kws"></div>
         <div class="feat-meta" id="feat-meta"></div>
-        <button class="btn-read" id="feat-btn">Read Paper &nbsp;&rarr;</button>
+        <button class="btn-read" id="feat-btn">{copy.featured.button}</button>
       </div>
 
       <div class="feat-controls">
@@ -1319,7 +1326,7 @@ const basePath = base.endsWith("/") ? base : `${base}/`;
           <circle cx="7" cy="35" r="2" fill="#111110" opacity="0.18" />
         </g>
       </svg>
-      <span class="sd-lbl">The Archive</span>
+      <span class="sd-lbl">{copy.archive.label}</span>
       <div class="sd-line"></div>
     </div>
 
@@ -1423,10 +1430,10 @@ const basePath = base.endsWith("/") ? base : `${base}/`;
 
       <div class="lib-head">
         <div>
-          <div class="lib-kicker">The Archive</div>
-          <h2 class="lib-title">All Writing</h2>
+          <div class="lib-kicker">{copy.archive.label}</div>
+          <h2 class="lib-title">{copy.archive.title}</h2>
         </div>
-        <div class="lib-count" id="paper-count">Loading</div>
+        <div class="lib-count" id="paper-count">{copy.archive.countPlaceholder}</div>
       </div>
 
       <div class="search-bar">
@@ -1439,21 +1446,21 @@ const basePath = base.endsWith("/") ? base : `${base}/`;
             class="s-input"
             id="s-in"
             type="text"
-            placeholder="Search by title, keyword, or topic..."
+            placeholder={copy.archive.searchPlaceholder}
             oninput="doFilter()"
           />
         </div>
         <div class="s-sep"></div>
         <select class="f-sel" id="f-cat" onchange="doFilter()">
-          <option value="">All Categories</option>
+          <option value="">{copy.archive.filters.categories}</option>
         </select>
         <div class="s-sep"></div>
         <select class="f-sel" id="f-yr" onchange="doFilter()">
-          <option value="">All Years</option>
+          <option value="">{copy.archive.filters.years}</option>
         </select>
         <div class="s-sep"></div>
         <select class="f-sel" id="f-tp" onchange="doFilter()">
-          <option value="">Writing Type</option>
+          <option value="">{copy.archive.filters.type}</option>
         </select>
       </div>
 
@@ -1464,7 +1471,7 @@ const basePath = base.endsWith("/") ? base : `${base}/`;
 
     <section id="author">
       <div class="author-portrait">
-        <span class="portrait-ph">Portrait - Birkley Grunewald</span>
+        <span class="portrait-ph">{copy.author.portraitLabel}</span>
       </div>
 
       <svg
@@ -1498,32 +1505,23 @@ const basePath = base.endsWith("/") ? base : `${base}/`;
       </svg>
 
       <div class="author-content">
-        <div class="author-kicker">About the Author</div>
-        <h3 class="author-name">Birkley<strong>Grunewald</strong></h3>
-        <p class="author-role">Writer - Researcher - Correspondent</p>
-        <p class="author-bio">
-          These papers represent an ongoing attempt to think clearly about politics, economy, and the structures that
-          shape how people live. Written across years of study and travel, they range from formal academic arguments to
-          shorter reflections on questions that resist easy answers.
-        </p>
-        <p class="author-bio">
-          The work sits alongside photography, travel writing, and short fiction, each form asking a different kind of
-          attention from the same underlying preoccupations.
-        </p>
+        <div class="author-kicker">{copy.author.kicker}</div>
+        <h3 class="author-name" set:html={copy.author.nameHtml}></h3>
+        <p class="author-role">{copy.author.role}</p>
+        {copy.author.bio.map((paragraph) => (
+          <p class="author-bio">{paragraph}</p>
+        ))}
         <div class="int-tags">
-          <span class="int-tag">Political Economy</span>
-          <span class="int-tag">State &amp; Sovereignty</span>
-          <span class="int-tag">Global Justice</span>
-          <span class="int-tag">Development</span>
-          <span class="int-tag">Philosophy</span>
-          <span class="int-tag">International Order</span>
+          {copy.author.tags.map((tag) => (
+            <span class="int-tag">{tag}</span>
+          ))}
         </div>
       </div>
     </section>
 
     <footer>
-      <p>Stories From Abroad - Papers &amp; Op-Eds</p>
-      <p>&copy; 2026 Birkley Grunewald</p>
+      <p>{copy.footer.left}</p>
+      <p>{copy.footer.right}</p>
     </footer>
 
     <div id="overlay">
@@ -1533,7 +1531,7 @@ const basePath = base.endsWith("/") ? base : `${base}/`;
             <line x1="19" y1="12" x2="5" y2="12" />
             <polyline points="12 19 5 12 12 5" />
           </svg>
-          Back to Papers
+          {copy.overlay.backLabel}
         </button>
         <span class="ov-label" id="ov-label"></span>
       </div>
@@ -1542,12 +1540,8 @@ const basePath = base.endsWith("/") ? base : `${base}/`;
 
     <script>
       (function () {
-        const lines = [
-          "Essays, notes, and arguments -- attempts to understand the world a little better.",
-          "Some academic. Some speculative. All written in good faith.",
-          "Written across years of travel, study, and careful attention.",
-          "A scholar's desk, left open.",
-        ];
+        const copy = {copyJson};
+        const lines = copy.typewriterLines;
         let li = 0;
         let ci = 0;
         let del = false;
@@ -1580,6 +1574,11 @@ const basePath = base.endsWith("/") ? base : `${base}/`;
       import { db, firestoreReady } from "../lib/firebaseClient";
       import { fallbackPapers } from "../lib/fallbackData";
 
+      const copy = {copyJson};
+      const counterTemplate = copy.featured.counterTemplate;
+      const formatCounter = (current, total) =>
+        counterTemplate.replace("{current}", current).replace("{total}", total);
+
       const state = {
         papers: [],
         featured: [],
@@ -1598,13 +1597,13 @@ const basePath = base.endsWith("/") ? base : `${base}/`;
 
         return {
           id: p.id ?? `paper-${idx}`,
-          title: p.title ?? "Untitled",
-          cat: p.category ?? p.cat ?? "Essay",
+          title: p.title ?? copy.defaults.title,
+          cat: p.category ?? p.cat ?? copy.defaults.category,
           year: Number(p.year) || new Date().getFullYear(),
           date: p.date ?? "",
           kw,
-          time: p.readTime ?? p.time ?? "10 min",
-          type: p.type ?? "Essay",
+          time: p.readTime ?? p.time ?? copy.defaults.time,
+          type: p.type ?? copy.defaults.type,
           featured: Boolean(p.featured),
           summary: p.summary ?? "",
         };
@@ -1649,7 +1648,7 @@ const basePath = base.endsWith("/") ? base : `${base}/`;
         document.getElementById("feat-meta").innerHTML = `
           <span>${p.date || p.year}</span>
           <span class="feat-meta-dot"></span>
-          <span>${p.time} read</span>
+          <span>${p.time}${copy.featured.metaReadSuffix}</span>
           <span class="feat-meta-dot"></span>
           <span>${p.type}</span>`;
         document.getElementById("feat-btn").onclick = () => openPaper(p.id);
@@ -1657,7 +1656,8 @@ const basePath = base.endsWith("/") ? base : `${base}/`;
         const ctr = document.getElementById("feat-ctr-sd");
         if (ctr) {
           const total = String(state.featured.length).padStart(2, "0");
-          ctr.textContent = `${String(idx + 1).padStart(2, "0")} of ${total}`;
+          const current = String(idx + 1).padStart(2, "0");
+          ctr.textContent = formatCounter(current, total);
         }
         document.querySelectorAll(".feat-dot").forEach((d, i) => d.classList.toggle("active", i === idx));
         triggerFeatAnim();
@@ -1691,10 +1691,12 @@ const basePath = base.endsWith("/") ? base : `${base}/`;
 
       function buildList(list) {
         const el = document.getElementById("papers-list");
-        document.getElementById("paper-count").textContent = `${list.length} paper${list.length !== 1 ? "s" : ""}`;
+        document.getElementById("paper-count").textContent = `${list.length} ${
+          list.length !== 1 ? copy.archive.countPlural : copy.archive.countSingular
+        }`;
         el.innerHTML = "";
         if (!list.length) {
-          el.innerHTML = '<div class="no-results">No papers match your search.</div>';
+          el.innerHTML = `<div class="no-results">${copy.archive.emptyState}</div>`;
           return;
         }
         list.forEach((p, i) => {
@@ -1711,7 +1713,7 @@ const basePath = base.endsWith("/") ? base : `${base}/`;
             </div>
             <div class="row-aside">
               <div class="row-date">${p.date || p.year}</div>
-              <div class="row-time">${p.time} read</div>
+              <div class="row-time">${p.time}${copy.archive.readSuffix}</div>
               <div class="row-arrow">&rarr;</div>
             </div>`;
           el.appendChild(row);
@@ -1727,9 +1729,9 @@ const basePath = base.endsWith("/") ? base : `${base}/`;
         const cats = Array.from(new Set(list.map((p) => p.cat).filter(Boolean))).sort();
         const years = Array.from(new Set(list.map((p) => p.year).filter(Boolean))).sort((a, b) => b - a);
         const types = Array.from(new Set(list.map((p) => p.type).filter(Boolean))).sort();
-        fillSelect("f-cat", "All Categories", cats);
-        fillSelect("f-yr", "All Years", years);
-        fillSelect("f-tp", "Writing Type", types);
+        fillSelect("f-cat", copy.archive.filters.categories, cats);
+        fillSelect("f-yr", copy.archive.filters.years, years);
+        fillSelect("f-tp", copy.archive.filters.type, types);
       }
 
       function doFilter() {
@@ -1748,22 +1750,22 @@ const basePath = base.endsWith("/") ? base : `${base}/`;
       window.moveFeat = moveFeat;
       window.goFeat = goFeat;
 
-      const citStyles = ["APA", "MLA", "Chicago", "Harvard", "BibTeX"];
+      const citStyles = copy.overlay.citationStyles;
       function cite(p, s) {
         const t = p.title;
         const yr = p.year;
         const d = p.date || String(p.year);
         switch (s) {
           case "APA":
-            return `Grunewald, B. (${yr}). <em>${t}</em>. <em>Stories From Abroad</em>.`;
+            return `${copy.overlay.citationAuthorShort} (${yr}). <em>${t}</em>. <em>${copy.overlay.citeSource}</em>.`;
           case "MLA":
-            return `Grunewald, Birkley. "${t}." <em>Stories From Abroad</em>, ${d}.`;
+            return `${copy.overlay.citationAuthorFull}. "${t}." <em>${copy.overlay.citeSource}</em>, ${d}.`;
           case "Chicago":
-            return `Grunewald, Birkley. "${t}." <em>Stories From Abroad</em>. ${d}.`;
+            return `${copy.overlay.citationAuthorFull}. "${t}." <em>${copy.overlay.citeSource}</em>. ${d}.`;
           case "Harvard":
-            return `Grunewald, B. (${yr}) '${t}', <em>Stories From Abroad</em>.`;
+            return `${copy.overlay.citationAuthorShort} (${yr}) '${t}', <em>${copy.overlay.citeSource}</em>.`;
           case "BibTeX":
-            return `@article{grunewald${yr},\n  author={Grunewald, Birkley},\n  title={${t}},\n  year={${yr}},\n  journal={Stories From Abroad}\n}`;
+            return `@article{${copy.overlay.citationKey}${yr},\n  author={${copy.overlay.citationAuthorBib}},\n  title={${t}},\n  year={${yr}},\n  journal={${copy.overlay.citeSource}}\n}`;
           default:
             return "";
         }
@@ -1780,21 +1782,21 @@ const basePath = base.endsWith("/") ? base : `${base}/`;
         const p = state.papers.find((x) => x.id === id);
         if (!p) return;
         const dateLabel = p.date || String(p.year);
-        const timeLabel = p.time ? `${p.time} read` : "";
-        const kwLabel = p.kw.length ? p.kw.join(" - ") : "None";
+        const timeLabel = p.time ? `${p.time}${copy.overlay.timeSuffix}` : "";
+        const kwLabel = p.kw.length ? p.kw.join(copy.overlay.kwSeparator) : copy.overlay.keywordsEmpty;
         document.getElementById("ov-label").textContent = `${dateLabel} - ${timeLabel}`;
         document.getElementById("ov-body").innerHTML = `
           <div class="ov-kicker">${p.cat}</div>
           <h1 class="ov-title">${p.title}</h1>
           <div class="ov-meta">
-            <div class="ov-mc"><div class="ov-ml">Author</div><div class="ov-mv">Birkley Grunewald</div></div>
-            <div class="ov-mc"><div class="ov-ml">Date</div><div class="ov-mv">${dateLabel}</div></div>
-            <div class="ov-mc"><div class="ov-ml">Reading Time</div><div class="ov-mv">${p.time}</div></div>
-            <div class="ov-mc"><div class="ov-ml">Keywords</div><div class="ov-mv">${kwLabel}</div></div>
+            <div class="ov-mc"><div class="ov-ml">${copy.overlay.metaLabels.author}</div><div class="ov-mv">${copy.hero.byName}</div></div>
+            <div class="ov-mc"><div class="ov-ml">${copy.overlay.metaLabels.date}</div><div class="ov-mv">${dateLabel}</div></div>
+            <div class="ov-mc"><div class="ov-ml">${copy.overlay.metaLabels.readingTime}</div><div class="ov-mv">${p.time}</div></div>
+            <div class="ov-mc"><div class="ov-ml">${copy.overlay.metaLabels.keywords}</div><div class="ov-mv">${kwLabel}</div></div>
           </div>
           <div class="ov-cite">
             <div class="ov-cite-body">
-              <div class="ov-cite-lbl">Cite This Paper</div>
+              <div class="ov-cite-lbl">${copy.overlay.citeLabel}</div>
               <div class="ov-cite-txt" id="cit-out">${cite(p, "APA")}</div>
             </div>
             <div class="ov-cite-styles">
@@ -1806,27 +1808,27 @@ const basePath = base.endsWith("/") ? base : `${base}/`;
             </div>
           </div>
           <div class="ov-abstract">
-            <div class="ov-abs-lbl">Abstract</div>
+            <div class="ov-abs-lbl">${copy.overlay.abstractLabel}</div>
             <p>${p.summary}</p>
-            <p>The argument is situated within broader debates in comparative political economy and international relations, drawing on historical case studies and theoretical frameworks to illuminate patterns often obscured by narrowly empirical approaches.</p>
-            <p>The paper ultimately suggests that structural conditions constrain but do not determine political possibilities, leaving open questions about agency, contingency, and the potential for deliberate institutional reform.</p>
+            <p>${copy.overlay.placeholder.abstractParagraphs[0]}</p>
+            <p>${copy.overlay.placeholder.abstractParagraphs[1]}</p>
           </div>
           <div class="ov-text">
-            <span class="sec-mark">I.</span>
-            <p>The question at the heart of this essay is neither new nor easily answered. It has occupied political economists, philosophers, and policymakers for decades, yet it returns with new urgency whenever institutions that were supposed to hold fail visibly, or when the gap between official explanation and lived experience becomes too wide to ignore.</p>
-            <h2>The Problem of Governance</h2>
-            <p>To understand what is at stake, we must first resist the temptation of abstraction. The forces under examination are not theoretical constructs but practical realities, they shape who gets what, when, and how. They determine whether hospitals receive funding, whether courts function with independence, whether citizens can trust the systems they live within.</p>
-            <blockquote>The strength of an institution lies not in its formal powers but in the expectations that surround it, in what people believe others believe about how it will behave.</blockquote>
-            <p>This is not merely an academic concern. The erosion of institutional trust has measurable consequences: for economic performance, for public health outcomes, for the willingness of citizens to participate in collective life.</p>
-            <h2>Structure and Agency</h2>
-            <span class="sec-mark">II.</span>
-            <p>A second complication arises from the relationship between structure and agency. Structural arguments locate the causes of political outcomes in long-run economic forces, historical legacies, or international power configurations. They are indispensable but insufficient, explaining why certain paths are difficult without explaining why some actors navigate them successfully while others do not.</p>
-            <p>The cases examined here suggest that agency matters most at critical junctures: moments when structural constraints are loosened by crisis, when existing arrangements have manifestly failed, and when political actors face genuine choices about institutional reform.</p>
+            <span class="sec-mark">${copy.overlay.placeholder.sectionMarks[0]}</span>
+            <p>${copy.overlay.placeholder.bodyParagraphs[0]}</p>
+            <h2>${copy.overlay.placeholder.headings[0]}</h2>
+            <p>${copy.overlay.placeholder.bodyParagraphs[1]}</p>
+            <blockquote>${copy.overlay.placeholder.blockquote}</blockquote>
+            <p>${copy.overlay.placeholder.bodyParagraphs[2]}</p>
+            <h2>${copy.overlay.placeholder.headings[1]}</h2>
+            <span class="sec-mark">${copy.overlay.placeholder.sectionMarks[1]}</span>
+            <p>${copy.overlay.placeholder.bodyParagraphs[3]}</p>
+            <p>${copy.overlay.placeholder.bodyParagraphs[4]}</p>
           </div>
           <div class="ov-dls">
-            <button class="btn-dl dl-pdf" disabled>Download PDF</button>
-            <button class="btn-dl dl-txt" disabled>Clean Text</button>
-            <button class="btn-dl dl-cit" disabled>Export Citation</button>
+            <button class="btn-dl dl-pdf" disabled>${copy.overlay.downloadButtons[0]}</button>
+            <button class="btn-dl dl-txt" disabled>${copy.overlay.downloadButtons[1]}</button>
+            <button class="btn-dl dl-cit" disabled>${copy.overlay.downloadButtons[2]}</button>
           </div>
         `;
         const ov = document.getElementById("overlay");

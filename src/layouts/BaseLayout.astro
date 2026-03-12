@@ -1,9 +1,12 @@
 ---
 import "../styles/global.css";
+import { siteCopy } from "../content/siteCopy";
+
+const copy = siteCopy.global;
 
 const {
-  title = "Stories From Abroad",
-  description = "Essays, images, and fiction from somewhere else.",
+  title = copy.siteTitle,
+  description = copy.defaultDescription,
   bodyClass = "",
   navMode = "home",
   navLabel = "",
@@ -16,19 +19,20 @@ const currentPath = Astro.url.pathname.endsWith("/")
   ? Astro.url.pathname
   : `${Astro.url.pathname}/`;
 
-const navItems = [
-  { label: "About", href: `${basePath}read-the-story/`, route: "/read-the-story/" },
-  { label: "Articles", href: `${basePath}selected-papers/`, route: "/selected-papers/" },
-  { label: "Photography", href: `${basePath}photography/`, route: "/photography/" },
-  { label: "Faces", href: `${basePath}faces-of-the-world/`, route: "/faces-of-the-world/" },
-  { label: "Travel", href: `${basePath}travel-stories/`, route: "/travel-stories/" },
-];
+const navItems = copy.nav.items.map((item) => {
+  const path = item.path ? `${item.path}/` : "";
+  return {
+    label: item.label,
+    href: `${basePath}${path}`,
+    route: `/${path}`,
+  };
+});
 
 const currentRoute = currentPath.startsWith(basePath)
   ? `/${currentPath.slice(basePath.length)}`.replace(/\/+/g, "/")
   : currentPath;
 
-const pageTitle = title ? `${title} | Stories From Abroad` : "Stories From Abroad";
+const pageTitle = title ? `${title} | ${copy.siteTitle}` : copy.siteTitle;
 ---
 
 <!DOCTYPE html>
@@ -49,19 +53,17 @@ const pageTitle = title ? `${title} | Stories From Abroad` : "Stories From Abroa
     <header class="site-nav" id="site-nav">
       {navMode === "single" ? (
         <>
-          <a class="nav-back" href={basePath}>
-            &larr; Back
-          </a>
+          <a class="nav-back" href={basePath}>{copy.nav.backLabel}</a>
           <div class="nav-single-right">
-            <span class="nav-single-label">{navLabel}</span>
+            <span class="nav-single-label">{navLabel || copy.nav.items[0]?.label}</span>
             {showSubscribe ? (
-              <button class="nav-cta" type="button" data-modal-open="subscribe">Subscribe</button>
+              <button class="nav-cta" type="button" data-modal-open="subscribe">{copy.nav.cta}</button>
             ) : null}
           </div>
         </>
       ) : (
         <>
-          <a class="nav-wordmark" href={basePath}>SFA</a>
+          <a class="nav-wordmark" href={basePath}>{copy.nav.wordmark}</a>
           <nav>
             <ul class="nav-links">
               {navItems.map((item) => (
@@ -74,7 +76,7 @@ const pageTitle = title ? `${title} | Stories From Abroad` : "Stories From Abroa
             </ul>
           </nav>
           {showSubscribe ? (
-            <button class="nav-cta" type="button" data-modal-open="subscribe">Subscribe</button>
+            <button class="nav-cta" type="button" data-modal-open="subscribe">{copy.nav.cta}</button>
           ) : null}
         </>
       )}
@@ -85,51 +87,59 @@ const pageTitle = title ? `${title} | Stories From Abroad` : "Stories From Abroa
     </main>
 
     <footer class="site-footer">
-      <span class="footer-wordmark">Stories From Abroad</span>
+      <span class="footer-wordmark">{copy.footer.wordmark}</span>
       {navMode === "home" ? (
         <div class="footer-links">
-          <a href={basePath}>Home</a>
-          <a href={`${basePath}selected-papers/`}>Selected Papers</a>
-          <a href={`${basePath}photography/`}>Photography</a>
+          {copy.footer.homeLinks.map((link) => (
+            <a href={`${basePath}${link.path ? `${link.path}/` : ""}`}>{link.label}</a>
+          ))}
         </div>
       ) : null}
       <hr />
-      <p class="footer-copy">&copy; 2026 Stories From Abroad. All rights reserved.</p>
+      <p class="footer-copy">{copy.footer.copyright}</p>
     </footer>
 
     <div class="modal-overlay" id="subscribe-modal" data-modal="subscribe">
       <div class="modal">
-        <button class="modal-close" type="button" data-modal-close>Close</button>
+        <button class="modal-close" type="button" data-modal-close>{copy.subscribeModal.closeLabel}</button>
         <div id="modal-form-view">
           <div class="modal-ornament"></div>
-          <h2 class="modal-title">Subscribe to Dispatches</h2>
-          <p class="modal-sub">
-            No algorithms. No advertising. Just writing, when it is ready.
-          </p>
+          <h2 class="modal-title">{copy.subscribeModal.title}</h2>
+          <p class="modal-sub">{copy.subscribeModal.subtitle}</p>
           <div class="form-group">
-            <label class="form-label" for="sub-email">Email Address *</label>
-            <input type="email" class="form-input" id="sub-email" placeholder="your@email.com" />
+            <label class="form-label" for="sub-email">{copy.subscribeModal.emailLabel}</label>
+            <input type="email" class="form-input" id="sub-email" placeholder={copy.subscribeModal.emailPlaceholder} />
           </div>
           <div class="form-group">
-            <label class="form-label" for="sub-name">Name (Optional)</label>
-            <input type="text" class="form-input" id="sub-name" placeholder="How shall I address you?" />
+            <label class="form-label" for="sub-name">{copy.subscribeModal.nameLabel}</label>
+            <input type="text" class="form-input" id="sub-name" placeholder={copy.subscribeModal.namePlaceholder} />
           </div>
-          <span class="pref-label">I am interested in</span>
+          <span class="pref-label">{copy.subscribeModal.preferenceLabel}</span>
           <div class="checkboxes">
-            <label class="checkbox-row"><input type="checkbox" id="pref-all" checked /> <span>All updates</span></label>
-            <label class="checkbox-row"><input type="checkbox" id="pref-articles" /> <span>Articles and Op-Eds</span></label>
-            <label class="checkbox-row"><input type="checkbox" id="pref-photo" /> <span>Photography</span></label>
-            <label class="checkbox-row"><input type="checkbox" id="pref-faces" /> <span>Faces of the World</span></label>
-            <label class="checkbox-row"><input type="checkbox" id="pref-travel" /> <span>Travel</span></label>
+            <label class="checkbox-row">
+              <input type="checkbox" id="pref-all" checked /> <span>{copy.subscribeModal.checkboxes[0]}</span>
+            </label>
+            <label class="checkbox-row">
+              <input type="checkbox" id="pref-articles" /> <span>{copy.subscribeModal.checkboxes[1]}</span>
+            </label>
+            <label class="checkbox-row">
+              <input type="checkbox" id="pref-photo" /> <span>{copy.subscribeModal.checkboxes[2]}</span>
+            </label>
+            <label class="checkbox-row">
+              <input type="checkbox" id="pref-faces" /> <span>{copy.subscribeModal.checkboxes[3]}</span>
+            </label>
+            <label class="checkbox-row">
+              <input type="checkbox" id="pref-travel" /> <span>{copy.subscribeModal.checkboxes[4]}</span>
+            </label>
           </div>
           <button class="btn-ghost modal-submit" type="button" id="modal-submit">
-            Subscribe to the Letter
+            {copy.subscribeModal.submitLabel}
           </button>
         </div>
         <div class="modal-success" id="modal-success-view">
-          <div class="modal-check">Welcome</div>
-          <h3>Subscription received</h3>
-          <p>A confirmation email is on its way.</p>
+          <div class="modal-check">{copy.subscribeModal.success.title}</div>
+          <h3>{copy.subscribeModal.success.subtitle}</h3>
+          <p>{copy.subscribeModal.success.body}</p>
         </div>
       </div>
     </div>

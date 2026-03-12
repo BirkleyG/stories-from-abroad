@@ -1,64 +1,49 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
+import { siteCopy } from "../content/siteCopy";
 
 const base = import.meta.env.BASE_URL ?? "/";
 const basePath = base.endsWith("/") ? base : `${base}/`;
+const copy = siteCopy.home;
 ---
 
-<BaseLayout title="Stories From Abroad" description="Essays, photography, and field notes from the margins of the map.">
+<BaseLayout title={copy.meta.title} description={copy.meta.description}>
   <section class="hero">
-    <div class="hero-eyebrow">Est. 2025 &middot; Dispatches from the World</div>
+    <div class="hero-eyebrow" set:html={copy.hero.eyebrowHtml}></div>
     <h1 class="hero-title">
-      Stories<br />
-      <em>From Abroad</em>
+      {copy.hero.titleMain}<br />
+      <em>{copy.hero.titleEm}</em>
     </h1>
     <p class="hero-subtitle">
-      Writing, photography, and reflection from the spaces between belonging.
+      {copy.hero.subtitle}
     </p>
     <div class="hero-ornament">
       <span>&#10022;</span>
     </div>
     <p class="hero-mission">
-      Essays, images, and field notes gathered across cities, borders, and quiet rooms. A private letter,
-      published.
+      {copy.hero.mission}
     </p>
     <div class="hero-cta">
-      <a class="btn-solid" href={`${basePath}read-the-story/`}>Read the Story</a>
-      <button class="btn-ghost" type="button" data-modal-open="subscribe">Subscribe</button>
+      <a class="btn-solid" href={`${basePath}read-the-story/`}>{copy.hero.ctaPrimary}</a>
+      <button class="btn-ghost" type="button" data-modal-open="subscribe">{copy.hero.ctaSecondary}</button>
     </div>
   </section>
 
   <section class="home-previews">
     <div class="container">
-      <span class="section-label">What you will find here</span>
-      <h2 class="home-title">Four Ways of Seeing</h2>
+      <span class="section-label">{copy.fourWays.label}</span>
+      <h2 class="home-title">{copy.fourWays.title}</h2>
     </div>
 
     <div class="four-grid">
-      <a class="four-card" href={`${basePath}selected-papers/`}>
-        <div class="four-line"></div>
-        <div class="four-icon">&#10022;</div>
-        <h3>Articles &amp; Op-Eds</h3>
-        <p>Long-form essays, cultural criticism, and analysis from far-flung vantage points.</p>
-      </a>
-      <a class="four-card" href={`${basePath}photography/`}>
-        <div class="four-line"></div>
-        <div class="four-icon">&#9675;</div>
-        <h3>Photography</h3>
-        <p>Visual stories, collections from the places words alone cannot quite reach.</p>
-      </a>
-      <a class="four-card" href={`${basePath}faces-of-the-world/`}>
-        <div class="four-line"></div>
-        <div class="four-icon">&#9672;</div>
-        <h3>Faces of the World</h3>
-        <p>Portraits and short notes from people met along the way.</p>
-      </a>
-      <a class="four-card" href={`${basePath}travel-stories/`}>
-        <div class="four-line"></div>
-        <div class="four-icon">&#9671;</div>
-        <h3>Travel</h3>
-        <p>Field notes, reflections, and honest accounts from the road.</p>
-      </a>
+      {copy.fourWays.cards.map((card) => (
+        <a class="four-card" href={`${basePath}${card.path}/`}>
+          <div class="four-line"></div>
+          <div class="four-icon" set:html={card.iconHtml}></div>
+          <h3>{card.title}</h3>
+          <p>{card.text}</p>
+        </a>
+      ))}
     </div>
   </section>
 

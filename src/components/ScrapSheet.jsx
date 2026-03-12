@@ -12,109 +12,21 @@ import {
 } from "firebase/firestore";
 import { db, firestoreReady } from "../lib/firebaseClient";
 import * as THREE from "three";
+import { siteCopy } from "../content/siteCopy";
 
 // ── CONSTANTS ──────────────────────────────────────────────────────────────────
 
+const copy = siteCopy.dispatches;
 const RED = "#CC1111";
-const CURRENT_LOC = { name: "Tbilisi, Georgia", lat: 41.69, lng: 44.83 };
+const CURRENT_LOC = copy.currentLocation;
 
 
 
-const QUOTES = [
-  { text: "Ferries here are not transport. They are philosophy.", postId: 4 },
-  { text: "10 dirhams for five minutes of quiet.", postId: 2 },
-  { text: "The evidence was destroyed immediately.", postId: 1 },
-  { text: "It is impossibly, stubbornly itself.", postId: 1 },
-  { text: "A person who needs food and sleep and occasionally to watch the sea.", postId: 3 },
-  { text: "Nobody warned me \u2014 woodsmoke and roses.", postId: 1 },
-  { text: "Whether it was silence, or just the permission to stop.", postId: 2 },
-];
-
-const POSTS = [
-  {
-    id: 1, category: "travel",
-    location: "Tbilisi, Georgia", dateStr: "Mar 8, 2026", time: "11:42 PM",
-    dateObj: new Date("2026-03-08"),
-    title: "The Wine is Free and the City Hums",
-    preview: "Nobody warned me that Tbilisi would smell like woodsmoke and roses all at once. I arrived at midnight to find the old town still breathing \u2014 cafes spilling onto cobblestones, someone\u2019s grandmother leaning from a carved wooden balcony three floors up.",
-    full: "Nobody warned me that Tbilisi would smell like woodsmoke and roses all at once. I arrived at midnight to find the old town still breathing \u2014 cafes spilling onto cobblestones, someone\u2019s grandmother leaning from a carved wooden balcony three floors up, a dog that seemed to own the street entirely.\n\nGeorgian wine is served like water here. Not with ceremony. Just poured. And the food \u2014 I have been eating khinkali every single day. I have been eating them wrong every single day. Nobody has stopped me.\n\nThe thing about Georgia nobody tells you: it is impossibly, stubbornly itself. Hundreds of years of being invaded and it still has its own alphabet, its own wine, its own polyphonic singing that makes you feel something in your chest you do not have a word for.\n\nI am staying in a guesthouse run by a woman named Nino who insists on feeding me breakfast even when I am trying to leave early. I am never trying that hard.",
-    photos: [
-      { url: "https://picsum.photos/seed/tbilisi1/1200/800", caption: "The old town from the cable car. Everything still lit at midnight." },
-      { url: "https://picsum.photos/seed/tbilisi2/1200/800", caption: "Khinkali, wrong end up. Still perfect." },
-      { url: "https://picsum.photos/seed/tbilisi3/1200/800", caption: "Nino\u2019s guesthouse garden. 7am. Breakfast I did not ask for." },
-    ],
-    defaultReactions: { "\u2764\uFE0F": 12, "\uD83D\uDD25": 8, "\u2708\uFE0F": 15 }, pinned: true,
-  },
-  {
-    id: 2, category: "stories",
-    location: "Marrakech, Morocco", dateStr: "Feb 21, 2026", time: "3:17 PM",
-    dateObj: new Date("2026-02-21"),
-    title: "The Man Who Sold Silence",
-    preview: "He sat at the edge of the Djemaa el-Fna every evening with nothing in front of him. No snake, no spice, no carpet. Just a small sign: 10 dirhams for five minutes of quiet.",
-    full: "He sat at the edge of the Djemaa el-Fna every evening with nothing in front of him. No snake, no spice, no carpet. Just a small sign that read: 10 dirhams for five minutes of quiet.\n\nI paid him on a Tuesday.\n\nHe gestured to the stool beside him, and I sat, and he folded his hands, and we watched the square together without speaking. The drums were still there. None of it went away. But he looked at it with such complete calm that the chaos became, briefly, something you could hold.\n\nAfter five minutes he raised a hand. That was it. I thanked him in broken Darija and he nodded once, like he already knew.\n\nI have thought about him a lot since then. What he was actually selling. Whether it was silence, or just the permission to stop.",
-    photos: [
-      { url: "https://picsum.photos/seed/marrakech1/1200/800", caption: "Djemaa el-Fna from above. The square that never empties." },
-      { url: "https://picsum.photos/seed/marrakech2/1200/800", caption: "His corner. The stool was still there the next day." },
-    ],
-    defaultReactions: { "\u2764\uFE0F": 34, "\uD83D\uDE2E": 7, "\uD83D\uDD25": 19 }, pinned: false,
-  },
-  {
-    id: 3, category: "musings",
-    location: "Somewhere over the Black Sea", dateStr: "Feb 14, 2026", time: "7:03 AM",
-    dateObj: new Date("2026-02-14"),
-    title: "On Being a Stranger",
-    preview: "There is a particular freedom in being somewhere no one has any expectations of you. You are just a shape moving through a city that has its own complete life without you.",
-    full: "There is a particular freedom in being somewhere no one has any expectations of you. You are just a shape moving through a city that has its own complete life without you. It does not need you. The city is fine.\n\nAt home, I am a collection of things people know about me. Here I am just someone who ordered the wrong thing at dinner and laughed about it and walked home in the rain.\n\nI used to think travel was about seeing things. I think it is more about temporarily shedding the story you have built around yourself. Usually something simpler. Something more animal. A person who needs food and sleep and occasionally to watch the sea.\n\nWhat I keep wondering: why does it take this \u2014 thousands of miles and a language I cannot speak \u2014 to feel this uncomplicated?",
-    photos: [],
-    defaultReactions: { "\u2764\uFE0F": 28, "\uD83D\uDE2E": 4, "\uD83D\uDD25": 11 }, pinned: false,
-  },
-  {
-    id: 4, category: "travel",
-    location: "Istanbul, Turkey", dateStr: "Jan 30, 2026", time: "6:22 PM",
-    dateObj: new Date("2026-01-30"),
-    title: "Straddling Two Continents for a Simit",
-    preview: "I walked across the Galata Bridge just to buy a simit from the Asian side. This is the kind of decision that travel turns you into \u2014 a person who makes small unnecessary pilgrimages because the geography feels meaningful.",
-    full: "I walked across the Galata Bridge just to buy a simit from the Asian side. This is the kind of decision that travel turns you into: a person who makes small unnecessary pilgrimages because the geography of it feels meaningful.\n\nIstanbul is overwhelming in the best possible way. It is a city that has absorbed empires and spat them out and kept the good parts of each. Byzantine mosaics under Ottoman domes. Greek ruins next to Roman aqueducts.\n\nI drank cay in a tea garden overlooking the Bosphorus and watched the tankers go past. Enormous, lumbering, completely out of place next to the little fishing boats. That image felt like the whole city somehow.\n\nFerries here are not transport. They are philosophy.",
-    photos: [
-      { url: "https://picsum.photos/seed/istanbul1/1200/800", caption: "The Bosphorus from Beyo\u011flu. Two continents, one horizon." },
-      { url: "https://picsum.photos/seed/istanbul2/1200/800", caption: "Galata Bridge at 6am. Fishermen before the commuters." },
-      { url: "https://picsum.photos/seed/istanbul3/1200/800", caption: "A simit. The entire reason I crossed continents." },
-    ],
-    defaultReactions: { "\u2764\uFE0F": 19, "\uD83D\uDE02": 6, "\u2708\uFE0F": 22, "\uD83D\uDD25": 13 }, pinned: false,
-  },
-];
-
-const CATS = {
-  travel:  { label: "Travel Update", color: "#1A5C40" },
-  stories: { label: "Short Story",   color: "#8B3A1A" },
-  musings: { label: "Musing",        color: "#4A3272" },
-};
-
-const EMOJI_SECTIONS = [
-  { label: "Quick",  emojis: ["\u2764\uFE0F","\uD83D\uDD25","\uD83D\uDE02","\uD83D\uDE2E","\u2708\uFE0F","\uD83C\uDF0D","\uD83D\uDC4F","\u2728","\uD83E\uDD73","\uD83D\uDCAF"] },
-  { label: "Hearts", emojis: ["\uD83E\uDDE1","\uD83D\uDC9B","\uD83D\uDC9A","\uD83D\uDC99","\uD83D\uDC9C","\uD83E\uDD0D","\uD83D\uDC94","\u2763\uFE0F","\uD83E\uFAF6","\uD83D\uDC95","\uD83D\uDC96","\uD83D\uDC9D","\uD83D\uDC9E"] },
-  { label: "Faces",  emojis: ["\uD83D\uDE00","\uD83D\uDE02","\uD83E\uDD72","\uD83D\uDE0D","\uD83E\uDD29","\uD83D\uDE0E","\uD83E\uDD7A","\uD83D\uDE2D","\uD83D\uDE24","\uD83E\uDD14","\uD83E\uDD2F","\uD83D\uDE43","\uD83D\uDE0C","\uD83D\uDE05","\uD83E\uDD23","\uD83D\uDE22","\uD83E\uDD70","\uD83D\uDE1A"] },
-  { label: "Travel", emojis: ["\u2708\uFE0F","\uD83C\uDF0D","\uD83C\uDF0E","\uD83C\uDF0F","\uD83D\uDDFA\uFE0F","\uD83E\uDDED","\uD83C\uDFD4\uFE0F","\uD83C\uDF05","\uD83C\uDF0A","\uD83E\uDDF3","\uD83D\uDCF8","\uD83C\uDFDB\uFE0F","\uD83D\uDE82","\uD83D\uDEA2","\u26FA","\uD83C\uDFD5\uFE0F","\uD83C\uDFDD\uFE0F","\uD83D\uDD4C"] },
-  { label: "Vibes",  emojis: ["\uD83D\uDD25","\u2728","\u2B50","\uD83D\uDCAB","\uD83C\uDF1F","\uD83C\uDF89","\uD83D\uDC4F","\uD83D\uDE4C","\uD83D\uDC4D","\uD83E\uDEF6","\uD83D\uDC40","\uD83D\uDCAC","\uD83D\uDCAD","\uD83C\uDFC6"] },
-  { label: "Life",   emojis: ["\u2615","\uD83C\uDF77","\uD83E\uDD42","\uD83C\uDF3F","\uD83C\uDF38","\uD83C\uDF19","\uD83C\uDF1E","\uD83C\uDF08","\uD83D\uDCDD","\u270F\uFE0F","\uD83D\uDCD6","\uD83D\uDCCC","\uD83D\uDD16","\uD83D\uDCDA","\u2712\uFE0F","\uD83D\uDDDE\uFE0F","\u2709\uFE0F"] },
-];
-
-const INITIAL_COMMENTS = {
-  1: [
-    { id: 1, text: "The grandmother on the balcony \u2014 I can picture it exactly", author: "Maya K.", time: "11:58 PM", isAuthor: false },
-    { id: 2, text: "How are you eating khinkali wrong?? I need photographic evidence", author: "Tom R.", time: "12:03 AM", isAuthor: false },
-    { id: 3, text: "No evidence exists. The evidence was destroyed immediately.", author: "The Correspondent", time: "12:05 AM", isAuthor: true },
-  ],
-  2: [
-    { id: 1, text: "I read this three times. That last line.", author: "Priya S.", time: "4:02 PM", isAuthor: false },
-    { id: 2, text: "Did you get his name?", author: "James W.", time: "4:45 PM", isAuthor: false },
-    { id: 3, text: "I didn\u2019t. I think that was part of it.", author: "The Correspondent", time: "5:01 PM", isAuthor: true },
-  ],
-  3: [],
-  4: [
-    { id: 1, text: "Ferries here are not transport. They are philosophy. \u2014 printing this out.", author: "Sophia L.", time: "7:30 PM", isAuthor: false },
-  ],
-};
+const QUOTES = copy.quotes;
+const POSTS = copy.posts;
+const CATS = copy.categories;
+const EMOJI_SECTIONS = copy.emojiSections;
+const INITIAL_COMMENTS = copy.defaultComments;
 
 // ── HELPERS ───────────────────────────────────────────────────────────────────
 
@@ -135,7 +47,7 @@ function readTime(text) {
 function matchesSearch(post, q) {
   if (!q) return true;
   var lq = q.toLowerCase();
-  var cat = CATS[post.category] || { label: post.category || "Dispatch", color: "#8A7B6C" };
+  var cat = CATS[post.category] || { label: post.category || copy.filters.defaultCategoryLabel, color: "#8A7B6C" };
   var catLabel = cat ? cat.label : String(post.category || "");
   return (
     post.title.toLowerCase().includes(lq) ||
@@ -753,7 +665,7 @@ function EmojiPicker({ onSelect, onClose }) {
 // ── POST CARD ─────────────────────────────────────────────────────────────────
 
 function PostCard({ post, reactions, userReacted, onReact, onExpand, highlighted }) {
-  var cat = CATS[post.category] || { label: post.category || "Dispatch", color: "#8A7B6C" };
+  var cat = CATS[post.category] || { label: post.category || copy.filters.defaultCategoryLabel, color: "#8A7B6C" };
   var topR = Object.entries(reactions).filter(function(e){return e[1]>0;}).sort(function(a,b){return b[1]-a[1];}).slice(0,4);
 
   return (
@@ -770,7 +682,7 @@ function PostCard({ post, reactions, userReacted, onReact, onExpand, highlighted
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
           <div style={{display:"inline-flex",alignItems:"center",gap:6,color:cat.color,fontFamily:"'Jost',sans-serif",fontSize:10,fontWeight:600,letterSpacing:".15em",textTransform:"uppercase"}}>
             <CategoryIcon type={post.category} color={cat.color}/>{cat.label}
-            {post.pinned&&<span style={{marginLeft:6,opacity:0.6,fontSize:9}}>&#9679; PINNED</span>}
+            {post.pinned&&<span style={{marginLeft:6,opacity:0.6,fontSize:9}}>&#9679; {copy.pinnedLabel}</span>}
           </div>
         </div>
 
@@ -787,11 +699,11 @@ function PostCard({ post, reactions, userReacted, onReact, onExpand, highlighted
         </p>
 
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-          <button className="readmore" onClick={function(e){e.stopPropagation();onExpand();}}>Open dispatch &rarr;</button>
+          <button className="readmore" onClick={function(e){e.stopPropagation();onExpand();}}>{copy.postCard.openLabel}</button>
           {post.photos&&post.photos.length>0&&(
             <div style={{fontFamily:"'Courier Prime',monospace",fontSize:10,color:"var(--muted)",letterSpacing:".06em",display:"flex",alignItems:"center",gap:5}}>
               <svg width="11" height="10" viewBox="0 0 11 10" fill="none" stroke="var(--muted)" strokeWidth="1" strokeLinecap="round"><rect x="1" y="2.5" width="9" height="7" rx="1"/><circle cx="5.5" cy="6" r="1.6"/><path d="M3.5 2.5 L4 1 L7 1 L7.5 2.5"/></svg>
-              {post.photos.length} photo{post.photos.length>1?"s":""}
+              {post.photos.length} {post.photos.length>1?copy.postCard.photoPlural:copy.postCard.photoSingular}
             </div>
           )}
         </div>
@@ -816,7 +728,7 @@ function PostModal({ post, reactions, userReacted, comments, onReact, onClose, o
   var picker = pickerS[0], setPicker = pickerS[1];
   var lbS = useState(null); // lightbox start index or null
   var lbIdx = lbS[0], setLbIdx = lbS[1];
-  var cat = CATS[post.category] || { label: post.category || "Dispatch", color: "#8A7B6C" };
+  var cat = CATS[post.category] || { label: post.category || copy.filters.defaultCategoryLabel, color: "#8A7B6C" };
   var paras = post.full.split("\n\n");
   var extras = Object.entries(reactions).filter(function(e){return !PRESET.includes(e[0])&&e[1]>0;});
   var rt = readTime(post.full);
@@ -832,7 +744,7 @@ function PostModal({ post, reactions, userReacted, comments, onReact, onClose, o
                 <CategoryIcon type={post.category} color={cat.color}/>{cat.label}
               </div>
               <div style={{display:"flex",alignItems:"center",gap:14}}>
-                <span style={{fontFamily:"'Courier Prime',monospace",fontSize:10,color:"var(--muted)",letterSpacing:".06em"}}>{rt} min read</span>
+                <span style={{fontFamily:"'Courier Prime',monospace",fontSize:10,color:"var(--muted)",letterSpacing:".06em"}}>{rt} {copy.postModal.minReadSuffix}</span>
                 <button className="xbtn" onClick={onClose}>&#215;</button>
               </div>
             </div>
@@ -855,7 +767,7 @@ function PostModal({ post, reactions, userReacted, comments, onReact, onClose, o
           )}
 
           <div style={{padding:"16px 28px 20px",borderTop:"1px solid var(--rule)",background:"white"}}>
-            <div style={{fontFamily:"'Jost',sans-serif",fontSize:"9px",fontWeight:600,letterSpacing:".18em",textTransform:"uppercase",color:"var(--muted)",marginBottom:12}}>React</div>
+            <div style={{fontFamily:"'Jost',sans-serif",fontSize:"9px",fontWeight:600,letterSpacing:".18em",textTransform:"uppercase",color:"var(--muted)",marginBottom:12}}>{copy.postModal.reactLabel}</div>
             <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"flex-end"}}>
               {PRESET.map(function(emoji){
                 var count=reactions[emoji]||0,active=userReacted[post.id+"-"+emoji];
@@ -884,11 +796,11 @@ function PostModal({ post, reactions, userReacted, comments, onReact, onClose, o
 
           <div style={{background:"var(--cream)",borderTop:"1px solid var(--rule)"}}>
             <div style={{padding:"14px 28px 6px",fontFamily:"'Jost',sans-serif",fontSize:"9px",fontWeight:600,letterSpacing:".18em",textTransform:"uppercase",color:"var(--muted)"}}>
-              Replies &middot; {comments.length}
+              {copy.postModal.repliesLabel.replace("{count}", String(comments.length))}
             </div>
             <div ref={threadRef} style={{padding:"6px 28px 14px",maxHeight:260,overflowY:"auto",display:"flex",flexDirection:"column",gap:10}}>
               {comments.length===0&&(
-                <p style={{fontFamily:"'Lora',serif",fontStyle:"italic",fontSize:13,color:"var(--muted)",textAlign:"center",padding:"18px 0"}}>No replies yet &mdash; start the thread.</p>
+                <p style={{fontFamily:"'Lora',serif",fontStyle:"italic",fontSize:13,color:"var(--muted)",textAlign:"center",padding:"18px 0"}}>{copy.postModal.emptyReplies}</p>
               )}
               {comments.map(function(c){
                 return (
@@ -902,11 +814,11 @@ function PostModal({ post, reactions, userReacted, comments, onReact, onClose, o
               })}
             </div>
             <div style={{padding:"0 28px 22px",display:"flex",flexDirection:"column",gap:7}}>
-              <input className="tinput" placeholder="Your name (optional)" value={commentAuthor} onChange={function(e){setCommentAuthor(e.target.value);}} style={{fontFamily:"'Jost',sans-serif",fontSize:13,padding:"7px 12px"}}/>
+              <input className="tinput" placeholder={copy.postModal.namePlaceholder} value={commentAuthor} onChange={function(e){setCommentAuthor(e.target.value);}} style={{fontFamily:"'Jost',sans-serif",fontSize:13,padding:"7px 12px"}}/>
               <div style={{display:"flex",gap:7,alignItems:"flex-start"}}>
-                <textarea className="tinput" placeholder="Add to the thread..." value={newComment} onChange={function(e){setNewComment(e.target.value);}} rows={2}
+                <textarea className="tinput" placeholder={copy.postModal.commentPlaceholder} value={newComment} onChange={function(e){setNewComment(e.target.value);}} rows={2}
                   onKeyDown={function(e){if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();onComment();}}}/>
-                <button className="sendbtn" onClick={onComment}>Send</button>
+                <button className="sendbtn" onClick={onComment}>{copy.postModal.sendLabel}</button>
               </div>
             </div>
           </div>
@@ -928,19 +840,19 @@ function SubModal({ email, setEmail, subscribed, onSubscribe, onClose }) {
         <button onClick={onClose} style={{position:"absolute",top:16,right:16,width:32,height:32,border:"1px solid rgba(255,255,255,0.25)",borderRadius:2,background:"rgba(255,255,255,0.1)",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,color:"rgba(240,233,223,0.8)"}}>&#215;</button>
         {!subscribed ? (
           <>
-            <div style={{fontFamily:"'Jost',sans-serif",fontSize:"10px",fontWeight:600,letterSpacing:".2em",textTransform:"uppercase",color:"rgba(240,233,223,0.6)",marginBottom:14}}>New Dispatches</div>
-            <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:28,fontWeight:600,color:"var(--cream)",marginBottom:10,lineHeight:1.15}}>Stay in the thread.</h3>
-            <p style={{fontFamily:"'Lora',serif",fontSize:14,color:"rgba(240,233,223,0.65)",lineHeight:1.7,marginBottom:22}}>Drop your email and I will send a note when something new lands here. No schedule. Just when it is ready.</p>
+            <div style={{fontFamily:"'Jost',sans-serif",fontSize:"10px",fontWeight:600,letterSpacing:".2em",textTransform:"uppercase",color:"rgba(240,233,223,0.6)",marginBottom:14}}>{copy.subscribeModal.label}</div>
+            <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:28,fontWeight:600,color:"var(--cream)",marginBottom:10,lineHeight:1.15}}>{copy.subscribeModal.title}</h3>
+            <p style={{fontFamily:"'Lora',serif",fontSize:14,color:"rgba(240,233,223,0.65)",lineHeight:1.7,marginBottom:22}}>{copy.subscribeModal.body}</p>
             <div style={{display:"flex",flexDirection:"column",gap:9}}>
-              <input className="einput" type="email" placeholder="your@email.com" value={email} onChange={function(e){setEmail(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter")onSubscribe();}}/>
-              <button className="ctabtn" onClick={onSubscribe}>Subscribe</button>
+              <input className="einput" type="email" placeholder={copy.subscribeModal.emailPlaceholder} value={email} onChange={function(e){setEmail(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter")onSubscribe();}}/>
+              <button className="ctabtn" onClick={onSubscribe}>{copy.subscribeModal.button}</button>
             </div>
           </>
         ) : (
           <>
             <div style={{fontSize:30,marginBottom:16}}>&#9993;</div>
-            <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:26,color:"var(--cream)",marginBottom:10}}>You are in.</h3>
-            <p style={{fontFamily:"'Lora',serif",fontSize:14,color:"rgba(240,233,223,0.65)",lineHeight:1.7}}>Next dispatch will find you. Until then &mdash; read something old.</p>
+            <h3 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:26,color:"var(--cream)",marginBottom:10}}>{copy.subscribeModal.successTitle}</h3>
+            <p style={{fontFamily:"'Lora',serif",fontSize:14,color:"rgba(240,233,223,0.65)",lineHeight:1.7}}>{copy.subscribeModal.successBody}</p>
           </>
         )}
       </div>
@@ -1051,7 +963,7 @@ export default function ScrapSheet({ backHref = "/" }) {
           return {
             id: doc.id,
             text: data.text || "",
-            author: data.author || "Anonymous",
+            author: data.author || copy.postModal.defaultAuthor,
             time: created ? formatTime(created) : (data.time || ""),
             isAuthor: Boolean(data.isAuthor),
           };
@@ -1096,7 +1008,7 @@ export default function ScrapSheet({ backHref = "/" }) {
 
   var handleComment=async function(postId){
     if(!newComment.trim())return;
-    var c={id:Date.now(),text:newComment.trim(),author:commentAuthor.trim()||"Anonymous",time:formatTime(new Date()),isAuthor:false};
+    var c={id:Date.now(),text:newComment.trim(),author:commentAuthor.trim()||copy.postModal.defaultAuthor,time:formatTime(new Date()),isAuthor:false};
     var next=Object.assign({},comments);next[postId]=[...(comments[postId]||[]),c];
     setComments(next);setNewComment("");
     setTimeout(function(){if(threadRef.current)threadRef.current.scrollTop=threadRef.current.scrollHeight;},80);
@@ -1120,6 +1032,11 @@ export default function ScrapSheet({ backHref = "/" }) {
   var base = filter==="all"?posts:posts.filter(function(p){return p.category===filter;});
   var filtered = searchQ.trim() ? base.filter(function(p){return matchesSearch(p,searchQ);}) : base;
   var expanded = expandedId?posts.find(function(p){return p.id===String(expandedId);}):null;
+  var heroLastReported = copy.hero.lastReported.replace("{location}", CURRENT_LOC.name);
+  var heroLocationLabel = copy.hero.locationLabel.replace("{location}", CURRENT_LOC.name);
+  var dispatchCount = copy.hero.countTemplate
+    .replace("{current}", String(posts.length).padStart(2,"0"))
+    .replace("{total}", String(posts.length).padStart(2,"0"));
 
   return (
     <div style={{background:"var(--cream)",minHeight:"100vh"}}>
@@ -1130,12 +1047,12 @@ export default function ScrapSheet({ backHref = "/" }) {
         <div style={{height:60,padding:"0 36px",display:"grid",gridTemplateColumns:"1fr auto 1fr",alignItems:"center"}}>
 
           <a href={backHref} style={{fontFamily:"'Jost',sans-serif",fontSize:10,fontWeight:600,letterSpacing:".18em",textTransform:"uppercase",color:"rgba(240,233,223,0.7)",textDecoration:"none",justifySelf:"start",display:"inline-flex",alignItems:"center",gap:8}}>
-            <span style={{fontSize:14,lineHeight:1}}>&larr;</span> Back
+            {copy.nav.backLabel}
           </a>
 
           {/* Logo */}
           <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontWeight:600,color:"var(--cream)",letterSpacing:".01em",justifySelf:"center"}}>
-            The Scrap Sheet
+            {copy.nav.title}
           </div>
 
           {/* Nav + inline search toggle */}
@@ -1149,7 +1066,7 @@ export default function ScrapSheet({ backHref = "/" }) {
                   <input
                     ref={searchInputRef}
                     className="search-input"
-                    placeholder="Search..."
+                    placeholder={copy.nav.searchPlaceholder}
                     value={searchQ}
                     style={{width:160}}
                     onChange={function(e){setSearchQ(e.target.value);}}
@@ -1167,7 +1084,7 @@ export default function ScrapSheet({ backHref = "/" }) {
                 </div>
               ) : (
                 <button onClick={function(){setSearchOpen(true);}} style={{background:"none",border:"none",cursor:"pointer",color:"rgba(240,233,223,0.62)",display:"flex",alignItems:"center",padding:4,transition:"color .15s"}}
-                  title="Search dispatches"
+                  title={copy.nav.searchTooltip}
                   onMouseEnter={function(e){e.currentTarget.style.color="var(--cream)";}}
                   onMouseLeave={function(e){e.currentTarget.style.color="rgba(240,233,223,0.62)";}}>
                   <SearchIcon size={15} color="currentColor"/>
@@ -1175,14 +1092,14 @@ export default function ScrapSheet({ backHref = "/" }) {
               )}
               {searchOpen&&searchQ&&(
                 <div style={{position:"absolute",top:"calc(100% + 6px)",right:0,fontFamily:"'Jost',sans-serif",fontSize:"10px",color:"rgba(240,233,223,0.5)",letterSpacing:".07em",whiteSpace:"nowrap",background:"rgba(0,0,0,0.3)",padding:"3px 8px",borderRadius:2}}>
-                  {filtered.length} dispatch{filtered.length!==1?"es":""} found
+                  {filtered.length} {copy.nav.searchResultsSuffix}
                 </div>
               )}
             </div>
 
-            <a href="#feed" className="nava" onClick={function(e){e.preventDefault();var el=document.getElementById("feed");if(el)el.scrollIntoView({behavior:"smooth"});}}>Dispatches</a>
-            <a href="#about" className="nava" onClick={function(e){e.preventDefault();var el=document.getElementById("about");if(el)el.scrollIntoView({behavior:"smooth"});}}>About</a>
-            <button className="subbtn" onClick={function(){setShowSub(true);}}>Subscribe</button>
+            <a href="#feed" className="nava" onClick={function(e){e.preventDefault();var el=document.getElementById("feed");if(el)el.scrollIntoView({behavior:"smooth"});}}>{copy.nav.links[0]}</a>
+            <a href="#about" className="nava" onClick={function(e){e.preventDefault();var el=document.getElementById("about");if(el)el.scrollIntoView({behavior:"smooth"});}}>{copy.nav.links[1]}</a>
+            <button className="subbtn" onClick={function(){setShowSub(true);}}>{copy.nav.links[2]}</button>
           </nav>
         </div>
       </header>
@@ -1193,25 +1110,25 @@ export default function ScrapSheet({ backHref = "/" }) {
         <FieldStamp/>
         <div style={{position:"absolute",bottom:28,right:44,opacity:0.88,display:"flex",flexDirection:"column",alignItems:"center",gap:6}}>
           <Globe/>
-          <div style={{fontFamily:"'Jost',sans-serif",fontSize:"8px",fontWeight:600,letterSpacing:".2em",textTransform:"uppercase",color:"rgba(240,233,223,0.22)"}}>&#9679; {CURRENT_LOC.name}</div>
+          <div style={{fontFamily:"'Jost',sans-serif",fontSize:"8px",fontWeight:600,letterSpacing:".2em",textTransform:"uppercase",color:"rgba(240,233,223,0.22)"}}>{heroLocationLabel}</div>
         </div>
         <div style={{maxWidth:520,flex:1}}>
           <div style={{display:"flex",alignItems:"center",gap:8,fontFamily:"'Jost',sans-serif",fontSize:"11px",fontWeight:500,letterSpacing:".12em",textTransform:"uppercase",color:RED,marginBottom:28}}>
             <span style={{width:7,height:7,borderRadius:"50%",background:RED,display:"inline-block",animation:"pulse 2s ease infinite"}}/>
-            Last reported from {CURRENT_LOC.name}
+            {heroLastReported}
           </div>
           <h1 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"clamp(56px,8vw,90px)",fontWeight:300,lineHeight:0.9,letterSpacing:"-.025em",color:"var(--cream)",marginBottom:28}}>
-            <em style={{fontWeight:600,display:"block"}}>Scrap Notes</em>
-            <span style={{fontSize:".56em",fontWeight:300,fontStyle:"normal",color:"rgba(240,233,223,0.48)",display:"block",marginTop:10}}>about the world.</span>
+            <em style={{fontWeight:600,display:"block"}}>{copy.hero.titleMain}</em>
+            <span style={{fontSize:".56em",fontWeight:300,fontStyle:"normal",color:"rgba(240,233,223,0.48)",display:"block",marginTop:10}}>{copy.hero.titleEm}</span>
           </h1>
-          <p style={{fontFamily:"'Lora',serif",fontSize:16,color:"rgba(240,233,223,0.42)",lineHeight:1.68,maxWidth:400,marginBottom:22}}>
-            Thoughts and discourse for a community<br/>in an age without community.
+          <p style={{fontFamily:"'Lora',serif",fontSize:16,color:"rgba(240,233,223,0.42)",lineHeight:1.68,maxWidth:400,marginBottom:22,whiteSpace:"pre-line"}}>
+            {copy.hero.subcopy}
           </p>
           <TypewriterQuotes onQuoteClick={handleQuoteClick} quotes={quotes}/>
           <div style={{marginTop:28,display:"flex",alignItems:"center",gap:10}}>
             <div style={{height:1,width:24,background:"rgba(204,17,17,0.4)"}}/>
             <div style={{fontFamily:"'Courier Prime',monospace",fontSize:11,color:"rgba(240,233,223,0.25)",letterSpacing:".14em",textTransform:"uppercase"}}>
-              No. {String(posts.length).padStart(2,"0")} of {String(posts.length).padStart(2,"0")} dispatches filed
+              {dispatchCount}
             </div>
           </div>
         </div>
@@ -1220,9 +1137,9 @@ export default function ScrapSheet({ backHref = "/" }) {
       {/* FILTER */}
       <div id="feed" style={{borderBottom:"1px solid var(--rule)",background:"var(--cream)",scrollMarginTop:"60px"}}>
         <div style={{maxWidth:720,margin:"0 auto",padding:"22px 48px 20px",display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
-          <span style={{fontFamily:"'Jost',sans-serif",fontSize:"9px",fontWeight:600,letterSpacing:".18em",textTransform:"uppercase",color:"var(--muted)",marginRight:4}}>View</span>
-          {[{k:"all",l:"All"},{k:"travel",l:"Travel Dispatches"},{k:"stories",l:"Short Stories"},{k:"musings",l:"Musings"}].map(function(item){
-            return <button key={item.k} className={"fbtn"+(filter===item.k?" on":"")} onClick={function(){setFilter(item.k);}}>{item.l}</button>;
+          <span style={{fontFamily:"'Jost',sans-serif",fontSize:"9px",fontWeight:600,letterSpacing:".18em",textTransform:"uppercase",color:"var(--muted)",marginRight:4}}>{copy.filters.label}</span>
+          {copy.filters.buttons.map(function(item){
+            return <button key={item.key} className={"fbtn"+(filter===item.key?" on":"")} onClick={function(){setFilter(item.key);}}>{item.label}</button>;
           })}
         </div>
       </div>
@@ -1231,7 +1148,7 @@ export default function ScrapSheet({ backHref = "/" }) {
       <main style={{maxWidth:720,margin:"0 auto",padding:"40px 48px 72px"}}>
         {filtered.length===0&&(
           <div style={{textAlign:"center",padding:"48px 0",fontFamily:"'Lora',serif",fontStyle:"italic",fontSize:15,color:"var(--muted)"}}>
-            No dispatches match your search.
+            {copy.filters.emptyState}
           </div>
         )}
         {filtered.map(function(post,i){
@@ -1250,24 +1167,25 @@ export default function ScrapSheet({ backHref = "/" }) {
       {/* ABOUT */}
       <section id="about" style={{background:"var(--ink)",padding:"80px 56px",borderTop:"1px solid rgba(240,233,223,0.06)",scrollMarginTop:"60px"}}>
         <div style={{maxWidth:660,margin:"0 auto"}}>
-          <div style={{fontFamily:"'Jost',sans-serif",fontSize:"9px",fontWeight:600,letterSpacing:".2em",textTransform:"uppercase",color:RED,marginBottom:18}}>About This Page</div>
+          <div style={{fontFamily:"'Jost',sans-serif",fontSize:"9px",fontWeight:600,letterSpacing:".2em",textTransform:"uppercase",color:RED,marginBottom:18}}>{copy.about.label}</div>
           <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"clamp(30px,5vw,46px)",fontWeight:400,fontStyle:"italic",color:"var(--cream)",lineHeight:1.1,marginBottom:36,letterSpacing:"-.02em"}}>
-            Why I Keep Sending<br/><span style={{fontStyle:"normal",fontWeight:600}}>You These</span>
+            {copy.about.titleMain}<br/><span style={{fontStyle:"normal",fontWeight:600}}>{copy.about.titleEm}</span>
           </h2>
           <div style={{display:"flex",flexDirection:"column",gap:18,marginBottom:44}}>
-            {[
-              ["I had a WhatsApp group with 50+ people who actually wanted to know what was happening on the other side of the world. They would react with voice notes and inside jokes and the occasional message asking if I was alive at 2am. It was the most alive I have ever felt being far from home.",false],
-              ["This is the same thing, but slower. More considered. A little more permanent. I write these for the same reason I wrote those \u2014 because something is lost when we experience things without trying to articulate them, and the world gets smaller when you only talk to people who already see it the way you do.",false],
-              ["Agree with me. Argue with me. Tell me what you are reading. Leave a comment. The whole point is that you are here.",true],
-            ].map(function(item,i){
-              return <p key={i} style={{fontFamily:"'Lora',serif",fontSize:16,lineHeight:1.78,fontStyle:item[1]?"italic":"normal",color:item[1]?"rgba(240,233,223,0.82)":"rgba(240,233,223,0.56)"}}>{item[0]}</p>;
+            {copy.about.paragraphs.map(function(text,i){
+              var isLast = i === copy.about.paragraphs.length - 1;
+              return (
+                <p key={i} style={{fontFamily:"'Lora',serif",fontSize:16,lineHeight:1.78,fontStyle:isLast?"italic":"normal",color:isLast?"rgba(240,233,223,0.82)":"rgba(240,233,223,0.56)"}}>
+                  {text}
+                </p>
+              );
             })}
           </div>
           <div style={{paddingTop:30,borderTop:"1px solid rgba(240,233,223,0.08)",display:"flex",alignItems:"center",gap:14}}>
-            <div style={{width:46,height:46,borderRadius:"50%",border:"1px solid rgba(204,17,17,0.4)",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Cormorant Garamond',serif",fontSize:17,fontWeight:600,color:"var(--cream)",flexShrink:0,background:"rgba(204,17,17,0.1)"}}>TC</div>
+            <div style={{width:46,height:46,borderRadius:"50%",border:"1px solid rgba(204,17,17,0.4)",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Cormorant Garamond',serif",fontSize:17,fontWeight:600,color:"var(--cream)",flexShrink:0,background:"rgba(204,17,17,0.1)"}}>{copy.about.signatureInitials}</div>
             <div>
-              <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontWeight:600,color:"var(--cream)"}}>The Correspondent</div>
-              <div style={{fontFamily:"'Jost',sans-serif",fontSize:"10px",color:"rgba(240,233,223,0.28)",marginTop:3,letterSpacing:".07em"}}>Somewhere new, always.</div>
+              <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontWeight:600,color:"var(--cream)"}}>{copy.about.signatureName}</div>
+              <div style={{fontFamily:"'Jost',sans-serif",fontSize:"10px",color:"rgba(240,233,223,0.28)",marginTop:3,letterSpacing:".07em"}}>{copy.about.signatureLine}</div>
             </div>
           </div>
         </div>
@@ -1275,9 +1193,9 @@ export default function ScrapSheet({ backHref = "/" }) {
 
       {/* FOOTER */}
       <footer style={{background:"var(--red)",padding:"20px 48px",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:12,boxShadow:"0 -2px 12px rgba(140,8,8,0.2)"}}>
-        <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:15,color:"rgba(240,233,223,0.78)"}}>The Scrap Sheet</span>
-        <span style={{fontFamily:"'Courier Prime',monospace",fontSize:"10px",color:"rgba(240,233,223,0.38)",letterSpacing:".1em",textTransform:"uppercase"}}>Written from the road. Read anywhere.</span>
-        <button className="fsubbtn" onClick={function(){setShowSub(true);}}>Subscribe &rarr;</button>
+        <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:15,color:"rgba(240,233,223,0.78)"}}>{copy.footer.title}</span>
+        <span style={{fontFamily:"'Courier Prime',monospace",fontSize:"10px",color:"rgba(240,233,223,0.38)",letterSpacing:".1em",textTransform:"uppercase"}}>{copy.footer.subtitle}</span>
+        <button className="fsubbtn" onClick={function(){setShowSub(true);}}>{copy.footer.subscribeLabel}</button>
       </footer>
 
       {expanded&&(

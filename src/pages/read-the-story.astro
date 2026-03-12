@@ -1,21 +1,23 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
+import { siteCopy } from "../content/siteCopy";
 
 const base = import.meta.env.BASE_URL ?? "/";
 const basePath = base.endsWith("/") ? base : `${base}/`;
+const copy = siteCopy.readStory;
 ---
 
 <BaseLayout
-  title="Read the Story"
-  description="The author and the project."
+  title={copy.meta.title}
+  description={copy.meta.description}
   navMode="single"
-  navLabel="About"
+  navLabel={copy.header.label}
   showSubscribe={false}
 >
   <section class="page-header">
-    <span class="section-label">About</span>
-    <h1>Read the Story</h1>
-    <p>The author and the project behind Stories From Abroad.</p>
+    <span class="section-label">{copy.header.label}</span>
+    <h1>{copy.header.title}</h1>
+    <p>{copy.header.subtitle}</p>
   </section>
 
   <section class="about-wrap">
@@ -23,36 +25,17 @@ const basePath = base.endsWith("/") ? base : `${base}/`;
       <div class="about-grid">
         <div class="about-portrait">
           <div class="portrait-frame">
-            <div class="portrait-placeholder">Portrait Placeholder</div>
+            <div class="portrait-placeholder">{copy.body.portraitLabel}</div>
           </div>
         </div>
         <div class="about-body">
-          <h2>The Author and the Project</h2>
-          <p>
-            There is a particular clarity that comes from being foreign, from navigating a city whose
-            signs you cannot read, a conversation whose subtext escapes you, a ceremony whose meaning
-            you must ask someone to explain. This project was born in that discomfort, and in the
-            conviction that such discomfort is worth documenting.
-          </p>
-          <p>
-            Stories From Abroad is a personal dispatch, part literary journal, part field notebook. It
-            exists in the tradition of writers who believed that observation, if patient enough, becomes
-            a form of understanding. It is not journalism, exactly. It is not memoir, quite. It is
-            something in between: witnessed and imagined, reported and felt.
-          </p>
-          <p>
-            The photography is shot on film where possible. The essays take as long as they need to.
-            Each section has its own logic, but they share a common conviction: that the world is worth
-            paying attention to.
-          </p>
-          <p>
-            If you have found your way here, you are warmly invited to stay. Subscribe to receive
-            dispatches when new work is published. No algorithms, no advertising. Just writing, when
-            it is ready.
-          </p>
+          <h2>{copy.body.title}</h2>
+          {copy.body.paragraphs.map((paragraph) => (
+            <p>{paragraph}</p>
+          ))}
           <div class="about-cta">
-            <button class="btn-ghost" type="button" data-modal-open="subscribe">Subscribe</button>
-            <a class="btn-solid" href={`${basePath}selected-papers/`}>Read the Papers</a>
+            <button class="btn-ghost" type="button" data-modal-open="subscribe">{copy.buttons.primary}</button>
+            <a class="btn-solid" href={`${basePath}selected-papers/`}>{copy.buttons.secondary}</a>
           </div>
         </div>
       </div>
