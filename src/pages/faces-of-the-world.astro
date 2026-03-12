@@ -293,10 +293,30 @@ const fallbackInterviews = [
 /* === MAP === */
 const W=960, H=500;
 let proj, geoPath, worldData, countriesData;
-const svgEl = document.getElementById('map-svg');
-const svgD3 = d3.select(svgEl);
+let svgEl;
+let svgD3;
+let mapBuilt = false;
+let mapInitAttempts = 0;
+const MAP_INIT_MAX = 180;
 
 async function buildMap() {
+  if (mapBuilt) return;
+  if (!window.d3 || !window.topojson) {
+    if (mapInitAttempts++ < MAP_INIT_MAX) {
+      requestAnimationFrame(buildMap);
+      return;
+    }
+    const loading = document.getElementById('map-loading');
+    if (loading) loading.textContent = 'Map unavailable.';
+    console.error('Map libraries not loaded.');
+    return;
+  }
+  if (!svgEl) svgEl = document.getElementById('map-svg');
+  if (!svgEl) return;
+  const d3 = window.d3;
+  const topojson = window.topojson;
+  svgD3 = d3.select(svgEl);
+  mapBuilt = true;
   try {
     worldData = await d3.json('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json');
     document.getElementById('map-loading').style.display = 'none';
@@ -334,6 +354,8 @@ function cloneMap(id) {
 /* === ABOUT MAP — 1/4 of world map centered on Shanghai coast, hero-style crimson pin === */
 function buildAboutMap() {
   const el = document.getElementById('about-map-left'); if (!el || !proj) return;
+  const d3 = window.d3;
+  if (!d3) return;
   el.innerHTML = '';
   const NS = 'http://www.w3.org/2000/svg';
   const svg = document.createElementNS(NS, 'svg');
@@ -974,7 +996,7 @@ function handleRoute() {
   document.getElementById('main-view').style.display = 'block';
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+function initPage() {
   setDerived();
   buildMap();
   initScroll();
@@ -994,7 +1016,13 @@ document.addEventListener('DOMContentLoaded', () => {
       renderArchive(filterInterviews());
     }
   });
-});
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initPage);
+} else {
+  initPage();
+}
 </script>
 </body>
 </html>
