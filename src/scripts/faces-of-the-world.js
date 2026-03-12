@@ -1,6 +1,8 @@
 import { collection, getDocs } from "firebase/firestore";
 import { db, firestoreReady } from "../lib/firebaseClient";
 const copy = window.__facesCopy || {};
+const d3 = window.d3;
+const topojson = window.topojson;
 /* === DATA === */
 const fallbackInterviews = [
   {slug:'amara-osei',name:'Amara Osei',age:34,religion:'Christian',occupation:'Carpenter',city:'Accra',country:'Ghana',date:'2026-03-05',lngLat:[-0.187,5.604],pic:24,descriptor:'A craftsman working with memory',excerpt:'The wood remembers everything. The grain tells you where the tree grew in shadow, where it grew in struggle.',article:[{type:'para',text:'In a courtyard workshop in Accra\'s Labadi neighborhood, Amara Osei works before dawn. By 5 a.m. the sound of hand-planing fills the still morning air.'},{type:'photo',id:'p1'},{type:'qa',q:'What does your father\'s workshop look like in your memory?',a:'Small. Always smaller than I remember. But the smell is identical \u2014 sawdust and palm oil and something underneath that I think is just time.'},{type:'pull',text:'I don\'t think of myself as making furniture. I think of myself as giving wood a second life.'},{type:'qa',q:'Do you think about who will own your furniture?',a:'Always. A chair should be made for the person who will sit in it for twenty years. Wood holds stories. So does sitting.'},{type:'photo',id:'p2'}]},
@@ -67,9 +69,16 @@ async function loadInterviews() {
 const W=960, H=500;
 let proj, geoPath, worldData, countriesData;
 const svgEl = document.getElementById('map-svg');
-const svgD3 = d3.select(svgEl);
+const svgD3 = d3 && svgEl ? d3.select(svgEl) : null;
 
 async function buildMap() {
+  if (!d3 || !topojson || !svgD3) {
+    const msg = copy.mapUnavailable || 'Map unavailable.';
+    const loading = document.getElementById('map-loading');
+    if (loading) loading.textContent = msg;
+    console.error('Faces map libraries unavailable.');
+    return;
+  }
   try {
     worldData = await d3.json('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json');
     document.getElementById('map-loading').style.display = 'none';
