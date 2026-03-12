@@ -276,8 +276,6 @@ body{font-family:var(--bod);color:var(--white);background:#000;overflow-x:hidden
 
 <script is:inline src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
 <script is:inline src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
-<script is:inline src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script is:inline src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script is:inline define:vars={{ firebaseConfig }}>window.__facesFirebaseConfig = firebaseConfig;</script>
 <script>
 /* === DATA === */
@@ -555,16 +553,24 @@ function normalizeInterview(iv, idx) {
   };
 }
 
-function initFirestore() {
+let firebaseApi = null;
+
+async function initFirestore() {
   const cfg = window.__facesFirebaseConfig || {};
   const required = ['apiKey','authDomain','projectId','storageBucket','messagingSenderId','appId'];
   const ready = required.every((key) => cfg && cfg[key]);
-  if (!ready || !window.firebase) return null;
+  if (!ready) return null;
+  if (firebaseApi) return firebaseApi;
   try {
-    if (!firebase.apps.length) {
-      firebase.initializeApp(cfg);
-    }
-    return firebase.firestore();
+    const appMod = await import('https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js');
+    const fsMod = await import('https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js');
+    const app = appMod.getApps().length ? appMod.getApp() : appMod.initializeApp(cfg);
+    firebaseApi = {
+      db: fsMod.getFirestore(app),
+      collection: fsMod.collection,
+      getDocs: fsMod.getDocs,
+    };
+    return firebaseApi;
   } catch (err) {
     console.warn('Firebase init failed, using fallback.', err);
     return null;
@@ -572,13 +578,13 @@ function initFirestore() {
 }
 
 async function loadInterviews() {
-  const db = initFirestore();
-  if (!db) {
+  const fb = await initFirestore();
+  if (!fb) {
     interviews = fallbackInterviews;
     return;
   }
   try {
-    const snap = await db.collection("faces").get();
+    const snap = await fb.getDocs(fb.collection(fb.db, "faces"));
     const data = snap.docs.map((doc, idx) => normalizeInterview({ id: doc.id, ...doc.data() }, idx));
     interviews = data.length ? data : fallbackInterviews;
   } catch (err) {
