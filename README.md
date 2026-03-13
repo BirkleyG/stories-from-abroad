@@ -58,12 +58,24 @@ The site expects these collections and fields:
   - `hasPhoto` (boolean)
 
 - `faces`
+  - `slug` (string, optional)
   - `name` (string)
-  - `location` (string)
-  - `year` (number)
-  - `note` (string)
-  - `image` (string URL, optional)
-  - `color` (string CSS gradient, optional)
+  - `age` (number, optional)
+  - `religion` (string, optional)
+  - `occupation` (string, optional)
+  - `city` (string)
+  - `country` (string)
+  - `date` (string in `YYYY-MM-DD`, or `year` number)
+  - `lngLat` (array `[lng, lat]`)
+  - `pic` (number seed or image URL string, optional)
+  - `descriptor` (string, optional)
+  - `excerpt` (string, optional)
+  - `article` (array of blocks, optional)
+    - paragraph block: `{ "type": "para", "text": "..." }`
+    - quote block: `{ "type": "pull", "text": "..." }`
+    - Q&A block: `{ "type": "qa", "q": "...", "a": "..." }`
+    - photo block: `{ "type": "photo", "id": "p1" }`
+  - Back-compat fields (`location`, `note`, `image`) are normalized when present.
 
 If Firestore is not configured or not reachable, the site renders the fallback content from `src/lib/fallbackData.ts`.
 
