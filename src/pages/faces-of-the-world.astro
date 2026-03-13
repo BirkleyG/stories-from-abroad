@@ -312,6 +312,64 @@ const FIREBASE_CONFIG = (() => {
   }
 })();
 const HAS_FIRESTORE_CONFIG = Object.values(FIREBASE_CONFIG).every(Boolean);
+const CACHE_KEYS = {
+  interviews: 'faces-world-interviews-v1',
+  worldAtlas: 'faces-world-atlas-v1',
+};
+const CACHE_TTL_MS = {
+  interviews: 12 * 60 * 60 * 1000,
+  worldAtlas: 30 * 24 * 60 * 60 * 1000,
+};
+const FIRESTORE_FETCH_TIMEOUT_MS = 3200;
+const MAP_FETCH_TIMEOUT_MS = 3200;
+const WORLD_ATLAS_URL = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json';
+
+function readCacheEntry(key, ttlMs) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return null;
+    if (!parsed.savedAt || !parsed.data) return null;
+    if (Date.now() - Number(parsed.savedAt) > ttlMs) return null;
+    return parsed.data;
+  } catch (error) {
+    return null;
+  }
+}
+
+function writeCacheEntry(key, data) {
+  try {
+    localStorage.setItem(key, JSON.stringify({ savedAt: Date.now(), data }));
+  } catch (error) {
+    // Ignore storage quota/privacy errors.
+  }
+}
+
+function withTimeout(promise, timeoutMs, label) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      setTimeout(() => reject(new Error(label + ' timed out')), timeoutMs);
+    }),
+  ]);
+}
+
+function isInterviewList(value) {
+  return Array.isArray(value) && value.every((iv) => (
+    iv &&
+    typeof iv.slug === 'string' &&
+    typeof iv.name === 'string' &&
+    Array.isArray(iv.lngLat) &&
+    iv.lngLat.length === 2
+  ));
+}
+
+function interviewSignature(list) {
+  return (Array.isArray(list) ? list : [])
+    .map((iv) => `${iv.slug}|${iv.date}|${iv.pic}`)
+    .join('~');
+}
 
 function slugifyName(value) {
   return String(value || '')
@@ -460,7 +518,11 @@ async function loadFirestoreInterviews() {
     }
 
     const db = window.firebase.firestore();
-    const snap = await db.collection('faces').get();
+    const snap = await withTimeout(
+      db.collection('faces').get(),
+      FIRESTORE_FETCH_TIMEOUT_MS,
+      'Faces Firestore request'
+    );
     if (!snap || snap.empty) return null;
 
     const bySlug = new Map(localInterviews.map((iv) => [iv.slug, iv]));
@@ -473,16 +535,32 @@ async function loadFirestoreInterviews() {
       })
       .filter(Boolean);
 
-    return docs.length ? docs : null;
+    if (!docs.length) return null;
+    writeCacheEntry(CACHE_KEYS.interviews, docs);
+    return docs;
   } catch (error) {
     console.warn('Faces Firestore load failed. Using local interviews.', error);
     return null;
   }
 }
 
+function loadInterviewsFromCache() {
+  const cached = readCacheEntry(CACHE_KEYS.interviews, CACHE_TTL_MS.interviews);
+  if (isInterviewList(cached) && cached.length) {
+    interviews = cached;
+    return true;
+  }
+  interviews = [...localInterviews];
+  return false;
+}
+
 async function hydrateInterviews() {
+  const beforeSig = interviewSignature(interviews);
   const remote = await loadFirestoreInterviews();
-  interviews = Array.isArray(remote) && remote.length ? remote : [...localInterviews];
+  if (isInterviewList(remote) && remote.length) {
+    interviews = remote;
+  }
+  return interviewSignature(interviews) !== beforeSig;
 }
 
 function refreshDerivedData() {
@@ -509,31 +587,60 @@ const svgEl = document.getElementById('map-svg');
 const svgD3 = d3.select(svgEl);
 
 async function buildMap() {
+  const cachedWorld = readCacheEntry(CACHE_KEYS.worldAtlas, CACHE_TTL_MS.worldAtlas);
+  if (cachedWorld?.objects?.countries) {
+    worldData = cachedWorld;
+    renderMapFromWorldData();
+    return;
+  }
+
   try {
-    worldData = await d3.json('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json');
-    document.getElementById('map-loading').style.display = 'none';
-    proj = d3.geoEquirectangular().scale(153).translate([W/2, H/2+20]).precision(.1);
-    geoPath = d3.geoPath().projection(proj);
-    const defs = svgD3.append('defs');
-    const gf = defs.append('filter').attr('id','gg').attr('x','-22%').attr('y','-22%').attr('width','144%').attr('height','144%');
-    gf.append('feGaussianBlur').attr('in','SourceGraphic').attr('stdDeviation','2').attr('result','b');
-    gf.append('feColorMatrix').attr('in','b').attr('type','matrix').attr('values','0.8 0.5 0 0 0  0.5 0.36 0 0 0  0 0 0 0 0  0 0 0 0.5 0').attr('result','g');
-    const gm = gf.append('feMerge'); gm.append('feMergeNode').attr('in','g'); gm.append('feMergeNode').attr('in','SourceGraphic');
-    svgD3.append('rect').attr('width',W).attr('height',H).attr('fill','#000');
-    svgD3.append('path').attr('d', geoPath(d3.geoGraticule().step([20,20])())).attr('fill','none').attr('stroke','rgba(201,168,76,.044)').attr('stroke-width',.25);
-    countriesData = topojson.feature(worldData, worldData.objects.countries);
-    countriesData.features.forEach(f => {
-      svgD3.append('path').attr('d', geoPath(f)).attr('fill','none').attr('stroke','rgba(201,168,76,.09)').attr('stroke-width',.18).attr('stroke-linejoin','round');
-    });
-    svgD3.append('path').attr('d', geoPath(topojson.mesh(worldData, worldData.objects.countries, (a,b) => a===b))).attr('fill','none').attr('stroke','rgba(201,168,76,.86)').attr('stroke-width',.6).attr('stroke-linejoin','round').attr('stroke-linecap','round').attr('filter','url(#gg)');
-    [{t:'PACIFIC OCEAN',lng:-150,lat:4},{t:'ATLANTIC OCEAN',lng:-30,lat:4},{t:'INDIAN OCEAN',lng:75,lat:-20},{t:'ARCTIC OCEAN',lng:0,lat:82}].forEach(o => {
-      const [x,y] = proj([o.lng, o.lat]);
-      svgD3.append('text').attr('x',x).attr('y',y).attr('text-anchor','middle').attr('fill','rgba(201,168,76,.14)').attr('font-size','7.2').attr('font-family',"'EB Garamond',serif").attr('font-style','italic').attr('letter-spacing','2').text(o.t);
-    });
-    buildPins();
-    cloneMap('prof-map-bg');
-    buildAboutMap();
-  } catch(e) { document.getElementById('map-loading').textContent = 'Map unavailable.'; console.error(e); }
+    worldData = await fetchWorldAtlasData();
+    writeCacheEntry(CACHE_KEYS.worldAtlas, worldData);
+    renderMapFromWorldData();
+  } catch(e) {
+    document.getElementById('map-loading').textContent = 'Map unavailable.';
+    console.error(e);
+  }
+}
+
+async function fetchWorldAtlasData() {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), MAP_FETCH_TIMEOUT_MS);
+  try {
+    const response = await fetch(WORLD_ATLAS_URL, { cache: 'force-cache', signal: controller.signal });
+    if (!response.ok) throw new Error('World map request failed: ' + response.status);
+    return response.json();
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function renderMapFromWorldData() {
+  document.getElementById('map-loading').style.display = 'none';
+  svgD3.selectAll('*').remove();
+
+  proj = d3.geoEquirectangular().scale(153).translate([W/2, H/2+20]).precision(.1);
+  geoPath = d3.geoPath().projection(proj);
+  const defs = svgD3.append('defs');
+  const gf = defs.append('filter').attr('id','gg').attr('x','-22%').attr('y','-22%').attr('width','144%').attr('height','144%');
+  gf.append('feGaussianBlur').attr('in','SourceGraphic').attr('stdDeviation','2').attr('result','b');
+  gf.append('feColorMatrix').attr('in','b').attr('type','matrix').attr('values','0.8 0.5 0 0 0  0.5 0.36 0 0 0  0 0 0 0 0  0 0 0 0.5 0').attr('result','g');
+  const gm = gf.append('feMerge'); gm.append('feMergeNode').attr('in','g'); gm.append('feMergeNode').attr('in','SourceGraphic');
+  svgD3.append('rect').attr('width',W).attr('height',H).attr('fill','#000');
+  svgD3.append('path').attr('d', geoPath(d3.geoGraticule().step([20,20])())).attr('fill','none').attr('stroke','rgba(201,168,76,.044)').attr('stroke-width',.25);
+  countriesData = topojson.feature(worldData, worldData.objects.countries);
+  countriesData.features.forEach(f => {
+    svgD3.append('path').attr('d', geoPath(f)).attr('fill','none').attr('stroke','rgba(201,168,76,.09)').attr('stroke-width',.18).attr('stroke-linejoin','round');
+  });
+  svgD3.append('path').attr('d', geoPath(topojson.mesh(worldData, worldData.objects.countries, (a,b) => a===b))).attr('fill','none').attr('stroke','rgba(201,168,76,.86)').attr('stroke-width',.6).attr('stroke-linejoin','round').attr('stroke-linecap','round').attr('filter','url(#gg)');
+  [{t:'PACIFIC OCEAN',lng:-150,lat:4},{t:'ATLANTIC OCEAN',lng:-30,lat:4},{t:'INDIAN OCEAN',lng:75,lat:-20},{t:'ARCTIC OCEAN',lng:0,lat:82}].forEach(o => {
+    const [x,y] = proj([o.lng, o.lat]);
+    svgD3.append('text').attr('x',x).attr('y',y).attr('text-anchor','middle').attr('fill','rgba(201,168,76,.14)').attr('font-size','7.2').attr('font-family',"'EB Garamond',serif").attr('font-style','italic').attr('letter-spacing','2').text(o.t);
+  });
+  buildPins();
+  cloneMap('prof-map-bg');
+  buildAboutMap();
 }
 
 function cloneMap(id) {
@@ -731,6 +838,7 @@ function resetPin(pin) {
 }
 
 /* === HERO SCROLL (3680vh total) === */
+const HERO_SCROLL_SPEED = 1.5;
 const CART_END  = 0.06;   /* cartouche exits — 1.5× longer */
 const SEQ_START = 0.07;   /* first pin */
 const PIN_STEP  = 0.0792; /* 10% faster than before */
@@ -763,7 +871,7 @@ function initScroll() {
   window.addEventListener('scroll', () => {
     if (document.getElementById('main-view').style.display === 'none') return;
     const max = heroEl.offsetHeight - window.innerHeight; if (max <= 0) return;
-    const p = Math.min(1, Math.max(0, window.scrollY / max));
+    const p = Math.min(1, Math.max(0, (window.scrollY * HERO_SCROLL_SPEED) / max));
 
     /* Lock at ALL_AT — snap back if user somehow scrolled past */
     if (p >= ALL_AT) {
@@ -899,7 +1007,7 @@ function initNavSearch() {
 
 /* === ARCHIVE === */
 let archPs = [], lastArchIdx = -1;
-const PER    = 4.5;
+const PER    = 3;
 const PH_BLUR = 0.18, PH_HOLD = 0.44, PH_SLIDE = 0.68, PH_DONE = 0.96;
 
 function filterInterviews() {
@@ -1113,8 +1221,33 @@ function handleRoute() {
   document.getElementById('main-view').style.display = 'block';
 }
 
-document.addEventListener('DOMContentLoaded', async () => {
-  await hydrateInterviews();
+function applyInterviewRefresh() {
+  refreshDerivedData();
+  revealed.clear();
+  closePreview();
+  buildPins();
+  positionPins();
+
+  if (document.getElementById('archive-view').style.display !== 'none') {
+    lastArchIdx = -1;
+    renderArchive(filterInterviews());
+    runArch();
+  }
+
+  if (window.location.hash.startsWith('#/profile/')) {
+    const iv = interviews.find((item) => item.slug === window.location.hash.slice(10));
+    if (iv) renderProfile(iv);
+  }
+
+  const searchWrap = document.getElementById('nav-search-wrap');
+  const searchInp = document.getElementById('nav-search-inp');
+  if (searchWrap?.classList.contains('open') && searchInp) {
+    searchInp.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  loadInterviewsFromCache();
   refreshDerivedData();
   buildMap();
   initScroll();
@@ -1125,6 +1258,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('nav-archive-btn').addEventListener('click', goArchive);
   document.getElementById('nav-about-btn').addEventListener('click', goAbout);
   window.addEventListener('hashchange', handleRoute);
+
+  hydrateInterviews().then((changed) => {
+    if (!changed) return;
+    applyInterviewRefresh();
+  });
 });
 </script>
 </body>
