@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   addDoc,
   collection,
@@ -250,6 +250,62 @@ function Styles() {
 
       .filmstrip::-webkit-scrollbar{height:3px}
       .filmstrip::-webkit-scrollbar-thumb{background:#3A2A1A}
+
+      @media (max-width: 900px){
+        .dispatch-header-inner{padding:0 16px!important;grid-template-columns:auto 1fr auto!important;gap:10px}
+        .dispatch-nav{gap:12px!important}
+        .dispatch-nav .nava,.dispatch-nav .subbtn{display:none!important}
+        .dispatch-search-box input{width:120px!important}
+        .dispatch-logo{font-size:16px!important}
+        .dispatch-search-meta{right:-2px!important}
+        .dispatch-hero{padding:56px 20px 116px!important;min-height:68vh!important}
+        .dispatch-hero-copy{max-width:100%!important}
+        .dispatch-hero-globe{right:18px!important;bottom:18px!important;transform:scale(.78);transform-origin:bottom right}
+        .dispatch-filter-inner{padding:16px 16px 14px!important}
+        .dispatch-main{padding:28px 16px 56px!important}
+        .dispatch-about{padding:56px 20px!important}
+        .dispatch-footer{padding:18px 16px!important}
+        .card{padding:20px 16px 16px}
+      }
+
+      @media (max-width: 640px){
+        .dispatch-header-inner{height:54px!important;padding:0 10px!important;gap:8px}
+        .dispatch-logo{display:none!important}
+        .dispatch-back-link{font-size:9px!important;letter-spacing:.14em!important;gap:6px!important}
+        .dispatch-nav{gap:8px!important}
+        .dispatch-search-box{padding:3px 7px!important;gap:5px!important}
+        .dispatch-search-box input{width:94px!important}
+        .dispatch-search-meta{display:none!important}
+        .dispatch-hero{padding:34px 14px 126px!important}
+        .dispatch-hero-copy h1{font-size:clamp(44px,16vw,62px)!important;margin-bottom:16px!important}
+        .dispatch-hero-copy p{font-size:14px!important;line-height:1.58!important;margin-bottom:14px!important}
+        .dispatch-hero-globe{left:50%!important;right:auto!important;bottom:18px!important;transform:translateX(-50%) scale(.74)!important}
+        .dispatch-filter-inner{padding:14px 12px!important;gap:6px!important}
+        .fbtn{font-size:10px;padding:5px 10px}
+        .dispatch-main{padding:22px 12px 46px!important}
+        .dispatch-about{padding:42px 14px!important}
+        .dispatch-about h2{margin-bottom:24px!important}
+        .dispatch-about p{font-size:14px!important;line-height:1.66!important}
+        .dispatch-footer{padding:14px 12px!important;gap:8px!important}
+        .dispatch-footer .fsubbtn{width:100%;text-align:center}
+        .overlay{padding:10px 8px 18px!important}
+        .overlay .mbox{width:100%!important;max-height:92vh!important;overflow-y:auto!important}
+        .overlay .mbox [style*="padding:28px 28px"]{padding:18px 14px 0!important}
+        .overlay .mbox [style*="padding:0 28px 24px"]{padding:0 14px 18px!important}
+        .overlay .mbox [style*="padding:16px 28px 20px"]{padding:14px 14px 16px!important}
+        .overlay .mbox [style*="padding:14px 28px 6px"]{padding:12px 14px 6px!important}
+        .overlay .mbox [style*="padding:6px 28px 14px"]{padding:6px 14px 12px!important}
+        .overlay .mbox [style*="padding:0 28px 22px"]{padding:0 14px 14px!important}
+        .lb-overlay{flex-direction:column!important}
+        .lb-main{flex:1 1 auto!important;min-height:52vh}
+        .lb-side{flex:0 0 auto!important;width:100%!important;padding:16px 12px 14px!important;max-height:45vh;overflow-y:auto}
+        .lb-arrow{width:36px;height:36px;font-size:18px}
+      }
+
+      @media (max-width: 420px){
+        .dispatch-hero-globe{display:none!important}
+        .dispatch-hero{padding-bottom:34px!important}
+      }
     `}</style>
   );
 }
@@ -504,9 +560,9 @@ function PhotoLightbox({ photos, startIdx, post, onClose }) {
   }, [onClose, photos.length]);
 
   return (
-    <div className="overlay" style={{position:"fixed",inset:0,background:"rgba(18,12,8,0.95)",zIndex:3000,display:"flex",alignItems:"stretch"}} onClick={onClose}>
+    <div className="overlay lb-overlay" style={{position:"fixed",inset:0,background:"rgba(18,12,8,0.95)",zIndex:3000,display:"flex",alignItems:"stretch"}} onClick={onClose}>
       {/* Photo side */}
-      <div style={{flex:"1 1 60%",position:"relative",display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden"}} onClick={function(e){e.stopPropagation();}}>
+      <div className="lb-main" style={{flex:"1 1 60%",position:"relative",display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden"}} onClick={function(e){e.stopPropagation();}}>
         <img src={photo.url} alt={photo.caption} style={{maxWidth:"100%",maxHeight:"100%",objectFit:"contain",display:"block"}}/>
         {idx > 0 && (
           <button className="lb-arrow" style={{left:20}} onClick={function(e){e.stopPropagation();setIdx(function(i){return i-1;});}}>&#8592;</button>
@@ -516,7 +572,7 @@ function PhotoLightbox({ photos, startIdx, post, onClose }) {
         )}
       </div>
       {/* Caption side */}
-      <div style={{flex:"0 0 300px",background:"var(--paper)",display:"flex",flexDirection:"column",justifyContent:"space-between",padding:"36px 28px 28px"}} onClick={function(e){e.stopPropagation();}}>
+      <div className="lb-side" style={{flex:"0 0 300px",background:"var(--paper)",display:"flex",flexDirection:"column",justifyContent:"space-between",padding:"36px 28px 28px"}} onClick={function(e){e.stopPropagation();}}>
         <div>
           <button className="xbtn" onClick={onClose} style={{marginBottom:24}}>&#215;</button>
           <div style={{fontFamily:"'Jost',sans-serif",fontSize:"9px",fontWeight:600,letterSpacing:".18em",textTransform:"uppercase",color:"var(--muted)",marginBottom:10}}>
@@ -534,7 +590,7 @@ function PhotoLightbox({ photos, startIdx, post, onClose }) {
           </p>
         </div>
         {/* Thumbnail strip */}
-        <div style={{display:"flex",gap:6,marginTop:20,overflowX:"auto"}} className="filmstrip">
+        <div style={{display:"flex",gap:6,marginTop:20,overflowX:"auto"}} className="filmstrip lb-filmstrip">
           {photos.map(function(p,i) {
             return (
               <img key={i} src={p.url} alt="" onClick={function(){setIdx(i);}}
@@ -1039,29 +1095,29 @@ export default function ScrapSheet({ backHref = "/" }) {
     .replace("{total}", String(posts.length).padStart(2,"0"));
 
   return (
-    <div style={{background:"var(--cream)",minHeight:"100vh"}}>
+    <div className="dispatch-root" style={{background:"var(--cream)",minHeight:"100vh"}}>
       <Styles/>
 
       {/* HEADER */}
-      <header style={{position:"sticky",top:0,zIndex:100,background:"var(--red)",boxShadow:"0 2px 14px rgba(140,8,8,0.28)"}}>
-        <div style={{height:60,padding:"0 36px",display:"grid",gridTemplateColumns:"1fr auto 1fr",alignItems:"center"}}>
+      <header className="dispatch-header" style={{position:"sticky",top:0,zIndex:100,background:"var(--red)",boxShadow:"0 2px 14px rgba(140,8,8,0.28)"}}>
+        <div className="dispatch-header-inner" style={{height:60,padding:"0 36px",display:"grid",gridTemplateColumns:"1fr auto 1fr",alignItems:"center"}}>
 
-          <a href={backHref} style={{fontFamily:"'Jost',sans-serif",fontSize:10,fontWeight:600,letterSpacing:".18em",textTransform:"uppercase",color:"rgba(240,233,223,0.7)",textDecoration:"none",justifySelf:"start",display:"inline-flex",alignItems:"center",gap:8}}>
+          <a href={backHref} className="dispatch-back-link" style={{fontFamily:"'Jost',sans-serif",fontSize:10,fontWeight:600,letterSpacing:".18em",textTransform:"uppercase",color:"rgba(240,233,223,0.7)",textDecoration:"none",justifySelf:"start",display:"inline-flex",alignItems:"center",gap:8}}>
             {copy.nav.backLabel}
           </a>
 
           {/* Logo */}
-          <div style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontWeight:600,color:"var(--cream)",letterSpacing:".01em",justifySelf:"center"}}>
+          <div className="dispatch-logo" style={{fontFamily:"'Cormorant Garamond',serif",fontSize:18,fontWeight:600,color:"var(--cream)",letterSpacing:".01em",justifySelf:"center"}}>
             {copy.nav.title}
           </div>
 
           {/* Nav + inline search toggle */}
-          <nav style={{display:"flex",alignItems:"center",gap:24,justifySelf:"end"}}>
+          <nav className="dispatch-nav" style={{display:"flex",alignItems:"center",gap:24,justifySelf:"end"}}>
 
             {/* Search — icon or expanded input */}
-            <div style={{display:"flex",alignItems:"center",position:"relative"}}>
+            <div className="dispatch-search-wrap" style={{display:"flex",alignItems:"center",position:"relative"}}>
               {searchOpen ? (
-                <div style={{display:"flex",alignItems:"center",gap:7,padding:"4px 10px",background:"rgba(0,0,0,0.22)",border:"1px solid rgba(255,255,255,0.28)",borderRadius:2,animation:"fadeIn .15s ease"}}>
+                <div className="dispatch-search-box" style={{display:"flex",alignItems:"center",gap:7,padding:"4px 10px",background:"rgba(0,0,0,0.22)",border:"1px solid rgba(255,255,255,0.28)",borderRadius:2,animation:"fadeIn .15s ease"}}>
                   <SearchIcon size={11} color="rgba(240,233,223,0.5)"/>
                   <input
                     ref={searchInputRef}
@@ -1091,7 +1147,7 @@ export default function ScrapSheet({ backHref = "/" }) {
                 </button>
               )}
               {searchOpen&&searchQ&&(
-                <div style={{position:"absolute",top:"calc(100% + 6px)",right:0,fontFamily:"'Jost',sans-serif",fontSize:"10px",color:"rgba(240,233,223,0.5)",letterSpacing:".07em",whiteSpace:"nowrap",background:"rgba(0,0,0,0.3)",padding:"3px 8px",borderRadius:2}}>
+                <div className="dispatch-search-meta" style={{position:"absolute",top:"calc(100% + 6px)",right:0,fontFamily:"'Jost',sans-serif",fontSize:"10px",color:"rgba(240,233,223,0.5)",letterSpacing:".07em",whiteSpace:"nowrap",background:"rgba(0,0,0,0.3)",padding:"3px 8px",borderRadius:2}}>
                   {filtered.length} {copy.nav.searchResultsSuffix}
                 </div>
               )}
@@ -1105,14 +1161,14 @@ export default function ScrapSheet({ backHref = "/" }) {
       </header>
 
       {/* HERO */}
-      <section style={{background:"var(--ink)",position:"relative",minHeight:"75vh",padding:"72px 56px 80px",overflow:"hidden",display:"flex",alignItems:"flex-start"}}>
+      <section className="dispatch-hero" style={{background:"var(--ink)",position:"relative",minHeight:"75vh",padding:"72px 56px 80px",overflow:"hidden",display:"flex",alignItems:"flex-start"}}>
         <div style={{position:"absolute",inset:0,opacity:0.18,pointerEvents:"none",backgroundImage:"url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='0.12'/%3E%3C/svg%3E\")"}}/>
         <FieldStamp/>
-        <div style={{position:"absolute",bottom:28,right:44,opacity:0.88,display:"flex",flexDirection:"column",alignItems:"center",gap:6}}>
+        <div className="dispatch-hero-globe" style={{position:"absolute",bottom:28,right:44,opacity:0.88,display:"flex",flexDirection:"column",alignItems:"center",gap:6}}>
           <Globe/>
           <div style={{fontFamily:"'Jost',sans-serif",fontSize:"8px",fontWeight:600,letterSpacing:".2em",textTransform:"uppercase",color:"rgba(240,233,223,0.22)"}}>{heroLocationLabel}</div>
         </div>
-        <div style={{maxWidth:520,flex:1}}>
+        <div className="dispatch-hero-copy" style={{maxWidth:520,flex:1}}>
           <div style={{display:"flex",alignItems:"center",gap:8,fontFamily:"'Jost',sans-serif",fontSize:"11px",fontWeight:500,letterSpacing:".12em",textTransform:"uppercase",color:RED,marginBottom:28}}>
             <span style={{width:7,height:7,borderRadius:"50%",background:RED,display:"inline-block",animation:"pulse 2s ease infinite"}}/>
             {heroLastReported}
@@ -1136,7 +1192,7 @@ export default function ScrapSheet({ backHref = "/" }) {
 
       {/* FILTER */}
       <div id="feed" style={{borderBottom:"1px solid var(--rule)",background:"var(--cream)",scrollMarginTop:"60px"}}>
-        <div style={{maxWidth:720,margin:"0 auto",padding:"22px 48px 20px",display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
+        <div className="dispatch-filter-inner" style={{maxWidth:720,margin:"0 auto",padding:"22px 48px 20px",display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
           <span style={{fontFamily:"'Jost',sans-serif",fontSize:"9px",fontWeight:600,letterSpacing:".18em",textTransform:"uppercase",color:"var(--muted)",marginRight:4}}>{copy.filters.label}</span>
           {copy.filters.buttons.map(function(item){
             return <button key={item.key} className={"fbtn"+(filter===item.key?" on":"")} onClick={function(){setFilter(item.key);}}>{item.label}</button>;
@@ -1145,7 +1201,7 @@ export default function ScrapSheet({ backHref = "/" }) {
       </div>
 
       {/* FEED */}
-      <main style={{maxWidth:720,margin:"0 auto",padding:"40px 48px 72px"}}>
+      <main className="dispatch-main" style={{maxWidth:720,margin:"0 auto",padding:"40px 48px 72px"}}>
         {filtered.length===0&&(
           <div style={{textAlign:"center",padding:"48px 0",fontFamily:"'Lora',serif",fontStyle:"italic",fontSize:15,color:"var(--muted)"}}>
             {copy.filters.emptyState}
@@ -1165,7 +1221,7 @@ export default function ScrapSheet({ backHref = "/" }) {
       </main>
 
       {/* ABOUT */}
-      <section id="about" style={{background:"var(--ink)",padding:"80px 56px",borderTop:"1px solid rgba(240,233,223,0.06)",scrollMarginTop:"60px"}}>
+      <section id="about" className="dispatch-about" style={{background:"var(--ink)",padding:"80px 56px",borderTop:"1px solid rgba(240,233,223,0.06)",scrollMarginTop:"60px"}}>
         <div style={{maxWidth:660,margin:"0 auto"}}>
           <div style={{fontFamily:"'Jost',sans-serif",fontSize:"9px",fontWeight:600,letterSpacing:".2em",textTransform:"uppercase",color:RED,marginBottom:18}}>{copy.about.label}</div>
           <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:"clamp(30px,5vw,46px)",fontWeight:400,fontStyle:"italic",color:"var(--cream)",lineHeight:1.1,marginBottom:36,letterSpacing:"-.02em"}}>
@@ -1192,7 +1248,7 @@ export default function ScrapSheet({ backHref = "/" }) {
       </section>
 
       {/* FOOTER */}
-      <footer style={{background:"var(--red)",padding:"20px 48px",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:12,boxShadow:"0 -2px 12px rgba(140,8,8,0.2)"}}>
+      <footer className="dispatch-footer" style={{background:"var(--red)",padding:"20px 48px",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:12,boxShadow:"0 -2px 12px rgba(140,8,8,0.2)"}}>
         <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:15,color:"rgba(240,233,223,0.78)"}}>{copy.footer.title}</span>
         <span style={{fontFamily:"'Courier Prime',monospace",fontSize:"10px",color:"rgba(240,233,223,0.38)",letterSpacing:".1em",textTransform:"uppercase"}}>{copy.footer.subtitle}</span>
         <button className="fsubbtn" onClick={function(){setShowSub(true);}}>{copy.footer.subscribeLabel}</button>

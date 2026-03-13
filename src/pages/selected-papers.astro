@@ -1113,6 +1113,110 @@ const initialFeatCounter = copy.featured.counterTemplate
           display: none;
         }
       }
+      @media (max-width: 560px) {
+        :root {
+          --nav-h: 54px;
+        }
+        #nav {
+          padding: 0 14px;
+        }
+        .nav-back {
+          gap: 6px;
+          letter-spacing: 0.2em;
+          font-size: 9px;
+        }
+        .nav-label {
+          display: none;
+        }
+        .hero-content {
+          padding: 60px 14px 80px;
+        }
+        .hero-kicker {
+          letter-spacing: 0.32em;
+          margin-bottom: 18px;
+        }
+        .hero-divider {
+          margin: 26px 0 10px;
+        }
+        .hero-tw-wrap {
+          min-height: 50px;
+        }
+        .hero-scroll-hint {
+          left: 14px;
+          bottom: 22px;
+          letter-spacing: 0.28em;
+        }
+        .hero-byline {
+          right: 14px;
+          bottom: 22px;
+        }
+        .hero-byline-name {
+          font-size: 18px;
+        }
+        .sd {
+          padding: 14px 14px;
+          gap: 12px;
+        }
+        .feat-content {
+          padding: 48px 14px 96px;
+        }
+        .feat-controls {
+          left: 14px;
+          right: 14px;
+        }
+        #library {
+          padding: 44px 14px 64px;
+        }
+        .lib-head {
+          gap: 16px;
+          align-items: flex-start;
+          flex-direction: column;
+        }
+        .lib-title {
+          font-size: clamp(38px, 14vw, 56px);
+        }
+        .paper-row {
+          grid-template-columns: 1fr;
+          gap: 8px;
+          padding: 14px 2px;
+        }
+        .row-n {
+          display: none;
+        }
+        .row-title {
+          font-size: 24px;
+        }
+        .row-preview {
+          font-size: 13px;
+          line-height: 1.55;
+        }
+        .ov-nav {
+          padding: 0 14px;
+        }
+        .ov-body {
+          padding: 40px 14px 64px;
+        }
+        .ov-h1 {
+          font-size: clamp(30px, 10vw, 42px);
+        }
+      }
+      @media (max-width: 400px) {
+        .feat-ghost {
+          font-size: 105px;
+          right: 2%;
+        }
+        .search-bar {
+          border-radius: 12px;
+        }
+        .s-wrap {
+          padding: 12px 12px;
+          min-height: 48px;
+        }
+        .btn-read {
+          width: 100%;
+          text-align: center;
+        }
+      }
     </style>
   </head>
   <body>

@@ -650,14 +650,105 @@ body.theme-papers .site-nav.scrolled {
   .nav-links {
     display: none;
   }
+
+  .nav-cta {
+    padding: 0.45rem 1rem;
+    letter-spacing: 0.22em;
+  }
 }
 
 @media (max-width: 640px) {
+  .site-nav {
+    height: 58px;
+    padding: 0 0.95rem;
+  }
+
+  .nav-wordmark {
+    font-size: 0.62rem;
+    letter-spacing: 0.28em;
+  }
+
+  .nav-cta {
+    display: none;
+  }
+
+  .nav-single-right {
+    gap: 0.75rem;
+  }
+
+  .nav-single-label {
+    font-size: 0.54rem;
+    letter-spacing: 0.2em;
+  }
+
+  .container,
+  .container-wide {
+    padding: 0 1.15rem;
+  }
+
+  .page-header {
+    padding: 3.8rem 1.15rem 2.8rem;
+  }
+
   .hero {
     padding: 4rem 1.2rem;
   }
 
+  .hero-title {
+    font-size: clamp(2.2rem, 13vw, 3.5rem);
+    line-height: 1.08;
+  }
+
+  .hero-subtitle {
+    margin-bottom: 2.2rem;
+  }
+
+  .hero-mission {
+    font-size: 1rem;
+    margin-bottom: 2.2rem;
+  }
+
+  .hero-cta {
+    width: 100%;
+    max-width: 360px;
+    gap: 0.7rem;
+  }
+
+  .hero-cta .btn-ghost,
+  .hero-cta .btn-solid {
+    width: 100%;
+    text-align: center;
+  }
+
   .home-previews {
     padding: 4rem 1.2rem;
+  }
+
+  .footer-links {
+    gap: 0.8rem;
+    flex-wrap: wrap;
+    letter-spacing: 0.12em;
+  }
+
+  .site-footer {
+    padding: 2.4rem 1.1rem 2.8rem;
+  }
+
+  .modal {
+    width: min(520px, 94vw);
+    padding: 2.1rem 1.1rem 1.5rem;
+  }
+}
+
+@media (max-width: 460px) {
+  .nav-single-label {
+    display: none;
+  }
+
+  .btn-ghost,
+  .btn-solid {
+    font-size: 0.68rem;
+    padding: 0.7rem 1rem;
+    letter-spacing: 0.14em;
   }
 }

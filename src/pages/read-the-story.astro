@@ -95,5 +95,39 @@ const copy = siteCopy.readStory;
         grid-template-columns: 1fr;
       }
     }
+
+    @media (max-width: 640px) {
+      .about-wrap {
+        padding: 2.6rem 0 4rem;
+      }
+
+      .about-grid {
+        gap: 2rem;
+      }
+
+      .portrait-frame {
+        max-width: 320px;
+        margin: 0 auto;
+      }
+
+      .about-body h2 {
+        font-size: clamp(1.5rem, 8vw, 2.1rem);
+      }
+
+      .about-body p {
+        font-size: 1rem;
+        line-height: 1.72;
+      }
+
+      .about-cta {
+        flex-direction: column;
+      }
+
+      .about-cta .btn-ghost,
+      .about-cta .btn-solid {
+        width: 100%;
+        text-align: center;
+      }
+    }
   </style>
 </BaseLayout>
