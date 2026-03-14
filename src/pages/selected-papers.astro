@@ -1682,6 +1682,13 @@ const initialFeatCounter = copy.featured.counterTemplate
       const counterTemplate = copy.featured.counterTemplate;
       const formatCounter = (current, total) =>
         counterTemplate.replace("{current}", current).replace("{total}", total);
+      const esc = (value) =>
+        String(value ?? "").replace(/[&<>"']/g, (char) => (
+          char === "&" ? "&amp;" :
+          char === "<" ? "&lt;" :
+          char === ">" ? "&gt;" :
+          char === "\"" ? "&quot;" : "&#39;"
+        ));
 
       const state = {
         papers: [],
@@ -1748,13 +1755,13 @@ const initialFeatCounter = copy.featured.counterTemplate
         title.textContent = p.title;
         title.onclick = () => openPaper(p.id);
         document.getElementById("feat-summary").textContent = p.summary;
-        document.getElementById("feat-kws").innerHTML = p.kw.map((k) => `<span class="feat-kw">${k}</span>`).join("");
+        document.getElementById("feat-kws").innerHTML = p.kw.map((k) => `<span class="feat-kw">${esc(k)}</span>`).join("");
         document.getElementById("feat-meta").innerHTML = `
-          <span>${p.date || p.year}</span>
+          <span>${esc(p.date || p.year)}</span>
           <span class="feat-meta-dot"></span>
-          <span>${p.time}${copy.featured.metaReadSuffix}</span>
+          <span>${esc(p.time)}${esc(copy.featured.metaReadSuffix)}</span>
           <span class="feat-meta-dot"></span>
-          <span>${p.type}</span>`;
+          <span>${esc(p.type)}</span>`;
         document.getElementById("feat-btn").onclick = () => openPaper(p.id);
         document.getElementById("feat-ghost").textContent = String(idx + 1).padStart(2, "0");
         const ctr = document.getElementById("feat-ctr-sd");
@@ -1810,14 +1817,14 @@ const initialFeatCounter = copy.featured.counterTemplate
           row.innerHTML = `
             <div class="row-n">${String(i + 1).padStart(2, "0")}</div>
             <div class="row-body">
-              <div class="row-cat">${p.cat}</div>
-              <div class="row-title">${p.title}</div>
-              <div class="row-kws">${p.kw.map((k) => `<span class="row-kw">${k}</span>`).join("")}</div>
-              <div class="row-preview">${p.summary}</div>
+              <div class="row-cat">${esc(p.cat)}</div>
+              <div class="row-title">${esc(p.title)}</div>
+              <div class="row-kws">${p.kw.map((k) => `<span class="row-kw">${esc(k)}</span>`).join("")}</div>
+              <div class="row-preview">${esc(p.summary)}</div>
             </div>
             <div class="row-aside">
-              <div class="row-date">${p.date || p.year}</div>
-              <div class="row-time">${p.time}${copy.archive.readSuffix}</div>
+              <div class="row-date">${esc(p.date || p.year)}</div>
+              <div class="row-time">${esc(p.time)}${esc(copy.archive.readSuffix)}</div>
               <div class="row-arrow">&rarr;</div>
             </div>`;
           el.appendChild(row);
@@ -1826,7 +1833,7 @@ const initialFeatCounter = copy.featured.counterTemplate
 
       function fillSelect(id, label, items) {
         const sel = document.getElementById(id);
-        sel.innerHTML = `<option value="">${label}</option>` + items.map((it) => `<option>${it}</option>`).join("");
+        sel.innerHTML = `<option value="">${esc(label)}</option>` + items.map((it) => `<option>${esc(it)}</option>`).join("");
       }
 
       function populateFilters(list) {
@@ -1856,20 +1863,25 @@ const initialFeatCounter = copy.featured.counterTemplate
 
       const citStyles = copy.overlay.citationStyles;
       function cite(p, s) {
-        const t = p.title;
-        const yr = p.year;
-        const d = p.date || String(p.year);
+        const t = esc(p.title);
+        const yr = esc(p.year);
+        const d = esc(p.date || String(p.year));
+        const source = esc(copy.overlay.citeSource);
+        const authorShort = esc(copy.overlay.citationAuthorShort);
+        const authorFull = esc(copy.overlay.citationAuthorFull);
+        const authorBib = esc(copy.overlay.citationAuthorBib);
+        const key = esc(copy.overlay.citationKey);
         switch (s) {
           case "APA":
-            return `${copy.overlay.citationAuthorShort} (${yr}). <em>${t}</em>. <em>${copy.overlay.citeSource}</em>.`;
+            return `${authorShort} (${yr}). <em>${t}</em>. <em>${source}</em>.`;
           case "MLA":
-            return `${copy.overlay.citationAuthorFull}. "${t}." <em>${copy.overlay.citeSource}</em>, ${d}.`;
+            return `${authorFull}. "${t}." <em>${source}</em>, ${d}.`;
           case "Chicago":
-            return `${copy.overlay.citationAuthorFull}. "${t}." <em>${copy.overlay.citeSource}</em>. ${d}.`;
+            return `${authorFull}. "${t}." <em>${source}</em>. ${d}.`;
           case "Harvard":
-            return `${copy.overlay.citationAuthorShort} (${yr}) '${t}', <em>${copy.overlay.citeSource}</em>.`;
+            return `${authorShort} (${yr}) '${t}', <em>${source}</em>.`;
           case "BibTeX":
-            return `@article{${copy.overlay.citationKey}${yr},\n  author={${copy.overlay.citationAuthorBib}},\n  title={${t}},\n  year={${yr}},\n  journal={${copy.overlay.citeSource}}\n}`;
+            return `@article{${key}${yr},\n  author={${authorBib}},\n  title={${t}},\n  year={${yr}},\n  journal={${source}}\n}`;
           default:
             return "";
         }
@@ -1889,52 +1901,87 @@ const initialFeatCounter = copy.featured.counterTemplate
         const timeLabel = p.time ? `${p.time}${copy.overlay.timeSuffix}` : "";
         const kwLabel = p.kw.length ? p.kw.join(copy.overlay.kwSeparator) : copy.overlay.keywordsEmpty;
         document.getElementById("ov-label").textContent = `${dateLabel} - ${timeLabel}`;
+        const safeCategory = esc(p.cat);
+        const safeTitle = esc(p.title);
+        const safeByName = esc(copy.hero.byName);
+        const safeDate = esc(dateLabel);
+        const safeTime = esc(p.time);
+        const safeKeywords = esc(kwLabel);
+        const safeSummary = esc(p.summary);
+        const safeAbs0 = esc(copy.overlay.placeholder.abstractParagraphs[0]);
+        const safeAbs1 = esc(copy.overlay.placeholder.abstractParagraphs[1]);
+        const safeBody0 = esc(copy.overlay.placeholder.bodyParagraphs[0]);
+        const safeBody1 = esc(copy.overlay.placeholder.bodyParagraphs[1]);
+        const safeBody2 = esc(copy.overlay.placeholder.bodyParagraphs[2]);
+        const safeBody3 = esc(copy.overlay.placeholder.bodyParagraphs[3]);
+        const safeBody4 = esc(copy.overlay.placeholder.bodyParagraphs[4]);
+        const safeHead0 = esc(copy.overlay.placeholder.headings[0]);
+        const safeHead1 = esc(copy.overlay.placeholder.headings[1]);
+        const safeMark0 = esc(copy.overlay.placeholder.sectionMarks[0]);
+        const safeMark1 = esc(copy.overlay.placeholder.sectionMarks[1]);
+        const safeQuote = esc(copy.overlay.placeholder.blockquote);
+        const safeCiteLabel = esc(copy.overlay.citeLabel);
+        const safeAbstractLabel = esc(copy.overlay.abstractLabel);
+        const safeAuthorLabel = esc(copy.overlay.metaLabels.author);
+        const safeDateLabel = esc(copy.overlay.metaLabels.date);
+        const safeReadLabel = esc(copy.overlay.metaLabels.readingTime);
+        const safeKwLabel = esc(copy.overlay.metaLabels.keywords);
+        const safeDownload0 = esc(copy.overlay.downloadButtons[0]);
+        const safeDownload1 = esc(copy.overlay.downloadButtons[1]);
+        const safeDownload2 = esc(copy.overlay.downloadButtons[2]);
         document.getElementById("ov-body").innerHTML = `
-          <div class="ov-kicker">${p.cat}</div>
-          <h1 class="ov-title">${p.title}</h1>
+          <div class="ov-kicker">${safeCategory}</div>
+          <h1 class="ov-title">${safeTitle}</h1>
           <div class="ov-meta">
-            <div class="ov-mc"><div class="ov-ml">${copy.overlay.metaLabels.author}</div><div class="ov-mv">${copy.hero.byName}</div></div>
-            <div class="ov-mc"><div class="ov-ml">${copy.overlay.metaLabels.date}</div><div class="ov-mv">${dateLabel}</div></div>
-            <div class="ov-mc"><div class="ov-ml">${copy.overlay.metaLabels.readingTime}</div><div class="ov-mv">${p.time}</div></div>
-            <div class="ov-mc"><div class="ov-ml">${copy.overlay.metaLabels.keywords}</div><div class="ov-mv">${kwLabel}</div></div>
+            <div class="ov-mc"><div class="ov-ml">${safeAuthorLabel}</div><div class="ov-mv">${safeByName}</div></div>
+            <div class="ov-mc"><div class="ov-ml">${safeDateLabel}</div><div class="ov-mv">${safeDate}</div></div>
+            <div class="ov-mc"><div class="ov-ml">${safeReadLabel}</div><div class="ov-mv">${safeTime}</div></div>
+            <div class="ov-mc"><div class="ov-ml">${safeKwLabel}</div><div class="ov-mv">${safeKeywords}</div></div>
           </div>
           <div class="ov-cite">
             <div class="ov-cite-body">
-              <div class="ov-cite-lbl">${copy.overlay.citeLabel}</div>
+              <div class="ov-cite-lbl">${safeCiteLabel}</div>
               <div class="ov-cite-txt" id="cit-out">${cite(p, "APA")}</div>
             </div>
             <div class="ov-cite-styles">
               ${citStyles
                 .map(
-                  (s) => `<button class="cs-btn${s === "APA" ? " active" : ""}" data-s="${s}" onclick="setCit('${p.id}','${s}')">${s}</button>`
+                  (s) => `<button class="cs-btn${s === "APA" ? " active" : ""}" data-s="${esc(s)}" data-pid="${encodeURIComponent(String(p.id))}">${esc(s)}</button>`
                 )
                 .join("")}
             </div>
           </div>
           <div class="ov-abstract">
-            <div class="ov-abs-lbl">${copy.overlay.abstractLabel}</div>
-            <p>${p.summary}</p>
-            <p>${copy.overlay.placeholder.abstractParagraphs[0]}</p>
-            <p>${copy.overlay.placeholder.abstractParagraphs[1]}</p>
+            <div class="ov-abs-lbl">${safeAbstractLabel}</div>
+            <p>${safeSummary}</p>
+            <p>${safeAbs0}</p>
+            <p>${safeAbs1}</p>
           </div>
           <div class="ov-text">
-            <span class="sec-mark">${copy.overlay.placeholder.sectionMarks[0]}</span>
-            <p>${copy.overlay.placeholder.bodyParagraphs[0]}</p>
-            <h2>${copy.overlay.placeholder.headings[0]}</h2>
-            <p>${copy.overlay.placeholder.bodyParagraphs[1]}</p>
-            <blockquote>${copy.overlay.placeholder.blockquote}</blockquote>
-            <p>${copy.overlay.placeholder.bodyParagraphs[2]}</p>
-            <h2>${copy.overlay.placeholder.headings[1]}</h2>
-            <span class="sec-mark">${copy.overlay.placeholder.sectionMarks[1]}</span>
-            <p>${copy.overlay.placeholder.bodyParagraphs[3]}</p>
-            <p>${copy.overlay.placeholder.bodyParagraphs[4]}</p>
+            <span class="sec-mark">${safeMark0}</span>
+            <p>${safeBody0}</p>
+            <h2>${safeHead0}</h2>
+            <p>${safeBody1}</p>
+            <blockquote>${safeQuote}</blockquote>
+            <p>${safeBody2}</p>
+            <h2>${safeHead1}</h2>
+            <span class="sec-mark">${safeMark1}</span>
+            <p>${safeBody3}</p>
+            <p>${safeBody4}</p>
           </div>
           <div class="ov-dls">
-            <button class="btn-dl dl-pdf" disabled>${copy.overlay.downloadButtons[0]}</button>
-            <button class="btn-dl dl-txt" disabled>${copy.overlay.downloadButtons[1]}</button>
-            <button class="btn-dl dl-cit" disabled>${copy.overlay.downloadButtons[2]}</button>
+            <button class="btn-dl dl-pdf" disabled>${safeDownload0}</button>
+            <button class="btn-dl dl-txt" disabled>${safeDownload1}</button>
+            <button class="btn-dl dl-cit" disabled>${safeDownload2}</button>
           </div>
         `;
+        document.querySelectorAll(".cs-btn").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            const style = btn.getAttribute("data-s") || "APA";
+            const pid = decodeURIComponent(btn.getAttribute("data-pid") || "");
+            setCit(pid, style);
+          });
+        });
         const ov = document.getElementById("overlay");
         ov.classList.add("open");
         ov.scrollTop = 0;
