@@ -55,6 +55,66 @@ function actor(user) {
   return user?.email || user?.uid || "admin";
 }
 
+function cleanText(value, fallback = "") {
+  return String(value ?? fallback).trim();
+}
+
+function fileExtension(fileName = "") {
+  const match = String(fileName).match(/\.([a-z0-9]+)$/i);
+  return match ? match[1].toLowerCase() : "";
+}
+
+function assetTitleFromFileName(fileName = "") {
+  const base = String(fileName).replace(/\.[^/.]+$/, "");
+  if (!base) return "";
+  const normalized = base.replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
+  if (!normalized) return "";
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+}
+
+async function readImageDimensions(file) {
+  if (typeof window === "undefined" || !(file?.type || "").startsWith("image/")) {
+    return {};
+  }
+
+  try {
+    if (typeof window.createImageBitmap === "function") {
+      const bitmap = await window.createImageBitmap(file);
+      try {
+        return { width: bitmap.width, height: bitmap.height };
+      } finally {
+        bitmap.close();
+      }
+    }
+
+    return await new Promise((resolve) => {
+      const image = new Image();
+      const objectUrl = URL.createObjectURL(file);
+      image.onload = () => {
+        resolve({ width: image.naturalWidth, height: image.naturalHeight });
+        URL.revokeObjectURL(objectUrl);
+      };
+      image.onerror = () => {
+        resolve({});
+        URL.revokeObjectURL(objectUrl);
+      };
+      image.src = objectUrl;
+    });
+  } catch {
+    return {};
+  }
+}
+
+async function extractUploadMetadata(file) {
+  const dimensions = await readImageDimensions(file);
+  return sanitize({
+    extension: fileExtension(file?.name || ""),
+    lastModifiedAt: file?.lastModified ? new Date(file.lastModified).toISOString() : "",
+    width: dimensions.width,
+    height: dimensions.height,
+  });
+}
+
 export function subscribeDraftList(kind, callback, onError) {
   assertFirestoreReady();
   const coll = collection(db, collectionName(kind));
@@ -160,6 +220,7 @@ export async function uploadMediaAsset(file, user, context = {}) {
   assertFirestoreReady();
   assertStorageReady();
   const safeName = String(file?.name || "upload.bin").replace(/[^a-zA-Z0-9._-]+/g, "-");
+  const extractedMetadata = await extractUploadMetadata(file);
   const bucketPath = ["admin", context.kind || "misc", `${Date.now()}-${safeName}`].join("/");
   const storageRef = ref(storage, bucketPath);
   await uploadBytes(storageRef, file, {
@@ -178,14 +239,44 @@ export async function uploadMediaAsset(file, user, context = {}) {
     originalName: String(file.name || safeName),
     contentType: file.type || "application/octet-stream",
     size: Number(file.size || 0),
+    ...extractedMetadata,
     storagePath: bucketPath,
     url,
     alt: "",
     caption: "",
-    title: "",
+    title: assetTitleFromFileName(file.name || safeName),
     createdAt: serverTimestamp(),
     createdBy: actor(user),
+    updatedAt: serverTimestamp(),
+    updatedBy: actor(user),
   });
   const asset = await getDoc(assetRef);
   return { id: assetRef.id, ...asset.data() };
+}
+
+export async function updateMediaAsset(id, updates, user) {
+  assertFirestoreReady();
+  const assetRef = doc(db, ADMIN_COLLECTIONS.media, id);
+  const payload = sanitize({
+    alt: cleanText(updates.alt),
+    caption: cleanText(updates.caption),
+    title: cleanText(updates.title),
+    kind: cleanText(updates.kind),
+    field: cleanText(updates.field),
+    updatedAt: serverTimestamp(),
+    updatedBy: actor(user),
+  });
+  await setDoc(assetRef, payload, { merge: true });
+  const asset = await getDoc(assetRef);
+  return asset.exists() ? { id: asset.id, ...asset.data() } : null;
+}
+
+export async function deleteDraft(kind, id) {
+  assertFirestoreReady();
+  const draftRef = doc(db, collectionName(kind), id);
+  const versionsSnap = await getDocs(collection(draftRef, "versions"));
+  const batch = writeBatch(db);
+  versionsSnap.forEach((versionDoc) => batch.delete(versionDoc.ref));
+  batch.delete(draftRef);
+  await batch.commit();
 }

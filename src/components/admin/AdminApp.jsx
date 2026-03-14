@@ -4,7 +4,7 @@ import { firebaseReady } from "../../lib/firebaseClient";
 import { completeAdminSignIn, getAdminSession, onAdminAuthChange, sendAdminSignInLink, signOutAdmin } from "../../lib/admin/adminAuth";
 import { assignAdminClaim, publishDraft, scheduleDraft, unpublishDraft } from "../../lib/admin/functions";
 import { dispatchDraftToPublic, faceDraftToPublic, paperDraftToPublic, slugify } from "../../lib/admin/contentAdapters";
-import { createDraft, getDraft, listVersions, restoreVersion, saveDraft, subscribeDraftList, subscribeMediaAssets, uploadMediaAsset } from "../../lib/admin/repository";
+import { createDraft, deleteDraft as deleteDraftRecord, getDraft, listVersions, restoreVersion, saveDraft, subscribeDraftList, subscribeMediaAssets, updateMediaAsset, uploadMediaAsset } from "../../lib/admin/repository";
 import {
   AUDIENCE_LEVELS,
   CONTENT_LABELS,
@@ -68,6 +68,19 @@ function formatRelative(value) {
   return `${days}d ago`;
 }
 
+function formatBytes(value) {
+  const size = Number(value || 0);
+  if (!Number.isFinite(size) || size <= 0) return "Unknown";
+  const units = ["B", "KB", "MB", "GB"];
+  let current = size;
+  let unitIndex = 0;
+  while (current >= 1024 && unitIndex < units.length - 1) {
+    current /= 1024;
+    unitIndex += 1;
+  }
+  return `${current >= 10 || unitIndex === 0 ? current.toFixed(0) : current.toFixed(1)} ${units[unitIndex]}`;
+}
+
 function formatDateTimeLocal(value) {
   const date = toDate(value);
   if (!date) return "";
@@ -83,6 +96,15 @@ function toIsoDateTime(value) {
 
 function fingerprint(value) {
   return JSON.stringify(value || {});
+}
+
+function stampDraftLocally(draft, user) {
+  if (!draft) return draft;
+  return {
+    ...draft,
+    updatedAt: new Date().toISOString(),
+    updatedBy: user?.email || user?.uid || draft.updatedBy || "admin",
+  };
 }
 
 function stripMediaAsset(asset) {
@@ -285,9 +307,14 @@ function AssetField({ label, accept, value, assets, onChange, onUpload, kind, fi
       <div className="admin-asset-preview">{preview}</div>
       <div className="admin-grid two-up">
         <TextInput label="URL" value={value?.url || ""} onChange={(next) => onChange({ ...value, url: next })} />
-        <TextInput label="Alt text" value={value?.alt || ""} onChange={(next) => onChange({ ...value, alt: next })} />
-        <TextInput label="Title" value={value?.title || ""} onChange={(next) => onChange({ ...value, title: next })} />
-        <TextInput label="Caption" value={value?.caption || ""} onChange={(next) => onChange({ ...value, caption: next })} />
+        <TextInput
+          label="Alt text"
+          hint="Describe the image for screen readers and when the image cannot load."
+          value={value?.alt || ""}
+          onChange={(next) => onChange({ ...value, alt: next })}
+        />
+        <TextInput label="Title" hint="Internal media title or display label." value={value?.title || ""} onChange={(next) => onChange({ ...value, title: next })} />
+        <TextInput label="Caption" hint="Visible caption text used where the page supports it." value={value?.caption || ""} onChange={(next) => onChange({ ...value, caption: next })} />
       </div>
       <input ref={inputRef} type="file" accept={accept} hidden onChange={handleFile} />
       {libraryOpen ? (
@@ -555,31 +582,149 @@ function TravelPreview({ draft }) {
   );
 }
 
-function MediaLibrary({ assets }) {
+function MediaLibrary({ assets, onUpload, onSaveMetadata }) {
+  const inputRef = useRef(null);
+  const [selectedId, setSelectedId] = useState("");
+  const [editorState, setEditorState] = useState({ title: "", caption: "", alt: "", kind: "", field: "" });
+  const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!assets?.length) {
+      setSelectedId("");
+      return;
+    }
+    if (!selectedId || !assets.some((asset) => asset.id === selectedId)) {
+      setSelectedId(assets[0].id);
+    }
+  }, [assets, selectedId]);
+
+  const selectedAsset = useMemo(
+    () => (assets || []).find((asset) => asset.id === selectedId) || null,
+    [assets, selectedId]
+  );
+
+  useEffect(() => {
+    setEditorState({
+      title: selectedAsset?.title || "",
+      caption: selectedAsset?.caption || "",
+      alt: selectedAsset?.alt || "",
+      kind: selectedAsset?.kind || "",
+      field: selectedAsset?.field || "",
+    });
+  }, [selectedAsset]);
+
+  async function handleFile(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const asset = await onUpload(file, { kind: "library", field: "library" });
+      if (asset?.id) {
+        setSelectedId(asset.id);
+      }
+    } finally {
+      setUploading(false);
+      event.target.value = "";
+    }
+  }
+
+  async function handleSave() {
+    if (!selectedAsset) return;
+    setSaving(true);
+    try {
+      await onSaveMetadata(selectedAsset.id, editorState);
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <section className="admin-panel media-panel-full">
       <div className="admin-panel-head">
         <div>
           <h2>Media Library</h2>
-          <p>Recent uploads from the admin CMS. Assets stay reusable across Faces, Papers, and Travel drafts.</p>
+          <p>Upload once, edit captions and alt text here, then reuse the same asset across Faces, Papers, and Travel drafts.</p>
+        </div>
+        <div className="admin-button-row compact">
+          <button type="button" className="admin-primary-button" onClick={() => inputRef.current?.click()} disabled={uploading}>
+            {uploading ? "Uploading..." : "Upload media"}
+          </button>
         </div>
       </div>
-      <div className="admin-asset-grid large">
-        {(assets || []).length ? (
-          assets.map((asset) => (
-            <article className="admin-asset-card" key={asset.id}>
-              {asset.contentType?.startsWith("image/") ? <img src={asset.url} alt={asset.alt || asset.fileName || ""} /> : <div className="admin-doc-pill large">DOC</div>}
-              <div>
-                <strong>{asset.fileName || asset.originalName || "Unnamed asset"}</strong>
-                <p>{asset.contentType || "asset"}</p>
-                <p>{formatStamp(asset.createdAt)}</p>
-              </div>
-            </article>
-          ))
-        ) : (
-          <p className="admin-empty-inline">No media assets uploaded yet.</p>
-        )}
-      </div>
+
+      <input ref={inputRef} type="file" hidden accept="image/*,.pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={handleFile} />
+
+      {(assets || []).length ? (
+        <div className="admin-media-layout">
+          <div className="admin-asset-grid large">
+            {assets.map((asset) => (
+              <button
+                type="button"
+                className={`admin-asset-card admin-asset-card-button${selectedId === asset.id ? " is-active" : ""}`}
+                key={asset.id}
+                onClick={() => setSelectedId(asset.id)}
+              >
+                {asset.contentType?.startsWith("image/") ? <img src={asset.url} alt={asset.alt || asset.fileName || ""} /> : <div className="admin-doc-pill large">DOC</div>}
+                <div>
+                  <strong>{asset.title || asset.fileName || asset.originalName || "Unnamed asset"}</strong>
+                  <p>{asset.contentType || "asset"}</p>
+                  <p>{formatStamp(asset.createdAt)}</p>
+                </div>
+              </button>
+            ))}
+          </div>
+
+          <section className="admin-card-section admin-media-editor">
+            {selectedAsset ? (
+              <>
+                <div className="admin-section-head">
+                  <div>
+                    <h3>Asset Details</h3>
+                    <p>Edit reusable copy and inspect the extracted file metadata.</p>
+                  </div>
+                  <button type="button" className="admin-mini-button primary" onClick={handleSave} disabled={saving}>
+                    {saving ? "Saving..." : "Save metadata"}
+                  </button>
+                </div>
+
+                <div className="admin-asset-preview">
+                  {selectedAsset.contentType?.startsWith("image/") ? (
+                    <img src={selectedAsset.url} alt={editorState.alt || selectedAsset.fileName || ""} className="admin-asset-preview-image" />
+                  ) : (
+                    <div className="admin-asset-preview-file">
+                      <strong>{selectedAsset.fileName || "Attached file"}</strong>
+                      <span>{selectedAsset.contentType || "Document"}</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="admin-grid two-up">
+                  <TextInput label="Title" hint="Internal media title or reusable label." value={editorState.title} onChange={(next) => setEditorState((current) => ({ ...current, title: next }))} />
+                  <TextInput label="Alt text" hint="Describe the image for screen readers and image fallbacks." value={editorState.alt} onChange={(next) => setEditorState((current) => ({ ...current, alt: next }))} />
+                  <TextInput label="Caption" hint="Visible caption text reused when the page supports it." value={editorState.caption} onChange={(next) => setEditorState((current) => ({ ...current, caption: next }))} />
+                  <TextInput label="Kind" hint="Optional organizing tag, such as travel or faces." value={editorState.kind} onChange={(next) => setEditorState((current) => ({ ...current, kind: next }))} />
+                </div>
+                <TextInput label="Field" hint="Optional slot label to help you remember where the asset came from." value={editorState.field} onChange={(next) => setEditorState((current) => ({ ...current, field: next }))} />
+
+                <dl className="admin-meta-list">
+                  <div><dt>File</dt><dd>{selectedAsset.fileName || selectedAsset.originalName || "Unknown"}</dd></div>
+                  <div><dt>Type</dt><dd>{selectedAsset.contentType || "Unknown"}</dd></div>
+                  <div><dt>Size</dt><dd>{formatBytes(selectedAsset.size)}</dd></div>
+                  <div><dt>Dimensions</dt><dd>{selectedAsset.width && selectedAsset.height ? `${selectedAsset.width} x ${selectedAsset.height}` : "Unknown"}</dd></div>
+                  <div><dt>Last modified</dt><dd>{selectedAsset.lastModifiedAt ? formatStamp(selectedAsset.lastModifiedAt) : "Unknown"}</dd></div>
+                  <div><dt>Uploaded</dt><dd>{formatStamp(selectedAsset.createdAt)}</dd></div>
+                  <div><dt>Storage path</dt><dd>{selectedAsset.storagePath || "Unknown"}</dd></div>
+                </dl>
+              </>
+            ) : (
+              <p className="admin-empty-inline">Select an asset to edit it.</p>
+            )}
+          </section>
+        </div>
+      ) : (
+        <p className="admin-empty-inline">No media assets uploaded yet.</p>
+      )}
     </section>
   );
 }
@@ -718,7 +863,12 @@ function FacesForm({ draft, onChange, onUpload, assets }) {
           <SelectField label="Status" value={draft.status} onChange={(next) => onChange({ ...draft, status: next })} options={DRAFT_STATUSES} />
           <TextInput label="Title" value={draft.title} onChange={(next) => onChange({ ...draft, title: next, slug: draft.slug || slugify(next) })} />
           <TextInput label="Subtitle" value={draft.subtitle} onChange={(next) => onChange({ ...draft, subtitle: next })} />
-          <TextInput label="Profile name" value={draft.profileName} onChange={(next) => onChange({ ...draft, profileName: next, slug: draft.slug || slugify(next) })} />
+          <TextInput
+            label="Profile name"
+            hint="The person's displayed name on the Faces card and story."
+            value={draft.profileName}
+            onChange={(next) => onChange({ ...draft, profileName: next, slug: draft.slug || slugify(next) })}
+          />
           <TextInput label="Descriptor" value={draft.descriptor} onChange={(next) => onChange({ ...draft, descriptor: next })} />
           <TextInput label="Location name" value={draft.locationName} onChange={(next) => onChange({ ...draft, locationName: next })} />
           <TextInput label="Country / region" value={draft.countryRegion} onChange={(next) => onChange({ ...draft, countryRegion: next })} />
@@ -729,7 +879,12 @@ function FacesForm({ draft, onChange, onUpload, assets }) {
           <TextInput label="Age" value={draft.age} onChange={(next) => onChange({ ...draft, age: next })} />
           <TextInput label="Occupation" value={draft.occupation} onChange={(next) => onChange({ ...draft, occupation: next })} />
           <TextInput label="Religion" value={draft.religion} onChange={(next) => onChange({ ...draft, religion: next })} />
-          <TextInput label="Slug" value={draft.slug} onChange={(next) => onChange({ ...draft, slug: slugify(next) })} />
+          <TextInput
+            label="Slug"
+            hint="URL-friendly identifier used in links and publish records, such as marrakesh-at-dawn."
+            value={draft.slug}
+            onChange={(next) => onChange({ ...draft, slug: slugify(next) })}
+          />
         </div>
         <TextArea label="Excerpt" value={draft.excerpt} onChange={(next) => onChange({ ...draft, excerpt: next })} rows={4} />
       </section>
@@ -776,7 +931,12 @@ function PapersForm({ draft, onChange, onUpload, assets }) {
           <TextInput label="Publish date" type="date" value={draft.publishDate} onChange={(next) => onChange({ ...draft, publishDate: next })} />
           <TextInput label="Display date override" value={draft.customDisplayDate} onChange={(next) => onChange({ ...draft, customDisplayDate: next })} />
           <TextInput label="Schedule publish" type="datetime-local" value={formatDateTimeLocal(draft.scheduledPublishAt)} onChange={(next) => onChange({ ...draft, scheduledPublishAt: toIsoDateTime(next) })} />
-          <TextInput label="Slug" value={draft.slug} onChange={(next) => onChange({ ...draft, slug: slugify(next) })} />
+          <TextInput
+            label="Slug"
+            hint="URL-friendly identifier used in links and publish records, such as eu-policy-brief."
+            value={draft.slug}
+            onChange={(next) => onChange({ ...draft, slug: slugify(next) })}
+          />
           <TextInput label="Publication name" value={draft.publicationName} onChange={(next) => onChange({ ...draft, publicationName: next })} />
           <TextInput label="Publication link" value={draft.publicationLink} onChange={(next) => onChange({ ...draft, publicationLink: next })} />
           <TextInput label="Read time" value={draft.readTime} onChange={(next) => onChange({ ...draft, readTime: next })} />
@@ -803,11 +963,21 @@ function TravelForm({ draft, onChange, onUpload, assets }) {
         <div className="admin-grid two-up">
           <SelectField label="Status" value={draft.status} onChange={(next) => onChange({ ...draft, status: next })} options={DRAFT_STATUSES} />
           <TextInput label="Title" value={draft.title} onChange={(next) => onChange({ ...draft, title: next, slug: draft.slug || slugify(next) })} />
-          <TextInput label="Slug" value={draft.slug} onChange={(next) => onChange({ ...draft, slug: slugify(next) })} />
+          <TextInput
+            label="Slug"
+            hint="URL-friendly identifier used in links and publish records, such as overnight-train-to-prague."
+            value={draft.slug}
+            onChange={(next) => onChange({ ...draft, slug: slugify(next) })}
+          />
           <SelectField label="Dispatch type" value={draft.dispatchType} onChange={(next) => onChange({ ...draft, dispatchType: next })} options={DISPATCH_TYPES} />
           <SelectField label="Audience level" value={draft.audienceLevel} onChange={(next) => onChange({ ...draft, audienceLevel: next })} options={AUDIENCE_LEVELS} />
           <TextInput label="Location name" value={draft.locationName} onChange={(next) => onChange({ ...draft, locationName: next })} />
-          <TextInput label="Time label" value={draft.timeLabel} onChange={(next) => onChange({ ...draft, timeLabel: next })} />
+          <TextInput
+            label="Time label"
+            hint="Optional short display label for the dispatch, such as Dawn, 6:40 AM, or Late Night."
+            value={draft.timeLabel}
+            onChange={(next) => onChange({ ...draft, timeLabel: next })}
+          />
           <TextInput label="Longitude" value={draft.longitude} onChange={(next) => onChange({ ...draft, longitude: next })} />
           <TextInput label="Latitude" value={draft.latitude} onChange={(next) => onChange({ ...draft, latitude: next })} />
           <TextInput label="Publish date" type="date" value={draft.publishDate} onChange={(next) => onChange({ ...draft, publishDate: next })} />
@@ -867,8 +1037,10 @@ export default function AdminApp() {
   const [working, setWorking] = useState(false);
   const [saveState, setSaveState] = useState("Idle");
   const baselineRef = useRef("");
-  const draftId = activeSection === "faces" || activeSection === "papers" || activeSection === "travel" ? selectedIds[activeSection] : "";
-  const canEdit = authState.isAdmin && (activeSection === "faces" || activeSection === "papers" || activeSection === "travel") && draftId;
+  const isContentSection = activeSection === "faces" || activeSection === "papers" || activeSection === "travel";
+  const activeItems = isContentSection ? (lists[activeSection] || []) : [];
+  const draftId = isContentSection ? selectedIds[activeSection] : "";
+  const canEdit = authState.isAdmin && isContentSection && draftId;
 
   useEffect(() => {
     let active = true;
@@ -921,28 +1093,33 @@ export default function AdminApp() {
   }, [authState.isAdmin]);
 
   useEffect(() => {
-    if (!(activeSection === "faces" || activeSection === "papers" || activeSection === "travel")) {
+    if (!isContentSection) return undefined;
+    const selectedId = selectedIds[activeSection];
+    const hasSelected = selectedId && activeItems.some((item) => item.id === selectedId);
+    if (hasSelected) return undefined;
+    const nextId = activeItems[0]?.id || "";
+    if (selectedId === nextId) return undefined;
+    setSelectedIds((current) => ({ ...current, [activeSection]: nextId }));
+    return undefined;
+  }, [activeItems, activeSection, isContentSection, selectedIds]);
+
+  useEffect(() => {
+    if (!isContentSection) {
       setDraft(null);
       setVersions([]);
       baselineRef.current = "";
       return;
     }
-    const currentId = selectedIds[activeSection];
-    if (!currentId) {
-      const first = lists[activeSection]?.[0]?.id || "";
-      if (first) {
-        setSelectedIds((current) => ({ ...current, [activeSection]: first }));
-      } else {
-        setDraft(null);
-        setVersions([]);
-        baselineRef.current = "";
-      }
+    if (!draftId) {
+      setDraft(null);
+      setVersions([]);
+      baselineRef.current = "";
       return;
     }
     let active = true;
     setLoadingDraft(true);
     setLoadingVersions(true);
-    getDraft(activeSection, currentId)
+    getDraft(activeSection, draftId)
       .then((loaded) => {
         if (!active) return;
         const hydrated = hydrateDraft(activeSection, loaded || {});
@@ -955,7 +1132,7 @@ export default function AdminApp() {
       .finally(() => {
         if (active) setLoadingDraft(false);
       });
-    listVersions(activeSection, currentId)
+    listVersions(activeSection, draftId)
       .then((loaded) => {
         if (active) setVersions(loaded);
       })
@@ -968,7 +1145,7 @@ export default function AdminApp() {
     return () => {
       active = false;
     };
-  }, [activeSection, selectedIds, lists]);
+  }, [activeSection, draftId, isContentSection]);
 
   useEffect(() => {
     if (!canEdit || !draft || typeof window === "undefined") return undefined;
@@ -977,9 +1154,8 @@ export default function AdminApp() {
     const timeout = window.setTimeout(async () => {
       try {
         setSaveState("Autosaving...");
-        const saved = await saveDraft(activeSection, draftId, draft, authState.user, { captureVersion: false, reason: "autosave" });
-        const hydrated = hydrateDraft(activeSection, saved);
-        baselineRef.current = fingerprint(hydrated);
+        await saveDraft(activeSection, draftId, draft, authState.user, { captureVersion: false, reason: "autosave" });
+        baselineRef.current = currentFingerprint;
         setSaveState(`Autosaved ${new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`);
       } catch (error) {
         setSaveState("Autosave failed");
@@ -1041,8 +1217,8 @@ export default function AdminApp() {
     if (!canEdit || !draft) return;
     try {
       setWorking(true);
-      const saved = await saveDraft(activeSection, draftId, draft, authState.user, { captureVersion: true, reason });
-      const hydrated = hydrateDraft(activeSection, saved);
+      await saveDraft(activeSection, draftId, draft, authState.user, { captureVersion: true, reason });
+      const hydrated = hydrateDraft(activeSection, stampDraftLocally(draft, authState.user));
       setDraft(hydrated);
       baselineRef.current = fingerprint(hydrated);
       setSaveState(`Saved ${new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`);
@@ -1142,6 +1318,45 @@ export default function AdminApp() {
     }
   }
 
+  async function handleSaveMediaMetadata(assetId, updates) {
+    try {
+      setWorking(true);
+      const asset = await updateMediaAsset(assetId, updates, authState.user);
+      setNotice({ tone: "success", message: "Media metadata saved." });
+      return asset;
+    } catch (error) {
+      setNotice({ tone: "error", message: error.message || "Media metadata could not be saved." });
+      throw error;
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  async function handleDeleteDraft() {
+    if (!canEdit || !draftId) return;
+    if (draft?.status === "published" || draft?.publishedRecord?.slug) {
+      setNotice({ tone: "warning", message: "Unpublish this item before deleting its draft record." });
+      return;
+    }
+    const label = draft?.title || draft?.profileName || draft?.locationName || "this draft";
+    const confirmed = typeof window === "undefined" ? true : window.confirm(`Delete "${label}"? This removes the draft and its version history.`);
+    if (!confirmed) return;
+    try {
+      setWorking(true);
+      await deleteDraftRecord(activeSection, draftId);
+      baselineRef.current = "";
+      setDraft(null);
+      setVersions([]);
+      setSelectedIds((current) => ({ ...current, [activeSection]: "" }));
+      setSaveState("Idle");
+      setNotice({ tone: "success", message: "Draft deleted." });
+    } catch (error) {
+      setNotice({ tone: "error", message: error.message || "Draft could not be deleted." });
+    } finally {
+      setWorking(false);
+    }
+  }
+
   function renderActiveForm() {
     if (!draft) return <p className="admin-empty-inline">Create or select a draft to start editing.</p>;
     if (activeSection === "faces") return <FacesForm draft={draft} onChange={(next) => setDraft(hydrateDraft("faces", next))} onUpload={handleUpload} assets={mediaAssets} />;
@@ -1217,18 +1432,19 @@ export default function AdminApp() {
             <h2>{activeSection === "dashboard" ? "Dashboard" : activeSection === "media" ? "Media Library" : CONTENT_LABELS[activeSection]}</h2>
           </div>
           <div className="admin-topbar-actions">
-            {(activeSection === "faces" || activeSection === "papers" || activeSection === "travel") && draft ? <StatusPill status={draft.status || "draft"} /> : null}
-            <span className="admin-save-state">{saveState}</span>
+            {isContentSection && draft ? <StatusPill status={draft.status || "draft"} /> : null}
+            {isContentSection ? <span className="admin-save-state">{saveState}</span> : null}
             {canEdit ? <button type="button" className="admin-secondary-button" onClick={() => handleManualSave()} disabled={working || loadingDraft}>Save version</button> : null}
             {canEdit ? <button type="button" className="admin-primary-button" onClick={handlePublish} disabled={working || loadingDraft}>Publish now</button> : null}
             {canEdit ? <button type="button" className="admin-secondary-button" onClick={handleSchedule} disabled={working || loadingDraft}>Schedule</button> : null}
             {canEdit ? <button type="button" className="admin-secondary-button danger" onClick={handleUnpublish} disabled={working || loadingDraft}>Unpublish</button> : null}
+            {canEdit ? <button type="button" className="admin-secondary-button danger" onClick={handleDeleteDraft} disabled={working || loadingDraft}>Delete draft</button> : null}
           </div>
         </header>
         <Notice notice={notice} onDismiss={() => setNotice(null)} />
         {activeSection === "dashboard" ? <Dashboard lists={lists} onCreate={handleCreate} onJump={(kind, id) => { setActiveSection(kind); setSelectedIds((current) => ({ ...current, [kind]: id })); }} /> : null}
-        {activeSection === "media" ? <MediaLibrary assets={mediaAssets} /> : null}
-        {(activeSection === "faces" || activeSection === "papers" || activeSection === "travel") ? (
+        {activeSection === "media" ? <MediaLibrary assets={mediaAssets} onUpload={handleUpload} onSaveMetadata={handleSaveMediaMetadata} /> : null}
+        {isContentSection ? (
           <section className="admin-editor-grid">
             <CollectionList kind={activeSection} items={lists[activeSection] || []} selectedId={draftId} onSelect={(id) => setSelectedIds((current) => ({ ...current, [activeSection]: id }))} onCreate={handleCreate} />
             <section className="admin-panel admin-editor-panel">
