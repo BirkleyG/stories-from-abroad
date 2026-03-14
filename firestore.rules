@@ -144,7 +144,8 @@ service cloud.firestore {
 
       match /comments/{commentId} {
         allow read: if true;
-        allow create: if isActiveSubscriber(request.auth.uid)
+        allow create: if isSignedIn()
+          && isActiveSubscriber(request.auth.uid)
           && validCommentData(request.auth.uid)
           && validThrottleTransition(request.auth.uid);
         allow update, delete: if false;
