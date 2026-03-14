@@ -41,21 +41,45 @@ The site expects these collections and fields:
   - `featured` (boolean)
   - `summary` (string)
 
-- `photography`
-  - `title` (string)
+- `scrap_sheet_posts`
+  - `category` (string)
   - `location` (string)
-  - `date` (string)
-  - `image` (string URL, optional)
-  - `color` (string CSS gradient, optional)
+  - `date` (timestamp or string)
+  - `time` (string)
+  - `title` (string)
+  - `preview` (string)
+  - `full` (string)
+  - `photos` (array of `{ url, caption }`, optional)
+  - `pinned` (boolean, optional)
 
-- `travel`
-  - `month` (string, e.g. "Nov")
-  - `year` (number)
-  - `location` (string)
-  - `title` (string)
-  - `excerpt` (string)
-  - `image` (string URL, optional)
-  - `hasPhoto` (boolean)
+- `scrap_sheet_quotes`
+  - `text` (string)
+  - `postId` (string or number)
+
+- `subscribers/{uid}`
+  - `email` (string, must match authenticated user email)
+  - `emailLower` (string)
+  - `name` (string)
+  - `status` (`"active"`)
+  - `preferences` (array of strings)
+  - `source` (string)
+  - `createdAt` / `updatedAt` (server timestamps)
+
+- `comment_throttles/{uid}`
+  - `uid` (string, matches auth uid)
+  - `windowStart` (timestamp)
+  - `count` (number, max 3 inside rolling 60s window)
+  - `updatedAt` (server timestamp)
+
+- `scrap_sheet_posts/{postId}/comments/{commentId}`
+  - `authorUid` (string)
+  - `authorName` (string)
+  - `text` (string)
+  - `createdAt` (server timestamp)
+
+- `scrap_sheet_posts/{postId}/anon_reactions/{anonId}`
+  - `reactions` (map of quick reactions to booleans)
+  - `updatedAt` (server timestamp)
 
 - `faces`
   - `slug` (string, optional)
@@ -79,18 +103,18 @@ The site expects these collections and fields:
 
 If Firestore is not configured or not reachable, the site renders the fallback content from `src/lib/fallbackData.ts`.
 
-### Sample rules (public read)
+### Authentication + comment gate
+
+- Travel comments require Firebase email-link auth and an active `subscribers/{uid}` record.
+- Comment writes are rate-limited to **3 comments / 60 seconds** via `comment_throttles/{uid}` rule validation.
+- Reactions stay anonymous and write to `anon_reactions` subdocuments only.
+- Firestore security is defined in `firestore.rules`.
+- Enable the Email/Password provider with **Email link (passwordless sign-in)** in Firebase Auth, and add your site domains to Authorized domains.
+
+### Rules deploy
 
 ```
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /{document=**} {
-      allow read: if true;
-      allow write: if false;
-    }
-  }
-}
+firebase deploy --only firestore:rules,firestore:indexes
 ```
 
 ## GitHub Pages deploy
@@ -102,6 +126,15 @@ This repo includes a GitHub Actions workflow at `.github/workflows/deploy.yml`.
    - `SITE_URL` to `https://BirkleyG.github.io/stories-from-abroad/`
 2. Add repository secrets for each `PUBLIC_FIREBASE_*` value.
 3. Push to `main` to trigger deployment.
+
+## Security debt (deferred major upgrades)
+
+`npm audit --omit=dev` currently reports advisories that require major-version upgrades:
+
+- `astro` -> `6.x` (breaking)
+- `firebase` -> `12.x` (breaking)
+
+These are intentionally deferred for a dedicated migration pass.
 
 ## Project structure
 
