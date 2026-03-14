@@ -1,5 +1,5 @@
 import { httpsCallable } from "firebase/functions";
-import { functions, firebaseReady } from "../firebaseClient";
+import { auth, firebaseConfig, functions, functionsRegion, firebaseReady } from "../firebaseClient";
 
 function getCallable(name) {
   if (!firebaseReady || !functions) {
@@ -8,10 +8,40 @@ function getCallable(name) {
   return httpsCallable(functions, name);
 }
 
+function getHttpFunctionUrl(name) {
+  if (!firebaseReady || !firebaseConfig?.projectId) {
+    throw new Error("Cloud Functions are not configured for this site.");
+  }
+  return `https://${functionsRegion}-${firebaseConfig.projectId}.cloudfunctions.net/${name}`;
+}
+
 export async function assignAdminClaim(payload = {}) {
-  const callable = getCallable("assignAdminClaim");
-  const result = await callable(payload);
-  return result.data;
+  if (!auth?.currentUser) {
+    throw new Error("You must be signed in before claiming admin access.");
+  }
+
+  const token = await auth.currentUser.getIdToken(true);
+  const response = await fetch(getHttpFunctionUrl("assignAdminClaimHttp"), {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload || {}),
+  });
+
+  let data = {};
+  try {
+    data = await response.json();
+  } catch {
+    data = {};
+  }
+
+  if (!response.ok) {
+    throw new Error(data.message || data.error || "Admin claim could not be assigned.");
+  }
+
+  return data;
 }
 
 export async function publishDraft(kind, id) {
