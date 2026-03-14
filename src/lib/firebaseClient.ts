@@ -12,11 +12,12 @@ const firebaseConfig = {
 
 const firestoreReady = Object.values(firebaseConfig).every(Boolean);
 
+let app = null;
 let db = null;
 
 if (firestoreReady) {
-  const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+  app = getApps().length ? getApp() : initializeApp(firebaseConfig);
   db = getFirestore(app);
 }
 
-export { db, firestoreReady };
+export { app, db, firestoreReady, firebaseConfig };

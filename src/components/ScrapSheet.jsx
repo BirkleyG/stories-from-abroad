@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from "react";
 import {
-  addDoc,
   collection,
   doc,
   getDoc,
@@ -11,6 +10,17 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import { db, firestoreReady } from "../lib/firebaseClient";
+import {
+  completeSubscriberSignInFromLink,
+  fallbackNameFromEmail,
+  getCurrentAuthUser,
+  getSubscriberRecord,
+  isSubscriberProfileActive,
+  normalizeEmail,
+  onSubscriberAuthChange,
+  sendSubscriberSignInLink,
+  upsertSubscriberRecord,
+} from "../lib/subscriberClient";
 import * as THREE from "three";
 import { siteCopy } from "../content/siteCopy";
 
@@ -25,8 +35,8 @@ const CURRENT_LOC = copy.currentLocation;
 const QUOTES = copy.quotes;
 const POSTS = copy.posts;
 const CATS = copy.categories;
-const EMOJI_SECTIONS = copy.emojiSections;
 const INITIAL_COMMENTS = copy.defaultComments;
+const QUICK_REACTIONS = ["❤️", "🔥", "😂", "😮", "✈️", "🌍", "👏", "✨", "🥳", "💯"];
 
 // ── HELPERS ───────────────────────────────────────────────────────────────────
 
@@ -693,30 +703,7 @@ function PhotoFilmstrip({ photos, onPhotoClick }) {
 
 // ── EMOJI PICKER ──────────────────────────────────────────────────────────────
 
-var PRESET = ["\u2764\uFE0F","\uD83D\uDD25","\uD83D\uDE02","\uD83D\uDE2E","\u2708\uFE0F","\uD83C\uDF0D"];
-
-function EmojiPicker({ onSelect, onClose }) {
-  var ref = useRef(null);
-  useEffect(function() {
-    var h = function(e) { if (ref.current&&!ref.current.contains(e.target)) onClose(); };
-    var t = setTimeout(function(){document.addEventListener("mousedown",h);},0);
-    return function(){clearTimeout(t);document.removeEventListener("mousedown",h);};
-  }, [onClose]);
-  return (
-    <div ref={ref} style={{position:"absolute",bottom:"calc(100% + 8px)",left:"50%",transform:"translateX(-50%)",zIndex:400,background:"white",border:"1px solid var(--rule)",borderRadius:2,boxShadow:"0 4px 28px rgba(27,20,16,0.16)",width:310,maxHeight:300,overflowY:"auto"}}>
-      {EMOJI_SECTIONS.map(function(sec) {
-        return (
-          <div key={sec.label}>
-            <div style={{padding:"6px 10px 4px",fontFamily:"'Jost',sans-serif",fontSize:"9px",fontWeight:600,letterSpacing:".15em",textTransform:"uppercase",color:"var(--muted)",position:"sticky",top:0,background:"white",borderBottom:"1px solid var(--rule)"}}>{sec.label}</div>
-            <div style={{display:"flex",flexWrap:"wrap",padding:"6px 8px 8px"}}>
-              {sec.emojis.map(function(e){return <button key={e} className="pemoji" onClick={function(){onSelect(e);onClose();}}>{e}</button>;})}
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
+var PRESET = QUICK_REACTIONS;
 
 // ── POST CARD ─────────────────────────────────────────────────────────────────
 
@@ -779,14 +766,29 @@ function PostCard({ post, reactions, userReacted, onReact, onExpand, highlighted
 
 // ── POST MODAL ────────────────────────────────────────────────────────────────
 
-function PostModal({ post, reactions, userReacted, comments, onReact, onClose, onComment, newComment, setNewComment, commentAuthor, setCommentAuthor, threadRef }) {
-  var pickerS = useState(false);
-  var picker = pickerS[0], setPicker = pickerS[1];
+function PostModal({
+  post,
+  reactions,
+  userReacted,
+  comments,
+  onReact,
+  onClose,
+  onComment,
+  newComment,
+  setNewComment,
+  threadRef,
+  canComment,
+  commentAuthorName,
+  commentWarning,
+  commentSignInEmail,
+  setCommentSignInEmail,
+  onRequestCommentSignIn,
+  sendingCommentSignIn,
+}) {
   var lbS = useState(null); // lightbox start index or null
   var lbIdx = lbS[0], setLbIdx = lbS[1];
   var cat = CATS[post.category] || { label: post.category || copy.filters.defaultCategoryLabel, color: "#8A7B6C" };
   var paras = post.full.split("\n\n");
-  var extras = Object.entries(reactions).filter(function(e){return !PRESET.includes(e[0])&&e[1]>0;});
   var rt = readTime(post.full);
 
   return (
@@ -836,17 +838,6 @@ function PostModal({ post, reactions, userReacted, comments, onReact, onClose, o
                   </div>
                 );
               })}
-              {extras.map(function(item){
-                var emoji=item[0],count=item[1],active=userReacted[post.id+"-"+emoji];
-                return <button key={emoji} className={"react-pill"+(active?" on":"")} onClick={function(){onReact(emoji);}}>{emoji}<span style={{fontFamily:"'Jost',sans-serif",fontSize:11}}>{count}</span></button>;
-              })}
-              <div style={{position:"relative"}}>
-                <button style={{width:40,height:40,borderRadius:"50%",border:"1.5px dashed var(--rule)",background:"none",cursor:"pointer",fontSize:18,color:"var(--muted)",display:"flex",alignItems:"center",justifyContent:"center",transition:"all .15s"}}
-                  onMouseEnter={function(e){e.currentTarget.style.borderColor="var(--red)";e.currentTarget.style.color="var(--red)";}}
-                  onMouseLeave={function(e){e.currentTarget.style.borderColor="var(--rule)";e.currentTarget.style.color="var(--muted)";}}
-                  onClick={function(){setPicker(function(p){return !p;});}}>+</button>
-                {picker&&<EmojiPicker onSelect={function(em){onReact(em);}} onClose={function(){setPicker(false);}}/>}
-              </div>
             </div>
           </div>
 
@@ -869,13 +860,49 @@ function PostModal({ post, reactions, userReacted, comments, onReact, onClose, o
                 );
               })}
             </div>
-            <div style={{padding:"0 28px 22px",display:"flex",flexDirection:"column",gap:7}}>
-              <input className="tinput" placeholder={copy.postModal.namePlaceholder} value={commentAuthor} onChange={function(e){setCommentAuthor(e.target.value);}} style={{fontFamily:"'Jost',sans-serif",fontSize:13,padding:"7px 12px"}}/>
-              <div style={{display:"flex",gap:7,alignItems:"flex-start"}}>
-                <textarea className="tinput" placeholder={copy.postModal.commentPlaceholder} value={newComment} onChange={function(e){setNewComment(e.target.value);}} rows={2}
-                  onKeyDown={function(e){if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();onComment();}}}/>
-                <button className="sendbtn" onClick={onComment}>{copy.postModal.sendLabel}</button>
-              </div>
+            <div style={{padding:"0 28px 22px",display:"flex",flexDirection:"column",gap:8}}>
+              {canComment ? (
+                <>
+                  <div style={{fontFamily:"'Jost',sans-serif",fontSize:11,color:"var(--muted)",letterSpacing:".04em"}}>
+                    Commenting as <strong style={{color:"var(--ink2)"}}>{commentAuthorName}</strong>
+                  </div>
+                  <div style={{display:"flex",gap:7,alignItems:"flex-start"}}>
+                    <textarea
+                      className="tinput"
+                      placeholder={copy.postModal.commentPlaceholder}
+                      value={newComment}
+                      onChange={function(e){setNewComment(e.target.value);}}
+                      rows={2}
+                      onKeyDown={function(e){if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();onComment();}}}
+                    />
+                    <button className="sendbtn" onClick={onComment}>{copy.postModal.sendLabel}</button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div style={{fontFamily:"'Lora',serif",fontSize:13,color:"var(--muted)",lineHeight:1.6}}>
+                    Sign in with your subscriber email to comment.
+                  </div>
+                  <div style={{display:"flex",gap:7,alignItems:"flex-start"}}>
+                    <input
+                      className="tinput"
+                      type="email"
+                      placeholder={copy.subscribeModal.emailPlaceholder}
+                      value={commentSignInEmail}
+                      onChange={function(e){setCommentSignInEmail(e.target.value);}}
+                      onKeyDown={function(e){if(e.key==="Enter"){e.preventDefault();onRequestCommentSignIn();}}}
+                    />
+                    <button className="sendbtn" onClick={onRequestCommentSignIn} disabled={sendingCommentSignIn}>
+                      {sendingCommentSignIn ? "Sending..." : "Email Sign-In Link"}
+                    </button>
+                  </div>
+                </>
+              )}
+              {commentWarning ? (
+                <div style={{fontFamily:"'Jost',sans-serif",fontSize:11,color:"var(--red)",lineHeight:1.5}}>
+                  {commentWarning}
+                </div>
+              ) : null}
             </div>
           </div>
         </div>
@@ -889,7 +916,7 @@ function PostModal({ post, reactions, userReacted, comments, onReact, onClose, o
 
 // ── SUBSCRIBE MODAL ───────────────────────────────────────────────────────────
 
-function SubModal({ email, setEmail, subscribed, onSubscribe, onClose }) {
+function SubModal({ email, setEmail, subscribed, onSubscribe, onClose, statusMessage, sending }) {
   return (
     <div className="overlay" style={{position:"fixed",inset:0,background:"rgba(27,20,16,0.72)",backdropFilter:"blur(6px)",zIndex:2000,display:"flex",alignItems:"center",justifyContent:"center",padding:20}} onClick={onClose}>
       <div className="mbox" style={{background:"var(--red)",maxWidth:400,width:"100%",padding:"44px 36px 36px",position:"relative",boxShadow:"0 20px 60px rgba(0,0,0,0.3)"}} onClick={function(e){e.stopPropagation();}}>
@@ -901,7 +928,12 @@ function SubModal({ email, setEmail, subscribed, onSubscribe, onClose }) {
             <p style={{fontFamily:"'Lora',serif",fontSize:14,color:"rgba(240,233,223,0.65)",lineHeight:1.7,marginBottom:22}}>{copy.subscribeModal.body}</p>
             <div style={{display:"flex",flexDirection:"column",gap:9}}>
               <input className="einput" type="email" placeholder={copy.subscribeModal.emailPlaceholder} value={email} onChange={function(e){setEmail(e.target.value);}} onKeyDown={function(e){if(e.key==="Enter")onSubscribe();}}/>
-              <button className="ctabtn" onClick={onSubscribe}>{copy.subscribeModal.button}</button>
+              <button className="ctabtn" onClick={onSubscribe} disabled={sending}>{sending ? "Sending..." : copy.subscribeModal.button}</button>
+              {statusMessage ? (
+                <div style={{fontFamily:"'Jost',sans-serif",fontSize:11,color:"rgba(240,233,223,0.88)",lineHeight:1.5}}>
+                  {statusMessage}
+                </div>
+              ) : null}
             </div>
           </>
         ) : (
@@ -930,9 +962,15 @@ export default function ScrapSheet({ backHref = "/" }) {
   var commentsS=useState(INITIAL_COMMENTS),comments=commentsS[0],setComments=commentsS[1];
   var showSubS=useState(false),showSub=showSubS[0],setShowSub=showSubS[1];
   var newComS=useState(""),newComment=newComS[0],setNewComment=newComS[1];
-  var authorS=useState(""),commentAuthor=authorS[0],setCommentAuthor=authorS[1];
   var emailS=useState(""),email=emailS[0],setEmail=emailS[1];
   var subscribedS=useState(false),subscribed=subscribedS[0],setSubscribed=subscribedS[1];
+  var subStatusS=useState(""),subStatus=subStatusS[0],setSubStatus=subStatusS[1];
+  var subSendingS=useState(false),subSending=subSendingS[0],setSubSending=subSendingS[1];
+  var commentEmailS=useState(""),commentSignInEmail=commentEmailS[0],setCommentSignInEmail=commentEmailS[1];
+  var commentWarningS=useState(""),commentWarning=commentWarningS[0],setCommentWarning=commentWarningS[1];
+  var commentSignInSendingS=useState(false),commentSignInSending=commentSignInSendingS[0],setCommentSignInSending=commentSignInSendingS[1];
+  var authUserS=useState(null),authUser=authUserS[0],setAuthUser=authUserS[1];
+  var subscriberProfileS=useState(null),subscriberProfile=subscriberProfileS[0],setSubscriberProfile=subscriberProfileS[1];
   var hlS=useState(null),highlightId=hlS[0],setHighlightId=hlS[1];
   var searchQS=useState(""),searchQ=searchQS[0],setSearchQ=searchQS[1];
   var searchOpenS=useState(false),searchOpen=searchOpenS[0],setSearchOpen=searchOpenS[1];
@@ -951,6 +989,53 @@ export default function ScrapSheet({ backHref = "/" }) {
     }
     setAnonId(stored);
   },[]);
+
+  useEffect(function(){
+    var active = true;
+    var unsubscribe = null;
+    (async function(){
+      try {
+        await completeSubscriberSignInFromLink();
+      } catch (error) {
+        // Ignore completion errors and continue auth observation.
+      }
+
+      try {
+        var currentUser = await getCurrentAuthUser();
+        if (active) {
+          setAuthUser(currentUser);
+          setCommentSignInEmail(currentUser?.email ? normalizeEmail(currentUser.email) : "");
+        }
+        if (currentUser?.uid) {
+          var profile = await getSubscriberRecord(currentUser.uid);
+          if (active) {
+            setSubscriberProfile(profile);
+            if (isSubscriberProfileActive(profile)) setSubscribed(true);
+          }
+        }
+      } catch (error) {
+        if (active) setSubscriberProfile(null);
+      }
+
+      unsubscribe = await onSubscriberAuthChange(async function(user){
+        if (!active) return;
+        setAuthUser(user);
+        setCommentSignInEmail(user?.email ? normalizeEmail(user.email) : "");
+        if (!user?.uid) {
+          setSubscriberProfile(null);
+          return;
+        }
+        var profile = await getSubscriberRecord(user.uid);
+        if (!active) return;
+        setSubscriberProfile(profile);
+        if (isSubscriberProfileActive(profile)) setSubscribed(true);
+      });
+    })();
+    return function(){
+      active = false;
+      if (typeof unsubscribe === "function") unsubscribe();
+    };
+  }, []);
 
   useEffect(function(){
     var active = true;
@@ -990,22 +1075,40 @@ export default function ScrapSheet({ backHref = "/" }) {
 
   useEffect(function(){
     if (!firestoreReady || !db || !anonId || !posts.length) return;
+    var active = true;
     (async function(){
+      var reactionMapByPost = {};
       var next = {};
       await Promise.all(posts.map(async function(p) {
         try {
-          var userRef = doc(db, COLLECTIONS.posts, String(p.id), "user_reactions", anonId);
-          var snap = await getDoc(userRef);
-          if (snap.exists()) {
-            var reacts = snap.data().reactions || {};
+          var snap = await getDocs(collection(db, COLLECTIONS.posts, String(p.id), "anon_reactions"));
+          var counts = {};
+          snap.forEach(function(rdoc){
+            var data = rdoc.data() || {};
+            var reacts = data.reactions && typeof data.reactions === "object" ? data.reactions : {};
             Object.keys(reacts).forEach(function(emoji) {
-              if (reacts[emoji]) next[p.id + "-" + emoji] = true;
+              if (!PRESET.includes(emoji)) return;
+              if (reacts[emoji]) {
+                counts[emoji] = (counts[emoji] || 0) + 1;
+              }
+              if (rdoc.id === anonId && reacts[emoji]) {
+                next[p.id + "-" + emoji] = true;
+              }
             });
-          }
-        } catch (e) {}
+          });
+          reactionMapByPost[p.id] = Object.assign({}, p.defaultReactions || {}, counts);
+        } catch (e) {
+          reactionMapByPost[p.id] = Object.assign({}, p.defaultReactions || {});
+        }
       }));
-      setUserReacted(next);
+      if (active) {
+        setReactions(function(prev){
+          return Object.assign({}, prev, reactionMapByPost);
+        });
+        setUserReacted(next);
+      }
     })();
+    return function(){active=false;};
   }, [firestoreReady, db, anonId, posts]);
 
   useEffect(function(){
@@ -1019,19 +1122,26 @@ export default function ScrapSheet({ backHref = "/" }) {
           return {
             id: doc.id,
             text: data.text || "",
-            author: data.author || copy.postModal.defaultAuthor,
-            time: created ? formatTime(created) : (data.time || ""),
-            isAuthor: Boolean(data.isAuthor),
+            author: data.authorName || copy.postModal.defaultAuthor,
+            time: created ? formatTime(created) : "",
+            isAuthor: Boolean(authUser?.uid && data.authorUid === authUser.uid),
           };
         });
         setComments(function(prev){ return Object.assign({}, prev, (function(){var o={};o[expandedId]=loaded;return o;})()); });
       } catch (e) {}
     })();
-  }, [expandedId, firestoreReady, db]);
+  }, [expandedId, firestoreReady, db, authUser]);
+
+  useEffect(function(){
+    if (expandedId) return;
+    setNewComment("");
+    setCommentWarning("");
+  }, [expandedId]);
 
   var getR=function(post){return reactions[post.id]||post.defaultReactions||{};};
 
   var handleReact=async function(postId,emoji){
+    if (!PRESET.includes(emoji)) return;
     var key=postId+"-"+emoji,already=userReacted[key];
     var post=posts.find(function(p){return p.id===String(postId);});
     if (!post) return;
@@ -1043,40 +1153,172 @@ export default function ScrapSheet({ backHref = "/" }) {
     if (!firestoreReady || !db || !anonId) return;
     try {
       await runTransaction(db, async function(tx) {
-        var postRef = doc(db, COLLECTIONS.posts, String(postId));
-        var userRef = doc(db, COLLECTIONS.posts, String(postId), "user_reactions", anonId);
-        var postSnap = await tx.get(postRef);
-        var counts = [];
-        if (postSnap.exists() && Array.isArray(postSnap.data().reactionCounts)) counts = postSnap.data().reactionCounts;
-        var map = {};
-        counts.forEach(function(item){ if (item && item.emoji) map[item.emoji] = Number(item.count) || 0; });
-        map[emoji] = Math.max(0, (map[emoji] || 0) + (already ? -1 : 1));
-        var updatedCounts = Object.keys(map).map(function(e){ return { emoji: e, count: map[e] }; });
-        if (postSnap.exists()) tx.update(postRef, { reactionCounts: updatedCounts });
-        else tx.set(postRef, { reactionCounts: updatedCounts }, { merge: true });
+        var userRef = doc(db, COLLECTIONS.posts, String(postId), "anon_reactions", anonId);
         var userSnap = await tx.get(userRef);
-        var userData = userSnap.exists() && userSnap.data().reactions ? userSnap.data().reactions : {};
+        var userData = userSnap.exists() && userSnap.data().reactions ? Object.assign({}, userSnap.data().reactions) : {};
         if (already) delete userData[emoji]; else userData[emoji] = true;
         tx.set(userRef, { reactions: userData, updatedAt: serverTimestamp() }, { merge: true });
       });
     } catch (e) {}
   };
 
+  function secondsUntilThrottleReset(throttleDoc) {
+    if (!throttleDoc?.windowStart || typeof throttleDoc.windowStart.toMillis !== "function") return 60;
+    var elapsedMs = Date.now() - throttleDoc.windowStart.toMillis();
+    return Math.max(1, Math.ceil((60000 - elapsedMs) / 1000));
+  }
+
   var handleComment=async function(postId){
-    if(!newComment.trim())return;
-    var c={id:Date.now(),text:newComment.trim(),author:commentAuthor.trim()||copy.postModal.defaultAuthor,time:formatTime(new Date()),isAuthor:false};
-    var next=Object.assign({},comments);next[postId]=[...(comments[postId]||[]),c];
-    setComments(next);setNewComment("");
-    setTimeout(function(){if(threadRef.current)threadRef.current.scrollTop=threadRef.current.scrollHeight;},80);
-    if (!firestoreReady || !db) return;
+    var trimmed = newComment.trim();
+    if(!trimmed)return;
+    if (!authUser?.uid || !isSubscriberProfileActive(subscriberProfile)) {
+      setCommentWarning("Sign in with an active subscriber account to comment.");
+      return;
+    }
+
+    setCommentWarning("");
+    var authorName =
+      (subscriberProfile && typeof subscriberProfile.name === "string" && subscriberProfile.name.trim()) ||
+      fallbackNameFromEmail(authUser.email || "") ||
+      copy.postModal.defaultAuthor;
+    if (!firestoreReady || !db) {
+      setCommentWarning("Comments are temporarily unavailable.");
+      return;
+    }
+
     try {
-      await addDoc(collection(db, COLLECTIONS.posts, String(postId), "comments"), {
-        text: c.text,
-        author: c.author,
-        createdAt: serverTimestamp(),
-        isAuthor: c.isAuthor,
+      var throttleRef = doc(db, "comment_throttles", authUser.uid);
+      var throttle = await getDoc(throttleRef).then(function(snap){ return snap.exists() ? snap.data() : null; }).catch(function(){ return null; });
+      var activeWindow = Boolean(
+        throttle &&
+        throttle.windowStart &&
+        typeof throttle.windowStart.toMillis === "function" &&
+        Date.now() - throttle.windowStart.toMillis() < 60000
+      );
+      var nextCount = activeWindow ? Number(throttle.count || 0) + 1 : 1;
+      if (activeWindow && nextCount > 3) {
+        setCommentWarning("You have reached the comment limit. Try again in " + secondsUntilThrottleReset(throttle) + "s.");
+        return;
+      }
+
+      await runTransaction(db, async function(tx) {
+        var txnThrottleSnap = await tx.get(throttleRef);
+        var txnThrottle = txnThrottleSnap.exists() ? txnThrottleSnap.data() : null;
+        var txnActiveWindow = Boolean(
+          txnThrottle &&
+          txnThrottle.windowStart &&
+          typeof txnThrottle.windowStart.toMillis === "function" &&
+          Date.now() - txnThrottle.windowStart.toMillis() < 60000
+        );
+        var txnNextCount = txnActiveWindow ? Number(txnThrottle.count || 0) + 1 : 1;
+        if (txnActiveWindow && txnNextCount > 3) {
+          throw new Error("RATE_LIMIT");
+        }
+
+        var commentRef = doc(collection(db, COLLECTIONS.posts, String(postId), "comments"));
+        tx.set(commentRef, {
+          authorUid: authUser.uid,
+          authorName: authorName.slice(0, 80),
+          text: trimmed.slice(0, 1200),
+          createdAt: serverTimestamp(),
+        });
+        tx.set(throttleRef, {
+          uid: authUser.uid,
+          windowStart: txnActiveWindow ? txnThrottle.windowStart : serverTimestamp(),
+          count: txnNextCount,
+          updatedAt: serverTimestamp(),
+        });
       });
-    } catch (e) {}
+      var c={id:Date.now(),text:trimmed,author:authorName,time:formatTime(new Date()),isAuthor:true};
+      var next=Object.assign({},comments);next[postId]=[...(comments[postId]||[]),c];
+      setComments(next);
+      setNewComment("");
+      setTimeout(function(){if(threadRef.current)threadRef.current.scrollTop=threadRef.current.scrollHeight;},80);
+    } catch (e) {
+      if (String(e?.message || "").includes("RATE_LIMIT")) {
+        setCommentWarning("You have reached the comment limit. Please wait about a minute.");
+      } else if (String(e?.message || "").toLowerCase().includes("permission")) {
+        setCommentWarning("Comment blocked by security rules or rate limit. Please try again shortly.");
+      } else {
+        setCommentWarning("Could not post comment. Please try again.");
+      }
+    }
+  };
+
+  var handleRequestCommentSignIn = async function() {
+    var targetEmail = normalizeEmail(commentSignInEmail || email);
+    if (!targetEmail.includes("@")) {
+      setCommentWarning("Enter a valid subscriber email.");
+      return;
+    }
+    setEmail(targetEmail);
+    setCommentSignInSending(true);
+    setCommentWarning("");
+    try {
+      var result = await sendSubscriberSignInLink({
+        email: targetEmail,
+        source: "travel_comment",
+        redirectUrl: window.location.href,
+      });
+      if (!result.ok) {
+        setCommentWarning("Could not send sign-in link. Please try again.");
+      } else if (result.linked) {
+        var signedInUser = await getCurrentAuthUser();
+        if (signedInUser) {
+          await upsertSubscriberRecord(signedInUser, { source: "travel_comment" });
+          setAuthUser(signedInUser);
+          var profile = await getSubscriberRecord(signedInUser.uid);
+          setSubscriberProfile(profile);
+        }
+        setCommentWarning("Signed in. You can comment now.");
+      } else {
+        setCommentWarning("Sign-in link sent. Check your inbox.");
+      }
+    } catch (error) {
+      setCommentWarning("Sign-in request failed. Please retry.");
+    } finally {
+      setCommentSignInSending(false);
+    }
+  };
+
+  var handleSubscribe = async function() {
+    var targetEmail = normalizeEmail(email);
+    if (!targetEmail.includes("@")) {
+      setSubStatus("Please enter a valid email.");
+      return;
+    }
+    setCommentSignInEmail(targetEmail);
+    setSubSending(true);
+    setSubStatus("");
+    try {
+      var result = await sendSubscriberSignInLink({
+        email: targetEmail,
+        source: "travel_subscribe",
+        redirectUrl: window.location.href,
+      });
+      if (!result.ok) {
+        setSubStatus("Unable to send sign-in link. Please retry.");
+        return;
+      }
+      if (result.linked) {
+        var signedUser = await getCurrentAuthUser();
+        if (signedUser) {
+          await upsertSubscriberRecord(signedUser, { source: "travel_subscribe" });
+          setAuthUser(signedUser);
+          var signedProfile = await getSubscriberRecord(signedUser.uid);
+          setSubscriberProfile(signedProfile);
+        }
+        setSubscribed(true);
+        setSubStatus("");
+        return;
+      }
+      setSubscribed(true);
+      setSubStatus("Check your inbox to confirm your subscription.");
+    } catch (error) {
+      setSubStatus("Subscription failed. Try again in a moment.");
+    } finally {
+      setSubSending(false);
+    }
   };
 
   var handleQuoteClick=function(postId){
@@ -1093,6 +1335,11 @@ export default function ScrapSheet({ backHref = "/" }) {
   var dispatchCount = copy.hero.countTemplate
     .replace("{current}", String(posts.length).padStart(2,"0"))
     .replace("{total}", String(posts.length).padStart(2,"0"));
+  var canComment = Boolean(authUser?.uid && isSubscriberProfileActive(subscriberProfile));
+  var commentAuthorName =
+    (subscriberProfile && typeof subscriberProfile.name === "string" && subscriberProfile.name.trim()) ||
+    fallbackNameFromEmail(authUser?.email || "") ||
+    copy.postModal.defaultAuthor;
 
   return (
     <div className="dispatch-root" style={{background:"var(--cream)",minHeight:"100vh"}}>
@@ -1261,13 +1508,21 @@ export default function ScrapSheet({ backHref = "/" }) {
           onClose={function(){setExpandedId(null);}}
           onComment={function(){handleComment(expanded.id);}}
           newComment={newComment} setNewComment={setNewComment}
-          commentAuthor={commentAuthor} setCommentAuthor={setCommentAuthor}
-          threadRef={threadRef}/>
+          threadRef={threadRef}
+          canComment={canComment}
+          commentAuthorName={commentAuthorName}
+          commentWarning={commentWarning}
+          commentSignInEmail={commentSignInEmail}
+          setCommentSignInEmail={setCommentSignInEmail}
+          onRequestCommentSignIn={handleRequestCommentSignIn}
+          sendingCommentSignIn={commentSignInSending}/>
       )}
       {showSub&&(
         <SubModal email={email} setEmail={setEmail} subscribed={subscribed}
-          onSubscribe={function(){setSubscribed(true);}}
-          onClose={function(){setShowSub(false);setSubscribed(false);setEmail("");}}/>
+          statusMessage={subStatus}
+          sending={subSending}
+          onSubscribe={handleSubscribe}
+          onClose={function(){setShowSub(false);setSubscribed(false);setEmail("");setSubStatus("");}}/>
       )}
     </div>
   );

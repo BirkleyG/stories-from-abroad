@@ -572,6 +572,14 @@ body.theme-papers .site-nav.scrolled {
   width: 100%;
 }
 
+.modal-status {
+  margin-top: 0.75rem;
+  min-height: 1.1rem;
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
 .modal-success {
   display: none;
   text-align: center;

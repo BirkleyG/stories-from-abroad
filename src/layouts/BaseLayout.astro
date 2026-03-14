@@ -135,16 +135,28 @@ const pageTitle = title ? `${title} | ${copy.siteTitle}` : copy.siteTitle;
           <button class="btn-ghost modal-submit" type="button" id="modal-submit">
             {copy.subscribeModal.submitLabel}
           </button>
+          <p class="modal-status" id="modal-status" aria-live="polite"></p>
         </div>
         <div class="modal-success" id="modal-success-view">
           <div class="modal-check">{copy.subscribeModal.success.title}</div>
-          <h3>{copy.subscribeModal.success.subtitle}</h3>
-          <p>{copy.subscribeModal.success.body}</p>
+          <h3 id="modal-success-title">{copy.subscribeModal.success.subtitle}</h3>
+          <p id="modal-success-body">{copy.subscribeModal.success.body}</p>
         </div>
       </div>
     </div>
 
-    <script is:inline>
+    <script type="module">
+      import { firestoreReady } from "../lib/firebaseClient";
+      import {
+        completeSubscriberSignInFromLink,
+        fallbackNameFromEmail,
+        getSubscriberRecord,
+        normalizeEmail,
+        onSubscriberAuthChange,
+        sendSubscriberSignInLink,
+        upsertSubscriberRecord,
+      } from "../lib/subscriberClient";
+
       const nav = document.getElementById("site-nav");
       if (nav) {
         const onScroll = () => {
@@ -158,11 +170,56 @@ const pageTitle = title ? `${title} | ${copy.siteTitle}` : copy.siteTitle;
       const modalSubmit = document.getElementById("modal-submit");
       const formView = document.getElementById("modal-form-view");
       const successView = document.getElementById("modal-success-view");
+      const statusEl = document.getElementById("modal-status");
+      const emailInput = document.getElementById("sub-email");
+      const nameInput = document.getElementById("sub-name");
+      const successTitle = document.getElementById("modal-success-title");
+      const successBody = document.getElementById("modal-success-body");
+      const prefAll = document.getElementById("pref-all");
+      const prefArticles = document.getElementById("pref-articles");
+      const prefPhoto = document.getElementById("pref-photo");
+      const prefFaces = document.getElementById("pref-faces");
+      const prefTravel = document.getElementById("pref-travel");
+
+      let authUser = null;
+
+      function setStatus(message, tone = "muted") {
+        if (!statusEl) return;
+        statusEl.textContent = message;
+        if (tone === "error") {
+          statusEl.style.color = "var(--red)";
+        } else if (tone === "ok") {
+          statusEl.style.color = "var(--green)";
+        } else {
+          statusEl.style.color = "var(--text-muted)";
+        }
+      }
+
+      function collectPreferences() {
+        const out = [];
+        if (prefAll?.checked) out.push("all");
+        if (prefArticles?.checked) out.push("articles");
+        if (prefPhoto?.checked) out.push("photography");
+        if (prefFaces?.checked) out.push("faces");
+        if (prefTravel?.checked) out.push("travel");
+        return out;
+      }
+
+      function showSuccess(title, body) {
+        if (successTitle) successTitle.textContent = title;
+        if (successBody) successBody.textContent = body;
+        if (formView && successView) {
+          formView.style.display = "none";
+          successView.style.display = "block";
+        }
+      }
 
       function openModal() {
         if (!modal) return;
         modal.classList.add("open");
         document.body.style.overflow = "hidden";
+        setStatus("");
+        if (emailInput) emailInput.classList.remove("input-error");
       }
 
       function closeModal() {
@@ -173,6 +230,7 @@ const pageTitle = title ? `${title} | ${copy.siteTitle}` : copy.siteTitle;
           formView.style.display = "";
           successView.style.display = "none";
         }
+        setStatus("");
       }
 
       document.querySelectorAll("[data-modal-open='subscribe']").forEach((btn) => {
@@ -193,17 +251,124 @@ const pageTitle = title ? `${title} | ${copy.siteTitle}` : copy.siteTitle;
         if (event.key === "Escape") closeModal();
       });
 
+      if (prefAll) {
+        prefAll.addEventListener("change", () => {
+          const checked = prefAll.checked;
+          [prefArticles, prefPhoto, prefFaces, prefTravel].forEach((el) => {
+            if (!el) return;
+            el.checked = false;
+            el.disabled = checked;
+          });
+        });
+      }
+
+      if (prefAll?.checked) {
+        [prefArticles, prefPhoto, prefFaces, prefTravel].forEach((el) => {
+          if (!el) return;
+          el.disabled = true;
+        });
+      }
+
+      [prefArticles, prefPhoto, prefFaces, prefTravel].forEach((el) => {
+        if (!el) return;
+        el.addEventListener("change", () => {
+          if (!prefAll) return;
+          if (el.checked) prefAll.checked = false;
+          const lock = prefAll.checked;
+          [prefArticles, prefPhoto, prefFaces, prefTravel].forEach((item) => {
+            if (!item) return;
+            item.disabled = lock;
+          });
+        });
+      });
+
+      if (nameInput && !nameInput.value && authUser?.email) {
+        nameInput.value = fallbackNameFromEmail(authUser.email);
+      }
+
+      onSubscriberAuthChange(async (user) => {
+        authUser = user;
+        if (!user?.uid || !nameInput) return;
+        const profile = await getSubscriberRecord(user.uid);
+        const preferredName = profile?.name || fallbackNameFromEmail(user.email || "");
+        if (preferredName && !nameInput.value.trim()) {
+          nameInput.value = preferredName;
+        }
+      });
+
+      completeSubscriberSignInFromLink()
+        .then(async ({ completed, user }) => {
+          if (!completed || !user?.uid) return;
+          const profile = await getSubscriberRecord(user.uid);
+          const title = profile?.name ? "Subscription received" : "Subscription confirmed";
+          showSuccess(title, "Your subscriber account is active and ready for comments.");
+        })
+        .catch(() => {
+          // Ignore silent auth-completion errors in global layout.
+        });
+
       if (modalSubmit) {
-        modalSubmit.addEventListener("click", () => {
-          const email = document.getElementById("sub-email");
-          if (email && !email.value.includes("@")) {
-            email.focus();
-            email.classList.add("input-error");
+        modalSubmit.addEventListener("click", async () => {
+          if (!(emailInput instanceof HTMLInputElement)) return;
+          const normalizedEmail = normalizeEmail(emailInput.value);
+          if (!normalizedEmail.includes("@")) {
+            emailInput.focus();
+            emailInput.classList.add("input-error");
+            setStatus("Please enter a valid email.", "error");
             return;
           }
-          if (formView && successView) {
-            formView.style.display = "none";
-            successView.style.display = "block";
+
+          emailInput.classList.remove("input-error");
+          setStatus("");
+
+          if (!firestoreReady) {
+            setStatus("Subscriber services are not configured yet.", "error");
+            return;
+          }
+
+          const name = nameInput instanceof HTMLInputElement ? nameInput.value : "";
+          const preferences = collectPreferences();
+
+          if (modalSubmit instanceof HTMLButtonElement) {
+            modalSubmit.disabled = true;
+          }
+
+          try {
+            if (authUser?.uid && normalizeEmail(authUser.email) === normalizedEmail) {
+              await upsertSubscriberRecord(authUser, {
+                name,
+                preferences,
+                source: "global_modal",
+              });
+              showSuccess("Subscription confirmed", "Your subscriber account is active.");
+              return;
+            }
+
+            const result = await sendSubscriberSignInLink({
+              email: normalizedEmail,
+              name,
+              preferences,
+              source: "global_modal",
+              redirectUrl: window.location.href,
+            });
+
+            if (!result.ok) {
+              setStatus("Unable to send sign-in link. Please try again.", "error");
+              return;
+            }
+
+            if (result.linked) {
+              showSuccess("Subscription confirmed", "Your subscriber account is active.");
+              return;
+            }
+
+            showSuccess("Check your inbox", "Use the sign-in link to confirm your subscription.");
+          } catch (error) {
+            setStatus("Subscription failed. Please retry in a moment.", "error");
+          } finally {
+            if (modalSubmit instanceof HTMLButtonElement) {
+              modalSubmit.disabled = false;
+            }
           }
         });
       }
