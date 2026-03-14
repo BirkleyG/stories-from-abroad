@@ -279,23 +279,33 @@ function Styles() {
       }
 
       @media (max-width: 640px){
-        .dispatch-header-inner{height:54px!important;padding:0 10px!important;gap:8px}
+        .dispatch-header-inner{height:48px!important;padding:0 8px!important;gap:6px}
         .dispatch-logo{display:none!important}
-        .dispatch-back-link{font-size:9px!important;letter-spacing:.14em!important;gap:6px!important}
-        .dispatch-nav{gap:8px!important}
+        .dispatch-back-link{font-size:8px!important;letter-spacing:.12em!important;gap:5px!important}
+        .dispatch-nav{gap:6px!important}
         .dispatch-search-box{padding:3px 7px!important;gap:5px!important}
-        .dispatch-search-box input{width:94px!important}
+        .dispatch-search-box input{width:86px!important}
         .dispatch-search-meta{display:none!important}
-        .dispatch-hero{padding:30px 14px 104px!important;min-height:58vh!important}
-        .dispatch-hero-copy h1{font-size:clamp(44px,16vw,62px)!important;margin-bottom:16px!important}
-        .dispatch-hero-copy p{font-size:14px!important;line-height:1.58!important;margin-bottom:14px!important}
-        .dispatch-hero-globe{left:50%!important;right:auto!important;bottom:18px!important;transform:translateX(-50%) scale(.74)!important}
+        .dispatch-hero{padding:30px 14px 142px!important;min-height:62vh!important}
+        .dispatch-hero-copy h1{font-size:clamp(52px,16.8vw,72px)!important;margin-bottom:18px!important}
+        .dispatch-hero-copy p{font-size:16px!important;line-height:1.72!important;margin-bottom:18px!important}
+        .dispatch-hero-globe{left:50%!important;right:auto!important;bottom:10px!important;transform:translateX(-50%) scale(1.02)!important}
+        .dispatch-hero-globe > div{width:236px!important;height:236px!important}
+        .quote-btn div{font-size:15px!important;line-height:1.62!important}
         .dispatch-filter-inner{padding:14px 12px!important;gap:6px!important}
-        .fbtn{font-size:10px;padding:5px 10px}
+        .fbtn{font-size:12px;padding:6px 11px}
         .dispatch-main{padding:22px 12px 46px!important}
         .dispatch-about{padding:42px 14px!important}
         .dispatch-about h2{margin-bottom:24px!important}
-        .dispatch-about p{font-size:14px!important;line-height:1.66!important}
+        .dispatch-about p{font-size:16px!important;line-height:1.72!important}
+        .pc-cat{font-size:12px!important}
+        .pc-title{font-size:30px!important;line-height:1.14!important}
+        .pc-meta{font-size:13px!important}
+        .pc-preview{font-size:17px!important;line-height:1.8!important}
+        .pc-photo-meta{font-size:12px!important}
+        .readmore{font-size:12px!important}
+        .react-pill{font-size:13px!important;padding:7px 13px!important}
+        .react-pill span{font-size:13px!important}
         .dispatch-footer{padding:14px 12px!important;gap:8px!important}
         .dispatch-footer .fsubbtn{width:100%;text-align:center}
         .overlay{padding:10px 8px 18px!important}
@@ -313,8 +323,8 @@ function Styles() {
       }
 
       @media (max-width: 420px){
-        .dispatch-hero-globe{display:none!important}
-        .dispatch-hero{padding-bottom:28px!important;min-height:auto!important}
+        .dispatch-hero{padding-bottom:134px!important}
+        .dispatch-hero-globe > div{width:210px!important;height:210px!important}
       }
     `}</style>
   );
@@ -723,28 +733,28 @@ function PostCard({ post, reactions, userReacted, onReact, onExpand, highlighted
         </div>
 
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
-          <div style={{display:"inline-flex",alignItems:"center",gap:6,color:cat.color,fontFamily:"'Jost',sans-serif",fontSize:10,fontWeight:600,letterSpacing:".15em",textTransform:"uppercase"}}>
+          <div className="pc-cat" style={{display:"inline-flex",alignItems:"center",gap:6,color:cat.color,fontFamily:"'Jost',sans-serif",fontSize:10,fontWeight:600,letterSpacing:".15em",textTransform:"uppercase"}}>
             <CategoryIcon type={post.category} color={cat.color}/>{cat.label}
             {post.pinned&&<span style={{marginLeft:6,opacity:0.6,fontSize:9}}>&#9679; {copy.pinnedLabel}</span>}
           </div>
         </div>
 
-        <h2 style={{fontFamily:"'Cormorant Garamond',serif",fontSize:24,fontWeight:600,color:"var(--ink)",lineHeight:1.2,marginBottom:10,letterSpacing:"-.01em"}}>
+        <h2 className="pc-title" style={{fontFamily:"'Cormorant Garamond',serif",fontSize:24,fontWeight:600,color:"var(--ink)",lineHeight:1.2,marginBottom:10,letterSpacing:"-.01em"}}>
           {post.title}
         </h2>
 
-        <div style={{fontFamily:"'Courier Prime',monospace",fontSize:11,color:"var(--muted)",marginBottom:14,letterSpacing:".07em",transform:"rotate(-1.2deg)",transformOrigin:"left center",display:"inline-block"}}>
+        <div className="pc-meta" style={{fontFamily:"'Courier Prime',monospace",fontSize:11,color:"var(--muted)",marginBottom:14,letterSpacing:".07em",transform:"rotate(-1.2deg)",transformOrigin:"left center",display:"inline-block"}}>
           {post.location} &mdash; {post.dateStr} &middot; {post.time}
         </div>
 
-        <p style={{fontFamily:"'Lora',serif",fontSize:14,color:"var(--ink2)",lineHeight:1.72,marginBottom:16}}>
+        <p className="pc-preview" style={{fontFamily:"'Lora',serif",fontSize:14,color:"var(--ink2)",lineHeight:1.72,marginBottom:16}}>
           {post.preview}
         </p>
 
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
           <button className="readmore" onClick={function(e){e.stopPropagation();onExpand();}}>{copy.postCard.openLabel}</button>
           {post.photos&&post.photos.length>0&&(
-            <div style={{fontFamily:"'Courier Prime',monospace",fontSize:10,color:"var(--muted)",letterSpacing:".06em",display:"flex",alignItems:"center",gap:5}}>
+            <div className="pc-photo-meta" style={{fontFamily:"'Courier Prime',monospace",fontSize:10,color:"var(--muted)",letterSpacing:".06em",display:"flex",alignItems:"center",gap:5}}>
               <svg width="11" height="10" viewBox="0 0 11 10" fill="none" stroke="var(--muted)" strokeWidth="1" strokeLinecap="round"><rect x="1" y="2.5" width="9" height="7" rx="1"/><circle cx="5.5" cy="6" r="1.6"/><path d="M3.5 2.5 L4 1 L7 1 L7.5 2.5"/></svg>
               {post.photos.length} {post.photos.length>1?copy.postCard.photoPlural:copy.postCard.photoSingular}
             </div>

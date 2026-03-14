@@ -58,6 +58,7 @@ body{font-family:var(--bod);color:var(--white);background:#000;overflow-x:hidden
 #hero{position:relative;height:3680vh}
 .hero-sticky{position:sticky;top:0;height:100vh;overflow:hidden;background:#000}
 #map-svg{width:100%;height:100%;display:block}
+#map-svg,#pin-layer,#map-loading{will-change:transform}
 #map-vignette{position:absolute;inset:0;pointer-events:none;z-index:2;background:radial-gradient(ellipse 80% 74% at 50% 52%,transparent 36%,rgba(0,0,0,.5) 72%,rgba(0,0,0,.94) 100%),linear-gradient(to bottom,rgba(0,0,0,.6) 0%,transparent 14%,transparent 88%,rgba(0,0,0,.82) 100%)}
 #map-loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:1;font-family:var(--dis);font-style:italic;font-size:.84rem;letter-spacing:.14em;color:rgba(201,168,76,.18)}
 /* CARTOUCHE */
@@ -778,23 +779,65 @@ function buildPins() {
   });
 }
 
+let heroPanX = 0, heroPanY = 0;
+
+function setHeroPan(x, y) {
+  const nextX = Number.isFinite(x) ? x : 0;
+  const nextY = Number.isFinite(y) ? y : 0;
+  if (Math.abs(nextX - heroPanX) < 0.2 && Math.abs(nextY - heroPanY) < 0.2) return;
+  heroPanX = nextX;
+  heroPanY = nextY;
+  const transform = 'translate3d(' + nextX.toFixed(2) + 'px,' + nextY.toFixed(2) + 'px,0)';
+  ['map-svg', 'pin-layer', 'map-loading'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.style.transform = transform;
+  });
+}
+
+function getMapMetrics() {
+  const layer = document.getElementById('pin-layer');
+  const rect = layer ? layer.getBoundingClientRect() : null;
+  const vw = Math.max(1, (rect && rect.width) || window.innerWidth || 1);
+  const vh = Math.max(1, (rect && rect.height) || window.innerHeight || 1);
+  const ratio = W / H;
+  const sr = vw / vh;
+  let scale, ox, oy;
+  if (sr >= ratio) { scale = vw / W; ox = 0; oy = (H * scale - vh) / 2; }
+  else             { scale = vh / H; ox = (W * scale - vw) / 2; oy = 0; }
+  return {
+    vw,
+    vh,
+    scale,
+    ox,
+    oy,
+    maxPanX: Math.max(0, (W * scale - vw) / 2),
+    maxPanY: Math.max(0, (H * scale - vh) / 2),
+  };
+}
+
+function getProjectedPoint(iv, metrics) {
+  if (!proj || !iv || !metrics) return { x: 0, y: 0 };
+  const [px, py] = proj(iv.lngLat);
+  return {
+    x: px * metrics.scale - metrics.ox,
+    y: py * metrics.scale - metrics.oy,
+  };
+}
+
 function positionPins() {
   if (!proj) return;
-  const vw = window.innerWidth, vh = window.innerHeight;
-  const ratio = W/H, sr = vw/vh;
-  let scale, ox, oy;
-  if (sr >= ratio) { scale = vw/W; ox = 0; oy = (H*scale-vh)/2; }
-  else             { scale = vh/H; ox = (W*scale-vw)/2; oy = 0; }
+  const metrics = getMapMetrics();
   interviews.forEach(iv => {
     const pin = document.querySelector('.pin[data-slug="' + iv.slug + '"]'); if (!pin) return;
-    const [px, py] = proj(iv.lngLat);
-    pin.style.left = (px*scale - ox) + 'px';
-    pin.style.top  = (py*scale - oy) + 'px';
+    const pt = getProjectedPoint(iv, metrics);
+    pin.style.left = pt.x + 'px';
+    pin.style.top  = pt.y + 'px';
   });
 }
 
 window.addEventListener('resize', () => {
   positionPins();
+  window.requestAnimationFrame(() => window.dispatchEvent(new Event('scroll')));
   if (document.getElementById('archive-view').style.display !== 'none' && archPs.length) { setArchHeight(); runArch(); }
 });
 
@@ -872,7 +915,10 @@ function initScroll() {
   const mainView = document.getElementById('main-view');
   const mobileMq = window.matchMedia('(max-width: 820px)');
   let isMobileViewport = mobileMq.matches;
-  const updateMobileViewport = (event) => { isMobileViewport = event.matches; };
+  const updateMobileViewport = (event) => {
+    isMobileViewport = event.matches;
+    if (!isMobileViewport) setHeroPan(0, 0);
+  };
   if (typeof mobileMq.addEventListener === 'function') mobileMq.addEventListener('change', updateMobileViewport);
   else if (typeof mobileMq.addListener === 'function') mobileMq.addListener(updateMobileViewport);
 
@@ -887,6 +933,46 @@ function initScroll() {
     if (!force && window.scrollY > Math.max(22, target * 0.42)) return;
     autoSnapUntil = now + 700;
     window.scrollTo({ top: target, behavior: 'smooth' });
+  }
+
+  function updateMapPan(progress) {
+    if (!isMobileViewport || !proj || !byDate.length) {
+      setHeroPan(0, 0);
+      return;
+    }
+    const metrics = getMapMetrics();
+    if (!metrics || (metrics.maxPanX < 1 && metrics.maxPanY < 1)) {
+      setHeroPan(0, 0);
+      return;
+    }
+
+    const seqLimit = Math.max(1, Math.min(SEQ_COUNT, byDate.length));
+    let fromIdx = 0;
+    let toIdx = Math.min(1, seqLimit - 1);
+    let mix = 0;
+    if (progress <= SEQ_START || seqLimit === 1) {
+      fromIdx = 0;
+      toIdx = Math.min(1, byDate.length - 1);
+    } else if (progress < BURST_AT) {
+      const raw = (progress - SEQ_START) / PIN_STEP;
+      const bounded = Math.max(0, Math.min(seqLimit - 1.0001, raw));
+      fromIdx = Math.floor(bounded);
+      toIdx = Math.min(seqLimit - 1, fromIdx + 1);
+      mix = bounded - fromIdx;
+    } else {
+      fromIdx = seqLimit - 1;
+      toIdx = fromIdx;
+    }
+
+    const a = getProjectedPoint(byDate[fromIdx], metrics);
+    const b = getProjectedPoint(byDate[toIdx], metrics);
+    const focusX = a.x + (b.x - a.x) * mix;
+    const focusY = a.y + (b.y - a.y) * mix;
+    const desiredX = metrics.vw * 0.52;
+    const desiredY = metrics.vh * 0.54;
+    const panX = Math.max(-metrics.maxPanX, Math.min(metrics.maxPanX, desiredX - focusX));
+    const panY = Math.max(-metrics.maxPanY, Math.min(metrics.maxPanY, desiredY - focusY));
+    setHeroPan(panX, panY);
   }
 
   const cartHint = document.querySelector('.cart-scroll');
@@ -915,6 +1001,7 @@ function initScroll() {
     if (mainView.style.display === 'none') return;
     const max = heroEl.offsetHeight - window.innerHeight; if (max <= 0) return;
     const p = Math.min(1, Math.max(0, (window.scrollY * HERO_SCROLL_SPEED) / max));
+    updateMapPan(p);
 
     /* Lock at ALL_AT: snap back if user somehow scrolled past */
     if (p >= ALL_AT) {
@@ -1263,6 +1350,7 @@ function handleRoute() {
   ['main-view','archive-view','about-view','profile-view'].forEach(id => document.getElementById(id).style.display='none');
   document.getElementById('archive-stage').style.display = 'none';
   document.getElementById('arch-bubbles').style.display = 'none';
+  setHeroPan(0, 0);
   if (h.startsWith('#/profile/')) {
     const iv = interviews.find(i => i.slug === h.slice(10));
     if (iv) { renderProfile(iv); document.getElementById('profile-view').style.display='block'; window.scrollTo(0,0); return; }
@@ -1277,12 +1365,15 @@ function handleRoute() {
     window.scrollTo(0,0); return;
   }
   document.getElementById('main-view').style.display = 'block';
+  positionPins();
+  window.scrollTo(0,0);
 }
 
 function applyInterviewRefresh() {
   refreshDerivedData();
   revealed.clear();
   closePreview();
+  setHeroPan(0, 0);
   buildPins();
   positionPins();
 
