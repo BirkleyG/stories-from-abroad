@@ -18,17 +18,25 @@ npm run dev
 Create a Firebase project, enable Firestore, then copy the Web App config values into a local `.env` file.
 
 ```
-PUBLIC_FIREBASE_API_KEY=
-PUBLIC_FIREBASE_AUTH_DOMAIN=
-PUBLIC_FIREBASE_PROJECT_ID=
-PUBLIC_FIREBASE_STORAGE_BUCKET=
-PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
-PUBLIC_FIREBASE_APP_ID=
+PUBLIC_FIREBASE_API_KEY=AIzaSyBCqnYFg7zLCvEbHUl4Fu37gPh5pxdobYA
+PUBLIC_FIREBASE_AUTH_DOMAIN=stories-from-abroad.firebaseapp.com
+PUBLIC_FIREBASE_PROJECT_ID=stories-from-abroad
+PUBLIC_FIREBASE_STORAGE_BUCKET=stories-from-abroad.firebasestorage.app
+PUBLIC_FIREBASE_MESSAGING_SENDER_ID=484837903165
+PUBLIC_FIREBASE_APP_ID=1:484837903165:web:2e078798c7ed7eec191354
+PUBLIC_FIREBASE_FUNCTIONS_REGION=us-central1
 ```
 
 ### Firestore collections
 
 The site expects these collections and fields:
+
+- Admin-only authoring collections:
+  - `admin_faces`
+  - `admin_papers`
+  - `admin_dispatches`
+  - `media_assets`
+  - each admin document may include a `versions` subcollection
 
 - `papers`
   - `title` (string)
@@ -106,10 +114,11 @@ If Firestore is not configured or not reachable, the site renders the fallback c
 ### Authentication + comment gate
 
 - Travel comments require Firebase email-link auth and an active `subscribers/{uid}` record.
+- `/admin` uses Firebase email-link auth plus an `admin: true` custom claim.
 - Comment writes are rate-limited to **3 comments / 60 seconds** via `comment_throttles/{uid}` rule validation.
 - Reactions stay anonymous and write to `anon_reactions` subdocuments only.
 - Firestore security is defined in `firestore.rules`.
-- Enable the Email/Password provider with **Email link (passwordless sign-in)** in Firebase Auth, and add your site domains to Authorized domains.
+- This project is configured for Firebase email-link auth. Authorized domains should include `localhost`, `127.0.0.1`, `stories-from-abroad.firebaseapp.com`, `stories-from-abroad.web.app`, and `birkleyg.github.io`.
 
 ### Rules deploy
 
@@ -121,11 +130,40 @@ firebase deploy --only firestore:rules,firestore:indexes
 
 This repo includes a GitHub Actions workflow at `.github/workflows/deploy.yml`.
 
-1. In GitHub, set repository variables:
-   - `ASTRO_BASE` to `/stories-from-abroad/`
-   - `SITE_URL` to `https://BirkleyG.github.io/stories-from-abroad/`
-2. Add repository secrets for each `PUBLIC_FIREBASE_*` value.
-3. Push to `main` to trigger deployment.
+The workflow now carries the public Firebase web config directly, so no GitHub secrets are required for the site build.
+
+1. Push to `main` to trigger deployment.
+2. GitHub Pages will publish to `https://birkleyg.github.io/stories-from-abroad/`.
+
+## Admin backend deploy
+
+The public site remains a static Astro build on GitHub Pages. Admin publishing, scheduling, and admin-claim workflows run through Firebase Functions.
+
+1. Install the Functions dependencies:
+
+```bash
+cd functions
+npm install
+cd ..
+```
+
+2. Set the bootstrap admin email list for the first sign-in.
+Use Firebase Functions parameterized config. Either let `firebase deploy` prompt you for `ADMIN_BOOTSTRAP_EMAILS`, or create the per-project env file manually:
+
+```bash
+functions/.env.<your-project-id>
+
+ADMIN_BOOTSTRAP_EMAILS=you@example.com
+```
+
+3. Deploy Firestore rules, Storage rules, and Functions:
+
+```bash
+firebase deploy --only firestore:rules,firestore:indexes,storage,functions
+```
+
+4. If Firebase Storage has not been initialized yet, first open `https://console.firebase.google.com/project/stories-from-abroad/storage` and click `Get started`. This is the one remaining manual step because the bucket region choice is permanent.
+5. Open `/admin`, request an email sign-in link, then use the `Claim admin access` button once the signed-in email matches the bootstrap allowlist.
 
 ## Security debt (deferred major upgrades)
 

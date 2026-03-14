@@ -10,6 +10,10 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == uid;
     }
 
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.admin == true;
+    }
+
     function isActiveSubscriber(uid) {
       return isSelf(uid)
         && exists(/databases/$(database)/documents/subscribers/$(uid))
@@ -51,7 +55,7 @@ service cloud.firestore {
     }
 
     function throttleExistsAfter(uid) {
-      return getAfter(throttleDocPath(uid)).exists();
+      return existsAfter(throttleDocPath(uid));
     }
 
     function validThrottleShapeAfter(uid) {
@@ -171,6 +175,34 @@ service cloud.firestore {
     match /faces/{faceId} {
       allow read: if true;
       allow write: if false;
+    }
+
+    match /admin_faces/{docId} {
+      allow read, write: if isAdmin();
+
+      match /versions/{versionId} {
+        allow read, write: if isAdmin();
+      }
+    }
+
+    match /admin_papers/{docId} {
+      allow read, write: if isAdmin();
+
+      match /versions/{versionId} {
+        allow read, write: if isAdmin();
+      }
+    }
+
+    match /admin_dispatches/{docId} {
+      allow read, write: if isAdmin();
+
+      match /versions/{versionId} {
+        allow read, write: if isAdmin();
+      }
+    }
+
+    match /media_assets/{assetId} {
+      allow read, write: if isAdmin();
     }
 
     match /{document=**} {

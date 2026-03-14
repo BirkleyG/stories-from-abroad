@@ -200,6 +200,8 @@ body{font-family:var(--bod);color:var(--white);background:#000;overflow-x:hidden
 .art-photo-ph svg{opacity:.07}
 .art-photo-ph span{font-style:italic;font-size:.65rem;color:rgba(201,168,76,.16);letter-spacing:.1em}
 .art-photo-slot img{width:100%;display:block;max-height:480px;object-fit:cover}
+.art-photo-slot.is-static{border-style:solid;cursor:default}
+.art-photo-cap{padding:.8rem 1rem 1rem;font-size:.8rem;line-height:1.6;color:rgba(230,220,201,.72);border-top:1px solid rgba(201,168,76,.08)}
 .art-photo-slot input{display:none}
 .hidden{display:none!important}
 .back-btn{display:inline-flex;align-items:center;gap:.5rem;font-family:var(--dis);font-size:.82rem;font-style:italic;color:var(--wd);background:none;border:none;cursor:pointer;outline:none;transition:color .2s;padding:0}
@@ -334,7 +336,10 @@ const CACHE_TTL_MS = {
 };
 const FIRESTORE_FETCH_TIMEOUT_MS = 3200;
 const MAP_FETCH_TIMEOUT_MS = 12000;
-const WORLD_ATLAS_URL = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json';
+const WORLD_ATLAS_URLS = [
+  'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json',
+  'https://unpkg.com/world-atlas@2/countries-110m.json',
+];
 
 function readCacheEntry(key, ttlMs) {
   try {
@@ -455,6 +460,36 @@ function normalizeArticle(rawArticle, fallbackArticle, fallbackExcerpt) {
   return excerpt ? [{ type: 'para', text: excerpt }] : [];
 }
 
+function normalizeMediaEntry(rawMedia) {
+  if (!rawMedia || typeof rawMedia !== 'object') return null;
+  const url = String(rawMedia.url || rawMedia.src || rawMedia.image || '').trim();
+  if (!url) return null;
+  return {
+    url,
+    alt: String(rawMedia.alt || '').trim(),
+    caption: String(rawMedia.caption || '').trim(),
+    title: String(rawMedia.title || '').trim(),
+  };
+}
+
+function normalizeArticlePhotoMap(rawMap, rawGallery) {
+  const out = {};
+  if (rawMap && typeof rawMap === 'object' && !Array.isArray(rawMap)) {
+    Object.entries(rawMap).forEach(([key, value]) => {
+      const media = normalizeMediaEntry(value);
+      if (media) out[String(key)] = media;
+    });
+  }
+  if (Array.isArray(rawGallery)) {
+    rawGallery.forEach((value, index) => {
+      const media = normalizeMediaEntry(value);
+      const key = 'p' + (index + 1);
+      if (media && !out[key]) out[key] = media;
+    });
+  }
+  return out;
+}
+
 function parseLocation(rawLocation) {
   const location = String(rawLocation || '').trim();
   if (!location) return { city: '', country: '' };
@@ -487,7 +522,7 @@ function normalizeInterviewDoc(raw, fallback, index, seenSlugs) {
 
   let pic = raw.pic;
   if (pic === undefined || pic === null || pic === '') {
-    pic = raw.image || (fallbackLocal && fallbackLocal.pic) || (index + 1);
+    pic = raw.portraitUrl || raw.image || (fallbackLocal && fallbackLocal.pic) || (index + 1);
   }
   if (typeof pic === 'string') {
     const trimmed = pic.trim();
@@ -496,6 +531,9 @@ function normalizeInterviewDoc(raw, fallback, index, seenSlugs) {
 
   const article = normalizeArticle(raw.article, fallbackLocal && fallbackLocal.article, raw.note || (fallbackLocal && fallbackLocal.excerpt));
   const excerpt = String(raw.excerpt || raw.note || (fallbackLocal && fallbackLocal.excerpt) || '').trim();
+  const portraitUrl = String(raw.portraitUrl || '').trim();
+  const heroUrl = String(raw.heroUrl || '').trim();
+  const articlePhotos = normalizeArticlePhotoMap(raw.articlePhotos || raw.articlePhotoMap, raw.gallery);
 
   const normalized = {
     slug,
@@ -508,9 +546,12 @@ function normalizeInterviewDoc(raw, fallback, index, seenSlugs) {
     date,
     lngLat,
     pic,
+    portraitUrl,
+    heroUrl,
     descriptor: String(raw.descriptor || (fallbackLocal && fallbackLocal.descriptor) || '').trim(),
     excerpt,
     article,
+    articlePhotos,
   };
 
   if (!normalized.excerpt) {
@@ -589,6 +630,9 @@ function refreshDerivedData() {
 }
 
 function resolvePortraitImage(iv) {
+  if (typeof iv.portraitUrl === 'string' && iv.portraitUrl.trim()) {
+    return iv.portraitUrl.trim();
+  }
   const fallback = 'https://picsum.photos/seed/' + encodeURIComponent(iv.pic ?? iv.slug) + '/1600/900';
   if (typeof iv.pic === 'string') {
     const trimmed = iv.pic.trim();
@@ -630,15 +674,21 @@ async function buildMap() {
 }
 
 async function fetchWorldAtlasData() {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), MAP_FETCH_TIMEOUT_MS);
-  try {
-    const response = await fetch(WORLD_ATLAS_URL, { cache: 'force-cache', signal: controller.signal });
-    if (!response.ok) throw new Error('World map request failed: ' + response.status);
-    return response.json();
-  } finally {
-    clearTimeout(timeout);
+  let lastError = null;
+  for (const url of WORLD_ATLAS_URLS) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), MAP_FETCH_TIMEOUT_MS);
+    try {
+      const response = await fetch(url, { cache: 'force-cache', signal: controller.signal });
+      if (!response.ok) throw new Error('World map request failed: ' + response.status + ' (' + url + ')');
+      return response.json();
+    } catch (error) {
+      lastError = error;
+    } finally {
+      clearTimeout(timeout);
+    }
   }
+  throw lastError || new Error('World map request failed.');
 }
 
 function renderMapFromWorldData() {
@@ -811,22 +861,31 @@ function setHeroPan(x, y) {
 
 function getMapMetrics() {
   const layer = document.getElementById('pin-layer');
+  const mapEl = document.getElementById('map-svg');
   const rect = layer ? layer.getBoundingClientRect() : null;
   const vw = Math.max(1, (rect && rect.width) || window.innerWidth || 1);
   const vh = Math.max(1, (rect && rect.height) || window.innerHeight || 1);
   const ratio = W / H;
   const sr = vw / vh;
+  const useContain = mapEl && mapEl.getAttribute('preserveAspectRatio') === 'xMidYMid meet';
   let scale, ox, oy;
-  if (sr >= ratio) { scale = vw / W; ox = 0; oy = (H * scale - vh) / 2; }
-  else             { scale = vh / H; ox = (W * scale - vw) / 2; oy = 0; }
+  if (useContain) {
+    scale = Math.min(vw / W, vh / H);
+    ox = -Math.max(0, (vw - W * scale) / 2);
+    oy = -Math.max(0, (vh - H * scale) / 2);
+  } else if (sr >= ratio) {
+    scale = vw / W; ox = 0; oy = (H * scale - vh) / 2;
+  } else {
+    scale = vh / H; ox = (W * scale - vw) / 2; oy = 0;
+  }
   return {
     vw,
     vh,
     scale,
     ox,
     oy,
-    maxPanX: Math.max(0, (W * scale - vw) / 2),
-    maxPanY: Math.max(0, (H * scale - vh) / 2),
+    maxPanX: useContain ? 0 : Math.max(0, (W * scale - vw) / 2),
+    maxPanY: useContain ? 0 : Math.max(0, (H * scale - vh) / 2),
   };
 }
 
@@ -1007,6 +1066,7 @@ function initScroll() {
 
   function syncMode(applyScrollState) {
     const nextExplore = shouldUseMobileExplore();
+    if (svgEl) svgEl.setAttribute('preserveAspectRatio', nextExplore ? 'xMidYMid meet' : 'xMidYMid slice');
     heroEl.classList.toggle('hero-mobile-explore', nextExplore);
     if (cartHint) cartHint.textContent = nextExplore ? mobileHintText : defaultHintText;
     if (nextExplore !== mobileExploreMode) {
@@ -1024,6 +1084,7 @@ function initScroll() {
         setHeroPan(0, 0);
       }
     }
+    positionPins();
     if (mobileExploreMode) {
       revealAllPinsImmediate();
       const bounded = clampHeroPanToBounds(heroPanX, heroPanY);
@@ -1481,38 +1542,28 @@ const MONTHS = ['January','February','March','April','May','June','July','August
 function fmtDate(d) { const dt=new Date(d+'T00:00:00'); return MONTHS[dt.getMonth()]+' '+dt.getDate()+', '+dt.getFullYear(); }
 
 function renderProfile(iv) {
+  const portraitSrc = resolvePortraitImage(iv);
   const blocks = iv.article.map(b => {
     if (b.type==='para')  return '<p class="art-para">'+esc(b.text)+'</p>';
     if (b.type==='qa')    return '<div class="art-qa"><div class="art-q">'+esc(b.q)+'</div><div class="art-a">'+esc(b.a)+'</div></div>';
     if (b.type==='pull')  return '<div class="art-pull"><div class="art-pull-text">'+esc(b.text)+'</div></div>';
-    if (b.type==='photo') return '<div class="art-photo-slot"><div class="art-photo-ph"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="rgba(201,168,76,.28)" stroke-width="1.2"><rect x="3" y="3" width="18" height="18" rx="1"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg><span>Click to add photograph</span></div><input type="file" accept="image/*"></div>';
+    if (b.type==='photo') {
+      const media = iv.articlePhotos && iv.articlePhotos[b.id];
+      if (media && media.url) {
+        return '<figure class="art-photo-slot is-static"><img src="'+esc(media.url)+'" alt="'+esc(media.alt || iv.name)+'">' + (media.caption ? '<figcaption class="art-photo-cap">'+esc(media.caption)+'</figcaption>' : '') + '</figure>';
+      }
+      return '<div class="art-photo-slot"><div class="art-photo-ph"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="rgba(201,168,76,.28)" stroke-width="1.2"><rect x="3" y="3" width="18" height="18" rx="1"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg><span>Click to add photograph</span></div><input type="file" accept="image/*"></div>';
+    }
     return '';
   }).join('');
-  document.getElementById('prof-content').innerHTML = '<div class="prof-hero-cart"><div class="prof-split"><div class="prof-portrait-zone" id="ppz"><div class="prof-portrait-bg"></div><div class="upload-hint"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="rgba(201,168,76,.38)" stroke-width="1.1"><circle cx="12" cy="8" r="5"/><path d="M3 20c0-5 4-8.5 9-8.5s9 3.5 9 8.5"/></svg>Click to upload portrait</div><input type="file" accept="image/*" id="pp-inp"></div><div class="prof-meta"><p class="prof-location">'+esc(iv.city)+', '+esc(iv.country)+' \u00b7 '+esc(fmtDate(iv.date))+'</p><h1 class="prof-name">'+esc(iv.name)+'</h1><p class="prof-desc">'+esc(iv.descriptor)+'</p><div class="prof-dets"><div class="prof-det"><span class="det-k">Age</span><span class="det-v">'+esc(iv.age)+'</span></div><div class="prof-det"><span class="det-k">Faith</span><span class="det-v">'+esc(iv.religion)+'</span></div><div class="prof-det"><span class="det-k">Work</span><span class="det-v">'+esc(iv.occupation)+'</span></div><div class="prof-det"><span class="det-k">Location</span><span class="det-v">'+esc(iv.city)+', '+esc(iv.country)+'</span></div></div><p class="prof-excerpt">'+esc(iv.excerpt)+'</p></div></div></div><div class="prof-article-wrap"><div class="prof-article-cart">'+blocks+'</div></div>';
+  document.getElementById('prof-content').innerHTML = '<div class="prof-hero-cart"><div class="prof-split"><div class="prof-portrait-zone" id="ppz"><img src="'+esc(portraitSrc)+'" alt="'+esc(iv.name)+'"></div><div class="prof-meta"><p class="prof-location">'+esc(iv.city)+', '+esc(iv.country)+' \u00b7 '+esc(fmtDate(iv.date))+'</p><h1 class="prof-name">'+esc(iv.name)+'</h1><p class="prof-desc">'+esc(iv.descriptor)+'</p><div class="prof-dets"><div class="prof-det"><span class="det-k">Age</span><span class="det-v">'+esc(iv.age)+'</span></div><div class="prof-det"><span class="det-k">Faith</span><span class="det-v">'+esc(iv.religion)+'</span></div><div class="prof-det"><span class="det-k">Work</span><span class="det-v">'+esc(iv.occupation)+'</span></div><div class="prof-det"><span class="det-k">Location</span><span class="det-v">'+esc(iv.city)+', '+esc(iv.country)+'</span></div></div><p class="prof-excerpt">'+esc(iv.excerpt)+'</p></div></div></div><div class="prof-article-wrap"><div class="prof-article-cart">'+blocks+'</div></div>';
   const bw = document.createElement('div'); bw.style.cssText='position:relative;z-index:2;padding:.75rem 2.8vw';
   bw.innerHTML='<button class="back-btn" id="prof-back"><svg width="13" height="9" viewBox="0 0 14 10" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="13" y1="5" x2="1" y2="5"/><polyline points="5,1 1,5 5,9"/></svg> All Portraits</button>';
   document.getElementById('prof-content').insertBefore(bw, document.getElementById('prof-content').firstChild);
   document.getElementById('prof-back').addEventListener('click', goArchive);
-  const ppz=document.getElementById('ppz'), ppi=document.getElementById('pp-inp');
-  ppz.addEventListener('click', () => ppi.click());
-  ppi.addEventListener('change', e => {
-    const f=e.target.files[0];
-    if(!f) return;
-    const r=new FileReader();
-    r.onload=ev => {
-      ppz.innerHTML='';
-      const img=document.createElement('img');
-      img.src=String(ev.target.result || '');
-      img.alt='';
-      img.style.cssText='width:100%;height:100%;object-fit:cover;display:block;';
-      ppz.appendChild(img);
-      ppz.style.cursor='default';
-      ppz.style.pointerEvents='none';
-    };
-    r.readAsDataURL(f);
-  });
   document.querySelectorAll('.art-photo-slot').forEach(slot => {
     const inp=slot.querySelector('input'), ph=slot.querySelector('.art-photo-ph');
+    if (!inp || !ph) return;
     slot.addEventListener('click', () => inp.click());
     inp.addEventListener('change', e => { const f=e.target.files[0]; if(!f) return; const r=new FileReader(); r.onload=ev=>{ ph.classList.add('hidden'); const imgEl=document.createElement('img'); imgEl.src=ev.target.result; slot.appendChild(imgEl); slot.style.border='none'; slot.style.cursor='default'; }; r.readAsDataURL(f); });
   });

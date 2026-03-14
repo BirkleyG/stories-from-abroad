@@ -851,6 +851,13 @@ const initialFeatCounter = copy.featured.counterTemplate
         letter-spacing: -0.03em;
         margin-bottom: 22px;
       }
+      .ov-subtitle {
+        margin: -8px 0 22px;
+        max-width: 42rem;
+        font-size: 18px;
+        line-height: 1.7;
+        color: var(--ink2);
+      }
       .ov-meta {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
@@ -984,6 +991,9 @@ const initialFeatCounter = copy.featured.counterTemplate
         border-top: 1px solid var(--border);
       }
       .btn-dl {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
         font-family: "Cormorant Garamond", serif;
         font-size: 11px;
         letter-spacing: 0.26em;
@@ -992,6 +1002,7 @@ const initialFeatCounter = copy.featured.counterTemplate
         cursor: pointer;
         background: transparent;
         border: 1px solid;
+        text-decoration: none;
         transition: all 0.2s;
       }
       .btn-dl:disabled {
@@ -1765,10 +1776,16 @@ const initialFeatCounter = copy.featured.counterTemplate
             : Array.isArray(p.tags)
               ? p.tags
               : [];
+        const bodyText = typeof p.bodyText === "string"
+          ? p.bodyText
+          : typeof p.fullText === "string"
+            ? p.fullText
+            : "";
 
         return {
           id: p.id ?? `paper-${idx}`,
           title: p.title ?? copy.defaults.title,
+          subtitle: p.subtitle ?? "",
           cat: p.category ?? p.cat ?? copy.defaults.category,
           year: Number(p.year) || new Date().getFullYear(),
           date: p.date ?? "",
@@ -1776,7 +1793,17 @@ const initialFeatCounter = copy.featured.counterTemplate
           time: p.readTime ?? p.time ?? copy.defaults.time,
           type: p.type ?? copy.defaults.type,
           featured: Boolean(p.featured),
+          featuredRank: String(p.featuredRank ?? "").trim() !== "" && Number.isFinite(Number(p.featuredRank))
+            ? Number(p.featuredRank)
+            : Number.MAX_SAFE_INTEGER,
           summary: p.summary ?? "",
+          bodyText,
+          publicationName: p.publicationName ?? "",
+          publicationLink: p.publicationLink ?? "",
+          badgeStyle: p.badgeStyle ?? p.category ?? p.cat ?? copy.defaults.category,
+          documentUrl: p.documentUrl ?? "",
+          documentName: p.documentName ?? "",
+          externalPublication: Boolean(p.externalPublication),
         };
       }
 
@@ -1926,7 +1953,7 @@ const initialFeatCounter = copy.featured.counterTemplate
         const t = esc(p.title);
         const yr = esc(p.year);
         const d = esc(p.date || String(p.year));
-        const source = esc(copy.overlay.citeSource);
+        const source = esc(p.publicationName || copy.overlay.citeSource);
         const authorShort = esc(copy.overlay.citationAuthorShort);
         const authorFull = esc(copy.overlay.citationAuthorFull);
         const authorBib = esc(copy.overlay.citationAuthorBib);
@@ -1960,14 +1987,23 @@ const initialFeatCounter = copy.featured.counterTemplate
         const dateLabel = p.date || String(p.year);
         const timeLabel = p.time ? `${p.time}${copy.overlay.timeSuffix}` : "";
         const kwLabel = p.kw.length ? p.kw.join(copy.overlay.kwSeparator) : copy.overlay.keywordsEmpty;
+        const bodyParagraphs = String(p.bodyText || "")
+          .split(/\n{2,}/)
+          .map((paragraph) => paragraph.trim())
+          .filter(Boolean);
         document.getElementById("ov-label").textContent = `${dateLabel} - ${timeLabel}`;
         const safeCategory = esc(p.cat);
         const safeTitle = esc(p.title);
+        const safeSubtitle = esc(p.subtitle || "");
         const safeByName = esc(copy.hero.byName);
         const safeDate = esc(dateLabel);
         const safeTime = esc(p.time);
         const safeKeywords = esc(kwLabel);
         const safeSummary = esc(p.summary);
+        const safePublicationName = esc(p.publicationName || copy.overlay.citeSource);
+        const safePublicationLink = esc(p.publicationLink);
+        const safeDocumentUrl = esc(p.documentUrl);
+        const safeDocumentName = esc(p.documentName || copy.overlay.downloadButtons[0]);
         const safeAbs0 = esc(copy.overlay.placeholder.abstractParagraphs[0]);
         const safeAbs1 = esc(copy.overlay.placeholder.abstractParagraphs[1]);
         const safeBody0 = esc(copy.overlay.placeholder.bodyParagraphs[0]);
@@ -1986,12 +2022,38 @@ const initialFeatCounter = copy.featured.counterTemplate
         const safeDateLabel = esc(copy.overlay.metaLabels.date);
         const safeReadLabel = esc(copy.overlay.metaLabels.readingTime);
         const safeKwLabel = esc(copy.overlay.metaLabels.keywords);
-        const safeDownload0 = esc(copy.overlay.downloadButtons[0]);
-        const safeDownload1 = esc(copy.overlay.downloadButtons[1]);
-        const safeDownload2 = esc(copy.overlay.downloadButtons[2]);
+        const abstractParagraphs = [
+          safeSummary,
+          bodyParagraphs[0] ? esc(bodyParagraphs[0]) : safeAbs0,
+          bodyParagraphs[1] ? esc(bodyParagraphs[1]) : safeAbs1,
+        ].filter(Boolean);
+        const bodyMarkup = bodyParagraphs.length
+          ? bodyParagraphs.slice(2, 7).map((paragraph) => `<p>${esc(paragraph)}</p>`).join("")
+          : `
+            <span class="sec-mark">${safeMark0}</span>
+            <p>${safeBody0}</p>
+            <h2>${safeHead0}</h2>
+            <p>${safeBody1}</p>
+            <blockquote>${safeQuote}</blockquote>
+            <p>${safeBody2}</p>
+            <h2>${safeHead1}</h2>
+            <span class="sec-mark">${safeMark1}</span>
+            <p>${safeBody3}</p>
+            <p>${safeBody4}</p>
+          `;
+        const downloadMarkup = [
+          p.documentUrl
+            ? `<a class="btn-dl dl-pdf" href="${safeDocumentUrl}" target="_blank" rel="noreferrer">${safeDocumentName}</a>`
+            : `<button class="btn-dl dl-pdf" disabled>${esc(copy.overlay.downloadButtons[0])}</button>`,
+          p.publicationLink
+            ? `<a class="btn-dl dl-txt" href="${safePublicationLink}" target="_blank" rel="noreferrer">${safePublicationName}</a>`
+            : `<button class="btn-dl dl-txt" disabled>${esc(copy.overlay.downloadButtons[1])}</button>`,
+          `<button class="btn-dl dl-cit" disabled>${esc(copy.overlay.downloadButtons[2])}</button>`,
+        ].join("");
         document.getElementById("ov-body").innerHTML = `
           <div class="ov-kicker">${safeCategory}</div>
           <h1 class="ov-title">${safeTitle}</h1>
+          ${safeSubtitle ? `<p class="ov-subtitle">${safeSubtitle}</p>` : ""}
           <div class="ov-meta">
             <div class="ov-mc"><div class="ov-ml">${safeAuthorLabel}</div><div class="ov-mv">${safeByName}</div></div>
             <div class="ov-mc"><div class="ov-ml">${safeDateLabel}</div><div class="ov-mv">${safeDate}</div></div>
@@ -2013,26 +2075,13 @@ const initialFeatCounter = copy.featured.counterTemplate
           </div>
           <div class="ov-abstract">
             <div class="ov-abs-lbl">${safeAbstractLabel}</div>
-            <p>${safeSummary}</p>
-            <p>${safeAbs0}</p>
-            <p>${safeAbs1}</p>
+            ${abstractParagraphs.map((paragraph) => `<p>${paragraph}</p>`).join("")}
           </div>
           <div class="ov-text">
-            <span class="sec-mark">${safeMark0}</span>
-            <p>${safeBody0}</p>
-            <h2>${safeHead0}</h2>
-            <p>${safeBody1}</p>
-            <blockquote>${safeQuote}</blockquote>
-            <p>${safeBody2}</p>
-            <h2>${safeHead1}</h2>
-            <span class="sec-mark">${safeMark1}</span>
-            <p>${safeBody3}</p>
-            <p>${safeBody4}</p>
+            ${bodyMarkup}
           </div>
           <div class="ov-dls">
-            <button class="btn-dl dl-pdf" disabled>${safeDownload0}</button>
-            <button class="btn-dl dl-txt" disabled>${safeDownload1}</button>
-            <button class="btn-dl dl-cit" disabled>${safeDownload2}</button>
+            ${downloadMarkup}
           </div>
         `;
         document.querySelectorAll(".cs-btn").forEach((btn) => {
@@ -2065,7 +2114,9 @@ const initialFeatCounter = copy.featured.counterTemplate
       async function init() {
         const data = await loadPapers();
         state.papers = data;
-        state.featured = data.filter((p) => p.featured);
+        state.featured = data
+          .filter((p) => p.featured)
+          .sort((a, b) => a.featuredRank - b.featuredRank || String(a.title).localeCompare(String(b.title)));
         if (!state.featured.length) {
           state.featured = data.slice(0, 3);
         }

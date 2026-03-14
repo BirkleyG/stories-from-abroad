@@ -1,5 +1,8 @@
 import { initializeApp, getApp, getApps } from "firebase/app";
+import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
+import { getFunctions } from "firebase/functions";
+import { getStorage } from "firebase/storage";
 
 const firebaseConfig = {
   apiKey: import.meta.env.PUBLIC_FIREBASE_API_KEY,
@@ -10,14 +13,24 @@ const firebaseConfig = {
   appId: import.meta.env.PUBLIC_FIREBASE_APP_ID,
 };
 
-const firestoreReady = Object.values(firebaseConfig).every(Boolean);
+const functionsRegion = import.meta.env.PUBLIC_FIREBASE_FUNCTIONS_REGION || "us-central1";
+const firebaseReady = Object.values(firebaseConfig).every(Boolean);
+const firestoreReady = firebaseReady;
 
 let app = null;
 let db = null;
+let auth = null;
+let storage = null;
+let functions = null;
 
-if (firestoreReady) {
+if (firebaseReady) {
   app = getApps().length ? getApp() : initializeApp(firebaseConfig);
   db = getFirestore(app);
+  if (typeof window !== "undefined") {
+    auth = getAuth(app);
+    storage = getStorage(app);
+    functions = getFunctions(app, functionsRegion);
+  }
 }
 
-export { app, db, firestoreReady, firebaseConfig };
+export { app, auth, db, firebaseConfig, firebaseReady, firestoreReady, functions, functionsRegion, storage };
