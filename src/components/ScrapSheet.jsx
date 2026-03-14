@@ -260,48 +260,55 @@ function Styles() {
 
       .filmstrip::-webkit-scrollbar{height:3px}
       .filmstrip::-webkit-scrollbar-thumb{background:#3A2A1A}
+      .dispatch-globe-shell{width:260px;height:260px;flex-shrink:0}
+      .dispatch-globe-stage{width:100%;height:100%}
 
       @media (max-width: 900px){
-        .dispatch-header-inner{padding:0 16px!important;grid-template-columns:auto 1fr auto!important;gap:10px}
+        .dispatch-header-inner{padding:0 18px!important;grid-template-columns:auto 1fr auto!important;gap:10px}
         .dispatch-nav{gap:12px!important}
         .dispatch-nav .nava,.dispatch-nav .subbtn{display:none!important}
         .dispatch-search-box input{width:120px!important}
         .dispatch-logo{font-size:16px!important}
         .dispatch-search-meta{right:-2px!important}
-        .dispatch-hero{padding:56px 20px 112px!important;min-height:64vh!important}
-        .dispatch-hero-copy{max-width:100%!important}
-        .dispatch-hero-globe{right:18px!important;bottom:18px!important;transform:scale(.78);transform-origin:bottom right}
-        .dispatch-filter-inner{padding:16px 16px 14px!important}
-        .dispatch-main{padding:28px 16px 56px!important}
-        .dispatch-about{padding:56px 20px!important}
+        .dispatch-hero{padding:48px 20px 68px!important;min-height:auto!important;display:flex!important;flex-direction:column!important;align-items:stretch!important;gap:26px}
+        .dispatch-hero-copy{max-width:100%!important;order:1!important}
+        .dispatch-hero-copy h1{font-size:clamp(48px,10vw,72px)!important;max-width:10ch}
+        .dispatch-hero-copy p{max-width:34ch!important;font-size:17px!important;line-height:1.78!important;margin-bottom:20px!important;color:rgba(240,233,223,0.62)!important}
+        .dispatch-hero-globe{position:relative!important;right:auto!important;bottom:auto!important;left:auto!important;transform:none!important;align-self:center!important;order:2!important;width:min(60vw,320px)!important;height:auto!important;opacity:.94!important}
+        .dispatch-globe-shell{width:100%!important;height:auto!important;aspect-ratio:1 / 1}
+        .dispatch-filter-inner{padding:18px 18px 16px!important}
+        .dispatch-main{padding:32px 18px 60px!important}
+        .dispatch-about{padding:60px 20px!important}
         .dispatch-footer{padding:18px 16px!important}
         .card{padding:20px 16px 16px}
       }
 
       @media (max-width: 640px){
-        .dispatch-header-inner{height:48px!important;padding:0 8px!important;gap:6px}
+        .dispatch-header-inner{height:46px!important;padding:0 10px!important;gap:6px}
         .dispatch-logo{display:none!important}
-        .dispatch-back-link{font-size:8px!important;letter-spacing:.12em!important;gap:5px!important}
+        .dispatch-back-link{font-size:8.5px!important;letter-spacing:.14em!important;gap:5px!important}
         .dispatch-nav{gap:6px!important}
         .dispatch-search-box{padding:3px 7px!important;gap:5px!important}
         .dispatch-search-box input{width:86px!important}
         .dispatch-search-meta{display:none!important}
-        .dispatch-hero{padding:30px 14px 142px!important;min-height:62vh!important}
-        .dispatch-hero-copy h1{font-size:clamp(52px,16.8vw,72px)!important;margin-bottom:18px!important}
-        .dispatch-hero-copy p{font-size:16px!important;line-height:1.72!important;margin-bottom:18px!important}
-        .dispatch-hero-globe{left:50%!important;right:auto!important;bottom:10px!important;transform:translateX(-50%) scale(1.02)!important}
-        .dispatch-hero-globe > div{width:236px!important;height:236px!important}
-        .quote-btn div{font-size:15px!important;line-height:1.62!important}
-        .dispatch-filter-inner{padding:14px 12px!important;gap:6px!important}
-        .fbtn{font-size:12px;padding:6px 11px}
-        .dispatch-main{padding:22px 12px 46px!important}
-        .dispatch-about{padding:42px 14px!important}
+        .dispatch-hero{padding:26px 14px 42px!important;gap:20px!important}
+        .dispatch-hero-copy{align-items:center!important;text-align:center!important}
+        .dispatch-hero-copy > div:first-child{justify-content:center!important;margin-bottom:22px!important}
+        .dispatch-hero-copy h1{font-size:clamp(42px,13.4vw,64px)!important;margin-bottom:16px!important;max-width:none!important}
+        .dispatch-hero-copy p{font-size:17px!important;line-height:1.82!important;margin-bottom:20px!important;max-width:31ch!important}
+        .dispatch-hero-globe{width:min(82vw,360px)!important;margin:0 auto 6px!important}
+        .dispatch-globe-shell{width:100%!important;height:auto!important;aspect-ratio:1 / 1}
+        .quote-btn div{font-size:16px!important;line-height:1.68!important;justify-content:center!important}
+        .dispatch-filter-inner{padding:16px 14px!important;gap:8px!important}
+        .fbtn{font-size:13px;padding:7px 12px}
+        .dispatch-main{padding:24px 14px 48px!important}
+        .dispatch-about{padding:46px 16px!important}
         .dispatch-about h2{margin-bottom:24px!important}
-        .dispatch-about p{font-size:16px!important;line-height:1.72!important}
+        .dispatch-about p{font-size:17px!important;line-height:1.8!important}
         .pc-cat{font-size:12px!important}
-        .pc-title{font-size:30px!important;line-height:1.14!important}
+        .pc-title{font-size:32px!important;line-height:1.12!important}
         .pc-meta{font-size:13px!important}
-        .pc-preview{font-size:17px!important;line-height:1.8!important}
+        .pc-preview{font-size:18px!important;line-height:1.82!important}
         .pc-photo-meta{font-size:12px!important}
         .readmore{font-size:12px!important}
         .react-pill{font-size:13px!important;padding:7px 13px!important}
@@ -323,8 +330,8 @@ function Styles() {
       }
 
       @media (max-width: 420px){
-        .dispatch-hero{padding-bottom:134px!important}
-        .dispatch-hero-globe > div{width:210px!important;height:210px!important}
+        .dispatch-hero{padding-bottom:34px!important}
+        .dispatch-hero-globe{width:min(88vw,320px)!important}
       }
     `}</style>
   );
@@ -337,13 +344,18 @@ function Globe() {
   useEffect(function() {
     var el = mountRef.current;
     if (!el) return;
-    var S = 200;
     var scene = new THREE.Scene();
     var cam = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
     cam.position.z = 2.65;
     var rdr = new THREE.WebGLRenderer({ alpha: true, antialias: true });
-    rdr.setSize(S, S); rdr.setClearColor(0, 0); rdr.setPixelRatio(Math.min(devicePixelRatio, 2));
-    el.appendChild(rdr.domElement); rdr.domElement.style.cursor = "grab";
+    rdr.setClearColor(0, 0);
+    rdr.setPixelRatio(Math.min(devicePixelRatio, 2));
+    el.appendChild(rdr.domElement);
+    rdr.domElement.style.cursor = "grab";
+    rdr.domElement.style.display = "block";
+    rdr.domElement.style.width = "100%";
+    rdr.domElement.style.height = "100%";
+    rdr.domElement.style.touchAction = "none";
 
     var grp = new THREE.Group();
     scene.add(grp);
@@ -393,6 +405,25 @@ function Globe() {
         });
       }).catch(function() {});
 
+    var lastSize = 0;
+    var resizeRenderer = function() {
+      var nextSize = Math.max(180, Math.round(Math.min(el.clientWidth || 200, el.clientHeight || el.clientWidth || 200)));
+      if (nextSize === lastSize) return;
+      lastSize = nextSize;
+      rdr.setSize(nextSize, nextSize, false);
+      cam.aspect = 1;
+      cam.updateProjectionMatrix();
+    };
+    resizeRenderer();
+
+    var ro = null;
+    if (typeof ResizeObserver !== "undefined") {
+      ro = new ResizeObserver(function() { resizeRenderer(); });
+      ro.observe(el);
+    } else {
+      window.addEventListener("resize", resizeRenderer);
+    }
+
     var drag=false,ox=0,oy=0,spin=true,timer=null;
     var cv=rdr.domElement;
     var dn=function(x,y){drag=true;spin=false;ox=x;oy=y;cv.style.cursor="grabbing";if(timer)clearTimeout(timer);};
@@ -410,12 +441,14 @@ function Globe() {
     animate();
     return function(){
       cancelAnimationFrame(raf);if(timer)clearTimeout(timer);
+      if (ro) ro.disconnect();
+      else window.removeEventListener("resize", resizeRenderer);
       cv.removeEventListener("mousedown",md);window.removeEventListener("mousemove",mm);window.removeEventListener("mouseup",up);
       cv.removeEventListener("touchstart",ts);window.removeEventListener("touchmove",tm);window.removeEventListener("touchend",up);
       rdr.dispose();if(el.contains(cv))el.removeChild(cv);
     };
   }, []);
-  return <div ref={mountRef} style={{width:200,height:200,userSelect:"none",flexShrink:0}} />;
+  return <div className="dispatch-globe-stage" ref={mountRef} style={{width:"100%",height:"100%",userSelect:"none",flexShrink:0}} />;
 }
 
 // ── TYPEWRITER QUOTES ─────────────────────────────────────────────────────────
@@ -1421,8 +1454,10 @@ export default function ScrapSheet({ backHref = "/" }) {
       <section className="dispatch-hero" style={{background:"var(--ink)",position:"relative",minHeight:"75vh",padding:"72px 56px 80px",overflow:"hidden",display:"flex",alignItems:"flex-start"}}>
         <div style={{position:"absolute",inset:0,opacity:0.18,pointerEvents:"none",backgroundImage:"url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='0.12'/%3E%3C/svg%3E\")"}}/>
         <FieldStamp/>
-        <div className="dispatch-hero-globe" style={{position:"absolute",bottom:28,right:44,opacity:0.88,display:"flex",flexDirection:"column",alignItems:"center",gap:6}}>
-          <Globe/>
+        <div className="dispatch-hero-globe" style={{position:"absolute",bottom:28,right:44,opacity:0.88,display:"flex",flexDirection:"column",alignItems:"center",gap:8}}>
+          <div className="dispatch-globe-shell">
+            <Globe/>
+          </div>
           <div style={{fontFamily:"'Jost',sans-serif",fontSize:"8px",fontWeight:600,letterSpacing:".2em",textTransform:"uppercase",color:"rgba(240,233,223,0.22)"}}>{heroLocationLabel}</div>
         </div>
         <div className="dispatch-hero-copy" style={{maxWidth:520,flex:1}}>

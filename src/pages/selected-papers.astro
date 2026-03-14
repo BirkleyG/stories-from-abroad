@@ -480,7 +480,7 @@ const initialFeatCounter = copy.featured.counterTemplate
         position: absolute;
         opacity: 0.08;
         pointer-events: none;
-        transition: opacity 0.2s;
+        transition: opacity 0.2s, transform 0.2s;
       }
       #library:has(.paper-row:hover) .mblot {
         opacity: 0;
@@ -1114,8 +1114,32 @@ const initialFeatCounter = copy.featured.counterTemplate
         .lib-ink {
           width: 100%;
         }
+        .sd-blot {
+          width: 20px !important;
+          height: 20px !important;
+          opacity: 0.34;
+        }
         .mblot {
-          display: none;
+          display: block;
+          opacity: 0.06;
+        }
+        .mblot-east {
+          right: -34px !important;
+          top: 260px !important;
+          width: 108px !important;
+          height: 92px !important;
+        }
+        .mblot-west {
+          left: -28px !important;
+          top: 560px !important;
+          width: 78px !important;
+          height: 126px !important;
+        }
+        .mblot-south {
+          right: -24px !important;
+          bottom: 58px !important;
+          width: 92px !important;
+          height: 78px !important;
         }
       }
       @media (max-width: 560px) {
@@ -1177,6 +1201,11 @@ const initialFeatCounter = copy.featured.counterTemplate
         #library {
           padding: 44px 14px 64px;
         }
+        .sd-blot {
+          width: 16px !important;
+          height: 16px !important;
+          opacity: 0.3;
+        }
         .lib-head {
           gap: 16px;
           align-items: flex-start;
@@ -1189,6 +1218,27 @@ const initialFeatCounter = copy.featured.counterTemplate
           grid-template-columns: 1fr;
           gap: 8px;
           padding: 14px 2px;
+        }
+        .mblot {
+          opacity: 0.05;
+        }
+        .mblot-east {
+          right: -42px !important;
+          top: 232px !important;
+          width: 88px !important;
+          height: 76px !important;
+        }
+        .mblot-west {
+          left: -30px !important;
+          top: 520px !important;
+          width: 66px !important;
+          height: 106px !important;
+        }
+        .mblot-south {
+          right: -28px !important;
+          bottom: 44px !important;
+          width: 78px !important;
+          height: 64px !important;
         }
         .row-n {
           display: none;
@@ -1489,7 +1539,7 @@ const initialFeatCounter = copy.featured.counterTemplate
       </svg>
 
       <svg
-        class="mblot"
+        class="mblot mblot-east"
         style="right: -14px; top: 420px; width: 140px; height: 120px"
         viewBox="0 0 140 120"
         xmlns="http://www.w3.org/2000/svg"
@@ -1508,7 +1558,7 @@ const initialFeatCounter = copy.featured.counterTemplate
       </svg>
 
       <svg
-        class="mblot"
+        class="mblot mblot-west"
         style="left: -10px; top: 680px; width: 100px; height: 160px"
         viewBox="0 0 100 160"
         xmlns="http://www.w3.org/2000/svg"
@@ -1528,7 +1578,7 @@ const initialFeatCounter = copy.featured.counterTemplate
       </svg>
 
       <svg
-        class="mblot"
+        class="mblot mblot-south"
         style="right: -8px; bottom: 90px; width: 120px; height: 100px"
         viewBox="0 0 120 100"
         xmlns="http://www.w3.org/2000/svg"

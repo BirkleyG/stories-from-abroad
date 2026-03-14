@@ -5,4 +5,13 @@ const base = import.meta.env.BASE_URL ?? "/";
 const basePath = base.endsWith("/") ? base : `${base}/`;
 ---
 
-<ScrapSheet client:load backHref={basePath} />
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Travel Stories</title>
+  </head>
+  <body style="margin:0">
+    <ScrapSheet client:load backHref={basePath} />
+  </body>
+</html>
