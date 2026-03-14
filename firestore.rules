@@ -1,0 +1,179 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isSelf(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function isActiveSubscriber(uid) {
+      return isSelf(uid)
+        && exists(/databases/$(database)/documents/subscribers/$(uid))
+        && get(/databases/$(database)/documents/subscribers/$(uid)).data.status == "active";
+    }
+
+    function hasOnlyKeys(data, keys) {
+      return data.keys().hasOnly(keys);
+    }
+
+    function validSubscriberData(uid) {
+      return hasOnlyKeys(
+          request.resource.data,
+          ["email", "emailLower", "name", "status", "preferences", "createdAt", "updatedAt", "source"]
+        )
+        && request.auth.token.email != null
+        && request.resource.data.email is string
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.emailLower is string
+        && request.resource.data.emailLower.size() >= 5
+        && request.resource.data.emailLower.size() <= 254
+        && request.resource.data.name is string
+        && request.resource.data.name.size() <= 80
+        && request.resource.data.status == "active"
+        && request.resource.data.source is string
+        && request.resource.data.source.size() <= 40
+        && request.resource.data.preferences is list
+        && request.resource.data.preferences.size() <= 10
+        && request.resource.data.updatedAt == request.time
+        && (
+          !exists(/databases/$(database)/documents/subscribers/$(uid))
+            ? request.resource.data.createdAt == request.time
+            : request.resource.data.createdAt == resource.data.createdAt
+        );
+    }
+
+    function throttleDocPath(uid) {
+      return /databases/$(database)/documents/comment_throttles/$(uid);
+    }
+
+    function throttleExistsAfter(uid) {
+      return getAfter(throttleDocPath(uid)).exists();
+    }
+
+    function validThrottleShapeAfter(uid) {
+      return throttleExistsAfter(uid)
+        && hasOnlyKeys(getAfter(throttleDocPath(uid)).data, ["uid", "windowStart", "count", "updatedAt"])
+        && getAfter(throttleDocPath(uid)).data.uid == uid
+        && getAfter(throttleDocPath(uid)).data.windowStart is timestamp
+        && getAfter(throttleDocPath(uid)).data.count is int
+        && getAfter(throttleDocPath(uid)).data.count >= 1
+        && getAfter(throttleDocPath(uid)).data.count <= 3
+        && getAfter(throttleDocPath(uid)).data.updatedAt == request.time;
+    }
+
+    function validThrottleTransition(uid) {
+      return validThrottleShapeAfter(uid)
+        && (
+          !exists(throttleDocPath(uid))
+            ? (
+              getAfter(throttleDocPath(uid)).data.windowStart == request.time
+              && getAfter(throttleDocPath(uid)).data.count == 1
+            )
+            : (
+              get(throttleDocPath(uid)).data.windowStart is timestamp
+              && get(throttleDocPath(uid)).data.count is int
+              && (
+                request.time - get(throttleDocPath(uid)).data.windowStart < duration.value(60, "s")
+                  ? (
+                    getAfter(throttleDocPath(uid)).data.windowStart == get(throttleDocPath(uid)).data.windowStart
+                    && getAfter(throttleDocPath(uid)).data.count == get(throttleDocPath(uid)).data.count + 1
+                  )
+                  : (
+                    getAfter(throttleDocPath(uid)).data.windowStart == request.time
+                    && getAfter(throttleDocPath(uid)).data.count == 1
+                  )
+              )
+            )
+        );
+    }
+
+    function validCommentData(uid) {
+      return hasOnlyKeys(request.resource.data, ["authorUid", "authorName", "text", "createdAt"])
+        && request.resource.data.authorUid == uid
+        && request.resource.data.authorName is string
+        && request.resource.data.authorName.size() >= 1
+        && request.resource.data.authorName.size() <= 80
+        && request.resource.data.text is string
+        && request.resource.data.text.size() >= 1
+        && request.resource.data.text.size() <= 1200
+        && request.resource.data.createdAt == request.time;
+    }
+
+    function validReactionMapValue(reactionMap) {
+      return reactionMap.size() <= 10
+        && reactionMap.keys().hasOnly(["❤️", "🔥", "😂", "😮", "✈️", "🌍", "👏", "✨", "🥳", "💯"])
+        && (!("❤️" in reactionMap) || reactionMap["❤️"] is bool)
+        && (!("🔥" in reactionMap) || reactionMap["🔥"] is bool)
+        && (!("😂" in reactionMap) || reactionMap["😂"] is bool)
+        && (!("😮" in reactionMap) || reactionMap["😮"] is bool)
+        && (!("✈️" in reactionMap) || reactionMap["✈️"] is bool)
+        && (!("🌍" in reactionMap) || reactionMap["🌍"] is bool)
+        && (!("👏" in reactionMap) || reactionMap["👏"] is bool)
+        && (!("✨" in reactionMap) || reactionMap["✨"] is bool)
+        && (!("🥳" in reactionMap) || reactionMap["🥳"] is bool)
+        && (!("💯" in reactionMap) || reactionMap["💯"] is bool);
+    }
+
+    function validAnonReactionData(anonId) {
+      return anonId.matches("^[a-zA-Z0-9-]{8,64}$")
+        && hasOnlyKeys(request.resource.data, ["reactions", "updatedAt"])
+        && request.resource.data.reactions is map
+        && validReactionMapValue(request.resource.data.reactions)
+        && request.resource.data.updatedAt == request.time;
+    }
+
+    match /subscribers/{uid} {
+      allow read: if isSelf(uid);
+      allow create, update: if isSelf(uid) && validSubscriberData(uid);
+      allow delete: if false;
+    }
+
+    match /comment_throttles/{uid} {
+      allow read: if isSelf(uid);
+      allow create, update: if isActiveSubscriber(uid) && validThrottleTransition(uid);
+      allow delete: if false;
+    }
+
+    match /scrap_sheet_posts/{postId} {
+      allow read: if true;
+      allow write: if false;
+
+      match /comments/{commentId} {
+        allow read: if true;
+        allow create: if isActiveSubscriber(request.auth.uid)
+          && validCommentData(request.auth.uid)
+          && validThrottleTransition(request.auth.uid);
+        allow update, delete: if false;
+      }
+
+      match /anon_reactions/{anonId} {
+        allow read: if true;
+        allow create, update: if validAnonReactionData(anonId);
+        allow delete: if false;
+      }
+    }
+
+    match /scrap_sheet_quotes/{quoteId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /papers/{paperId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /faces/{faceId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
