@@ -268,7 +268,7 @@ function Styles() {
         .dispatch-search-box input{width:120px!important}
         .dispatch-logo{font-size:16px!important}
         .dispatch-search-meta{right:-2px!important}
-        .dispatch-hero{padding:56px 20px 116px!important;min-height:68vh!important}
+        .dispatch-hero{padding:56px 20px 112px!important;min-height:64vh!important}
         .dispatch-hero-copy{max-width:100%!important}
         .dispatch-hero-globe{right:18px!important;bottom:18px!important;transform:scale(.78);transform-origin:bottom right}
         .dispatch-filter-inner{padding:16px 16px 14px!important}
@@ -286,7 +286,7 @@ function Styles() {
         .dispatch-search-box{padding:3px 7px!important;gap:5px!important}
         .dispatch-search-box input{width:94px!important}
         .dispatch-search-meta{display:none!important}
-        .dispatch-hero{padding:34px 14px 126px!important}
+        .dispatch-hero{padding:30px 14px 104px!important;min-height:58vh!important}
         .dispatch-hero-copy h1{font-size:clamp(44px,16vw,62px)!important;margin-bottom:16px!important}
         .dispatch-hero-copy p{font-size:14px!important;line-height:1.58!important;margin-bottom:14px!important}
         .dispatch-hero-globe{left:50%!important;right:auto!important;bottom:18px!important;transform:translateX(-50%) scale(.74)!important}
@@ -314,7 +314,7 @@ function Styles() {
 
       @media (max-width: 420px){
         .dispatch-hero-globe{display:none!important}
-        .dispatch-hero{padding-bottom:34px!important}
+        .dispatch-hero{padding-bottom:28px!important;min-height:auto!important}
       }
     `}</style>
   );
@@ -391,7 +391,7 @@ function Globe() {
     var md=function(e){dn(e.clientX,e.clientY);};
     var mm=function(e){mv(e.clientX,e.clientY);};
     var ts=function(e){dn(e.touches[0].clientX,e.touches[0].clientY);};
-    var tm=function(e){e.preventDefault();mv(e.touches[0].clientX,e.touches[0].clientY);};
+    var tm=function(e){if(!drag)return;e.preventDefault();mv(e.touches[0].clientX,e.touches[0].clientY);};
     cv.addEventListener("mousedown",md);window.addEventListener("mousemove",mm);window.addEventListener("mouseup",up);
     cv.addEventListener("touchstart",ts,{passive:true});window.addEventListener("touchmove",tm,{passive:false});window.addEventListener("touchend",up);
 

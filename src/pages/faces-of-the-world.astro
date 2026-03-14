@@ -70,7 +70,7 @@ body{font-family:var(--bod);color:var(--white);background:#000;overflow-x:hidden
 .cart-rule{display:flex;align-items:center;gap:.7rem;margin:0 auto 1.35rem;width:200px}
 .crl{flex:1;height:1px;background:rgba(201,168,76,.2)}.crd{color:var(--gold);font-size:.38rem;opacity:.44}
 .cart-sub{font-family:var(--dis);font-style:italic;font-size:clamp(.75rem,.98vw,.88rem);line-height:1.82;color:rgba(242,237,230,.72);letter-spacing:.04em;margin-bottom:1.85rem;text-shadow:0 1px 18px rgba(0,0,0,1)}
-.cart-scroll{display:inline-flex;align-items:center;gap:.6rem;font-family:var(--bod);font-size:.5rem;letter-spacing:.46em;text-transform:uppercase;color:rgba(201,168,76,.3)}
+.cart-scroll{display:inline-flex;align-items:center;gap:.6rem;font-family:var(--bod);font-size:.5rem;letter-spacing:.46em;text-transform:uppercase;color:rgba(201,168,76,.3);pointer-events:auto;cursor:pointer}
 .cart-scroll::before,.cart-scroll::after{content:'';width:18px;height:1px;background:currentColor}
 /* PINS */
 #pin-layer{position:absolute;inset:0;z-index:8;pointer-events:none}
@@ -197,6 +197,8 @@ body{font-family:var(--bod);color:var(--white);background:#000;overflow-x:hidden
 .back-btn svg{transition:transform .2s}
 .back-btn:hover{color:var(--gold)}
 .back-btn:hover svg{transform:translateX(-3px)}
+@media(max-width:700px){.hero-sticky{height:100dvh}}
+@supports(height:100svh){@media(max-width:700px){.hero-sticky{height:100svh}}}
 @media(max-width:900px){.about-content{padding:3rem 5vw 3rem 5vw}#about-map-left{width:100vw;opacity:.18}#about-map-fade{background:rgba(0,0,0,.82)}}
 @media(max-width:820px){.prof-split{grid-template-columns:1fr}.prof-portrait-zone{min-height:52vw}.prof-meta{padding:1.7rem 1.2rem}.ptp{width:100%!important;background:linear-gradient(to top,rgba(0,0,0,.97) 40%,rgba(0,0,0,.65) 70%,transparent 100%)!important;padding:2rem 1.6rem 1.7rem!important;text-align:left!important;top:auto;justify-content:flex-end}.ptp-r .ptp-div{margin-left:0}.ptp-r .ptp-rb{text-align:left}.ptp-r .ptp-rb::after{left:0;right:auto}.ptp-name{font-size:clamp(1.8rem,8vw,2.6rem)}}
 @media(max-width:700px){#site-nav{padding:0 1.5vw;gap:.55rem}.nav-back{letter-spacing:.2em;font-size:.55rem}.nav-logo{font-size:.84rem;letter-spacing:.12em}.nav-logo em{display:none}.nav-link{letter-spacing:.2em}.nav-sep{display:none}#nav-search-wrap.open{width:120px}#archive-filter-bar{height:auto;min-height:var(--fh);padding:.45rem 3vw;flex-wrap:wrap;align-items:flex-end;row-gap:.45rem}.af-inp{order:1;flex:1 1 100%;min-width:0}.af-sep{display:none}.af-sel{flex:1 1 calc(33.33% - .35rem);min-width:95px}.cart{padding:0 1.2rem}.cart-title{font-size:clamp(2.9rem,11.5vw,4.3rem)}.cart-sub{font-size:.72rem;line-height:1.66}.ptp-exc{-webkit-line-clamp:2}.about-content{padding:2.5rem 6vw 2.5rem}.about-p{font-size:.86rem;line-height:1.84}.prof-article-cart{padding:2rem 1.05rem 3.1rem}}
@@ -867,27 +869,54 @@ let   heroLocked = false, lockScrollY = 0;
 function initScroll() {
   const heroEl = document.getElementById('hero');
   const cart   = document.getElementById('hero-cartouche');
+  const mainView = document.getElementById('main-view');
+  const mobileMq = window.matchMedia('(max-width: 820px)');
+  let isMobileViewport = mobileMq.matches;
+  const updateMobileViewport = (event) => { isMobileViewport = event.matches; };
+  if (typeof mobileMq.addEventListener === 'function') mobileMq.addEventListener('change', updateMobileViewport);
+  else if (typeof mobileMq.addListener === 'function') mobileMq.addListener(updateMobileViewport);
 
-  /* 4. Scroll lock — block downward scroll once all pins are revealed */
+  let autoSnapUntil = 0;
+  function maybeSnapToPinStart(force) {
+    if (!isMobileViewport || !mainView || mainView.style.display === 'none') return;
+    const now = Date.now();
+    if (!force && now < autoSnapUntil) return;
+    const max = heroEl.offsetHeight - window.innerHeight;
+    if (max <= 0) return;
+    const target = Math.max(0, (SEQ_START * max) / HERO_SCROLL_SPEED);
+    if (!force && window.scrollY > Math.max(22, target * 0.42)) return;
+    autoSnapUntil = now + 700;
+    window.scrollTo({ top: target, behavior: 'smooth' });
+  }
+
+  const cartHint = document.querySelector('.cart-scroll');
+  if (cartHint) cartHint.addEventListener('click', () => maybeSnapToPinStart(true));
+
+  /* Scroll lock: block downward scroll once all pins are revealed */
   window.addEventListener('wheel', e => {
-    if (heroLocked && e.deltaY > 0 && document.getElementById('main-view').style.display !== 'none') {
+    if (heroLocked && e.deltaY > 0 && mainView.style.display !== 'none') {
       e.preventDefault();
+      return;
     }
+    if (e.deltaY > 0) maybeSnapToPinStart(false);
   }, {passive: false});
   let _touchStartY = 0;
   window.addEventListener('touchstart', e => { _touchStartY = e.touches[0].clientY; }, {passive:true});
   window.addEventListener('touchmove', e => {
-    if (heroLocked && e.touches[0].clientY < _touchStartY && document.getElementById('main-view').style.display !== 'none') {
+    const movingDown = e.touches[0].clientY < _touchStartY;
+    if (heroLocked && movingDown && mainView.style.display !== 'none') {
       e.preventDefault();
+      return;
     }
+    if (movingDown) maybeSnapToPinStart(false);
   }, {passive: false});
 
   window.addEventListener('scroll', () => {
-    if (document.getElementById('main-view').style.display === 'none') return;
+    if (mainView.style.display === 'none') return;
     const max = heroEl.offsetHeight - window.innerHeight; if (max <= 0) return;
     const p = Math.min(1, Math.max(0, (window.scrollY * HERO_SCROLL_SPEED) / max));
 
-    /* Lock at ALL_AT — snap back if user somehow scrolled past */
+    /* Lock at ALL_AT: snap back if user somehow scrolled past */
     if (p >= ALL_AT) {
       if (!heroLocked) { heroLocked = true; lockScrollY = window.scrollY; }
       if (window.scrollY > lockScrollY) window.scrollTo(0, lockScrollY);
@@ -908,7 +937,7 @@ function initScroll() {
       const rev = p >= pinStart || showAll;
       if (rev) {
         if (!revealed.has(iv.slug)) { revealed.add(iv.slug); drawPin(pin); }
-        /* All pins show their name — burst pins show it immediately after draw */
+        /* All pins show their name; burst pins show it immediately after draw */
         if (pin.dataset.drawn) {
           const chars = Math.ceil(Math.min(1, Math.max(0, (p - typeStart) / (TYPE_DUR || 0.001))) * iv.name.length);
           tw.textContent = iv.name.slice(0, chars);

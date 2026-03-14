@@ -1056,6 +1056,11 @@ const initialFeatCounter = copy.featured.counterTemplate
         }
       }
       @media (max-width: 760px) {
+        .hero-ink {
+          opacity: 0.3;
+          transform: scale(0.74);
+          transform-origin: 100% 50%;
+        }
         .hero-title {
           white-space: normal;
           font-size: clamp(48px, 12vw, 80px);
@@ -1116,6 +1121,11 @@ const initialFeatCounter = copy.featured.counterTemplate
       @media (max-width: 560px) {
         :root {
           --nav-h: 54px;
+        }
+        .hero-ink {
+          opacity: 0.2;
+          transform: scale(0.62);
+          transform-origin: 100% 48%;
         }
         #nav {
           padding: 0 14px;
