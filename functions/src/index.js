@@ -224,7 +224,7 @@ export const repairCoordinates = onCall(async (request) => {
 export const processScheduledPublishes = onSchedule("every 5 minutes", async () => {
   const nowIso = new Date().toISOString();
   let total = 0;
-  for (const kind of ["faces", "papers", "travel"]) {
+  for (const kind of ["faces", "papers", "travel", "photography"]) {
     try {
       const processed = await processScheduledKind(kind, nowIso);
       total += processed;

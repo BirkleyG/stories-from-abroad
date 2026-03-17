@@ -1,4 +1,4 @@
-export const CONTENT_KINDS = ["faces", "papers", "travel"];
+export const CONTENT_KINDS = ["faces", "papers", "travel", "photography"];
 export const DRAFT_STATUSES = ["draft", "review", "scheduled", "published", "archived"];
 export const PAPER_TYPES = ["paper", "op-ed", "essay", "commentary", "report"];
 export const DISPATCH_TYPES = [
@@ -12,23 +12,94 @@ export const AUDIENCE_LEVELS = [
   { value: "summary", label: "Summary-Worthy Dispatch" },
 ];
 export const QUOTE_STYLES = ["pull", "inline", "hero"];
+export const PHOTO_TEMPLATES = [
+  { value: "desert-bloom", label: "Desert Bloom" },
+  { value: "desert-fill", label: "Desert Fill" },
+  { value: "kyoto-bold", label: "Kyoto Bold" },
+  { value: "tokyo-fragments", label: "Tokyo Fragments" },
+];
+
+export const PHOTO_TEMPLATE_OPTIONS = {
+  "desert-bloom": {
+    label: "Desert Bloom",
+    theme: "Immersive editorial sequence with field notes and full-width pauses.",
+    allowedBlocks: ["hero-photo", "photo-row", "text-note", "full-photo"],
+  },
+  "desert-fill": {
+    label: "Desert Fill",
+    theme: "Photo-first tiled composition with minimal text interruption.",
+    allowedBlocks: ["hero-photo", "photo-row", "full-photo"],
+  },
+  "kyoto-bold": {
+    label: "Kyoto Bold",
+    theme: "Bold editorial sections with ghost text and title-led transitions.",
+    allowedBlocks: ["hero-photo", "section-title", "photo-row", "ghost-text-row", "full-photo"],
+  },
+  "tokyo-fragments": {
+    label: "Tokyo Fragments",
+    theme: "Fragmented cinematic rhythm with alternating rows and widescreen breaks.",
+    allowedBlocks: ["hero-photo", "photo-row", "ghost-text-row", "full-photo", "text-note"],
+  },
+};
+
+export const PHOTO_BLOCK_PRESETS = {
+  "hero-photo": {
+    type: "hero-photo",
+    label: "Hero Photo",
+    description: "Opening frame for the fixed title overlay.",
+    slots: 1,
+  },
+  "photo-row": {
+    type: "photo-row",
+    label: "Photo Row",
+    description: "One or more photos presented together in a horizontal row.",
+    slots: 3,
+  },
+  "text-note": {
+    type: "text-note",
+    label: "Text Note",
+    description: "Editorial note / field note block between image sequences.",
+    slots: 0,
+  },
+  "section-title": {
+    type: "section-title",
+    label: "Section Title",
+    description: "Bold section break with kicker and heading.",
+    slots: 0,
+  },
+  "ghost-text-row": {
+    type: "ghost-text-row",
+    label: "Ghost Text Row",
+    description: "Photo row with oversized background text treatment.",
+    slots: 2,
+  },
+  "full-photo": {
+    type: "full-photo",
+    label: "Full Photo",
+    description: "Single immersive full-width frame.",
+    slots: 1,
+  },
+};
 
 export const ADMIN_COLLECTIONS = {
   faces: "admin_faces",
   papers: "admin_papers",
   travel: "admin_dispatches",
+  photography: "admin_shoots",
   media: "media_assets",
 };
 
 export const SITE_CONFIG_COLLECTION = "site_config";
 export const SITE_CONFIG_DOCS = {
   sectionMedia: "section_media",
+  photographyFeatured: "photography_featured",
 };
 
 export const CONTENT_LABELS = {
   faces: "Faces of the World",
   papers: "Selected Papers",
   travel: "Travel Dispatches",
+  photography: "Photography Shoots",
 };
 
 export function createLocalId(prefix = "item") {
@@ -45,11 +116,16 @@ export function createMediaValue() {
     alt: "",
     title: "",
     caption: "",
+    locationLabel: "",
     storagePath: "",
     contentType: "",
     fileName: "",
     focusX: 50,
     focusY: 50,
+    width: null,
+    height: null,
+    cameraModel: "",
+    exifDate: "",
   };
 }
 
@@ -59,6 +135,64 @@ export function createFaceBlock(type = "paragraph") {
   if (type === "qa") return { ...base, question: "", answer: "" };
   if (type === "photo") return { ...base, ...createMediaValue() };
   return { ...base, text: "" };
+}
+
+export function createPhotoBlock(type = "photo-row") {
+  const preset = PHOTO_BLOCK_PRESETS[type] || PHOTO_BLOCK_PRESETS["photo-row"];
+  const base = {
+    id: createLocalId("photo-block"),
+    type: preset.type,
+  };
+
+  if (type === "text-note") {
+    return {
+      ...base,
+      noteLabel: "Field Note",
+      title: "",
+      text: "",
+    };
+  }
+
+  if (type === "section-title") {
+    return {
+      ...base,
+      tag: "",
+      title: "",
+      rightNote: "",
+    };
+  }
+
+  if (type === "ghost-text-row") {
+    return {
+      ...base,
+      ghostText: "",
+      ghostPosition: "center",
+      height: 540,
+      photos: [createMediaValue(), createMediaValue()],
+    };
+  }
+
+  if (type === "hero-photo") {
+    return {
+      ...base,
+      photo: createMediaValue(),
+      eyebrow: "",
+    };
+  }
+
+  if (type === "full-photo") {
+    return {
+      ...base,
+      height: 860,
+      photo: createMediaValue(),
+    };
+  }
+
+  return {
+    ...base,
+    height: 540,
+    photos: Array.from({ length: preset.slots }, () => createMediaValue()),
+  };
 }
 
 export function createEmptyFaceDraft() {
@@ -139,10 +273,34 @@ export function createEmptyTravelDraft() {
   };
 }
 
+export function createEmptyPhotographyDraft() {
+  return {
+    kind: "photography",
+    status: "draft",
+    slug: "",
+    title: "",
+    subtitle: "",
+    shootDate: "",
+    scheduledPublishAt: "",
+    locationLabel: "",
+    city: "",
+    country: "",
+    descriptor: "",
+    accentColor: "#c96b28",
+    template: "desert-bloom",
+    cameraModel: "",
+    frameCount: 0,
+    notes: "",
+    blocks: [createPhotoBlock("hero-photo"), createPhotoBlock("photo-row")],
+    publishedRecord: null,
+  };
+}
+
 export function createEmptyDraft(kind) {
   if (kind === "faces") return createEmptyFaceDraft();
   if (kind === "papers") return createEmptyPaperDraft();
   if (kind === "travel") return createEmptyTravelDraft();
+  if (kind === "photography") return createEmptyPhotographyDraft();
   throw new Error(`Unsupported draft kind: ${kind}`);
 }
 
@@ -198,6 +356,67 @@ function normalizeFaceBlocks(blocks) {
   return normalized.length ? normalized : [createFaceBlock("paragraph")];
 }
 
+function normalizePhotoBlocks(blocks) {
+  const source = Array.isArray(blocks) ? blocks : [];
+  const normalized = source.map((block) => {
+    if (!block || typeof block !== "object") return null;
+    if (block.type === "text-note") {
+      return {
+        id: block.id || createLocalId("photo-block"),
+        type: "text-note",
+        noteLabel: String(block.noteLabel ?? "Field Note"),
+        title: String(block.title ?? ""),
+        text: String(block.text ?? ""),
+      };
+    }
+    if (block.type === "section-title") {
+      return {
+        id: block.id || createLocalId("photo-block"),
+        type: "section-title",
+        tag: String(block.tag ?? ""),
+        title: String(block.title ?? ""),
+        rightNote: String(block.rightNote ?? ""),
+      };
+    }
+    if (block.type === "ghost-text-row") {
+      const photos = (Array.isArray(block.photos) ? block.photos : []).map(normalizeMediaValue);
+      while (photos.length < 2) photos.push(createMediaValue());
+      return {
+        id: block.id || createLocalId("photo-block"),
+        type: "ghost-text-row",
+        ghostText: String(block.ghostText ?? ""),
+        ghostPosition: String(block.ghostPosition ?? "center"),
+        height: Number(block.height) || 540,
+        photos,
+      };
+    }
+    if (block.type === "hero-photo") {
+      return {
+        id: block.id || createLocalId("photo-block"),
+        type: "hero-photo",
+        eyebrow: String(block.eyebrow ?? ""),
+        photo: normalizeMediaValue(block.photo || block),
+      };
+    }
+    if (block.type === "full-photo") {
+      return {
+        id: block.id || createLocalId("photo-block"),
+        type: "full-photo",
+        height: Number(block.height) || 860,
+        photo: normalizeMediaValue(block.photo || block),
+      };
+    }
+    const photos = (Array.isArray(block.photos) ? block.photos : []).map(normalizeMediaValue);
+    return {
+      id: block.id || createLocalId("photo-block"),
+      type: "photo-row",
+      height: Number(block.height) || 540,
+      photos: photos.length ? photos : [createMediaValue()],
+    };
+  }).filter(Boolean);
+  return normalized.length ? normalized : [createPhotoBlock("hero-photo"), createPhotoBlock("photo-row")];
+}
+
 export function hydrateDraft(kind, raw = {}) {
   const base = createEmptyDraft(kind);
   const merged = { ...clone(base), ...(raw || {}) };
@@ -227,12 +446,18 @@ export function hydrateDraft(kind, raw = {}) {
       keywords: normalizeStringList(merged.keywords, true),
     };
   }
+  if (kind === "travel") {
+    return {
+      ...merged,
+      photos: (Array.isArray(merged.photos) ? merged.photos : []).map(normalizeMediaValue).concat([]),
+      quotes: (Array.isArray(merged.quotes) ? merged.quotes : []).map((quote) => ({
+        id: quote?.id || createLocalId("travel-quote"),
+        text: String(quote?.text ?? ""),
+      })),
+    };
+  }
   return {
     ...merged,
-    photos: (Array.isArray(merged.photos) ? merged.photos : []).map(normalizeMediaValue).concat([]),
-    quotes: (Array.isArray(merged.quotes) ? merged.quotes : []).map((quote) => ({
-      id: quote?.id || createLocalId("travel-quote"),
-      text: String(quote?.text ?? ""),
-    })),
+    blocks: normalizePhotoBlocks(merged.blocks),
   };
 }

@@ -1,0 +1,30 @@
+---
+const base = import.meta.env.BASE_URL ?? "/";
+const basePath = base.endsWith("/") ? base : `${base}/`;
+---
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Redirecting | Stories From Abroad</title>
+  </head>
+  <body>
+    <p>Redirecting...</p>
+    <script is:inline>
+      (function () {
+        var basePath = {JSON.stringify(basePath)};
+        var pathname = window.location.pathname || "";
+        if (pathname.indexOf(basePath + "photography/") === 0) {
+          var relative = pathname.slice((basePath + "photography/").length).split("/").filter(Boolean);
+          var slug = relative[0] || "";
+          if (slug) {
+            window.location.replace(basePath + "photography/?shoot=" + encodeURIComponent(slug));
+            return;
+          }
+        }
+        window.location.replace(basePath);
+      })();
+    </script>
+  </body>
+</html>

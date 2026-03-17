@@ -15,6 +15,7 @@ export const ADMIN_COLLECTIONS = {
   faces: "admin_faces",
   papers: "admin_papers",
   travel: "admin_dispatches",
+  photography: "admin_shoots",
 };
 
 export const PUBLIC_COLLECTIONS = {
@@ -22,6 +23,7 @@ export const PUBLIC_COLLECTIONS = {
   papers: "papers",
   travel: "scrap_sheet_posts",
   travelQuotes: "scrap_sheet_quotes",
+  photography: "photo_shoots",
 };
 
 function cleanString(value) {
@@ -66,9 +68,16 @@ function normalizeMedia(media = {}) {
     alt: cleanString(media.alt),
     title: cleanString(media.title),
     caption: cleanString(media.caption),
+    locationLabel: cleanString(media.locationLabel),
     storagePath: cleanString(media.storagePath),
     contentType: cleanString(media.contentType),
     fileName: cleanString(media.fileName),
+    focusX: Number.isFinite(Number(media.focusX)) ? Number(media.focusX) : 50,
+    focusY: Number.isFinite(Number(media.focusY)) ? Number(media.focusY) : 50,
+    width: Number.isFinite(Number(media.width)) ? Number(media.width) : null,
+    height: Number.isFinite(Number(media.height)) ? Number(media.height) : null,
+    cameraModel: cleanString(media.cameraModel),
+    exifDate: cleanString(media.exifDate),
   };
 }
 
@@ -242,9 +251,144 @@ function buildTravelPublic(draft, slug) {
       url: item.url,
       caption: item.caption,
       title: item.title,
+      locationLabel: item.locationLabel,
     })),
     pinned: Boolean(draft.pinned),
     lngLat: [coords.longitude, coords.latitude],
+  };
+}
+
+function cleanPhotographyBlocks(blocks = []) {
+  return (Array.isArray(blocks) ? blocks : [])
+    .map((block, index) => {
+      if (!block || typeof block !== "object") return null;
+      if (block.type === "text-note") {
+        const noteLabel = cleanString(block.noteLabel) || "Field Note";
+        const title = cleanString(block.title);
+        const text = cleanString(block.text);
+        if (!title && !text) return null;
+        return { id: cleanString(block.id) || `pb${index + 1}`, type: "text-note", noteLabel, title, text };
+      }
+      if (block.type === "section-title") {
+        const tag = cleanString(block.tag);
+        const title = cleanString(block.title);
+        const rightNote = cleanString(block.rightNote);
+        if (!tag && !title && !rightNote) return null;
+        return { id: cleanString(block.id) || `pb${index + 1}`, type: "section-title", tag, title, rightNote };
+      }
+      if (block.type === "hero-photo") {
+        const photo = normalizeMedia(block.photo || block);
+        if (!photo.url) return null;
+        return { id: cleanString(block.id) || `pb${index + 1}`, type: "hero-photo", eyebrow: cleanString(block.eyebrow), photo };
+      }
+      if (block.type === "full-photo") {
+        const photo = normalizeMedia(block.photo || block);
+        if (!photo.url) return null;
+        return { id: cleanString(block.id) || `pb${index + 1}`, type: "full-photo", height: Number(block.height) || 860, photo };
+      }
+      if (block.type === "ghost-text-row") {
+        const photos = (Array.isArray(block.photos) ? block.photos : []).map(normalizeMedia).filter((item) => item.url);
+        if (!photos.length) return null;
+        return {
+          id: cleanString(block.id) || `pb${index + 1}`,
+          type: "ghost-text-row",
+          ghostText: cleanString(block.ghostText),
+          ghostPosition: cleanString(block.ghostPosition) || "center",
+          height: Number(block.height) || 540,
+          photos,
+        };
+      }
+      const photos = (Array.isArray(block.photos) ? block.photos : []).map(normalizeMedia).filter((item) => item.url);
+      if (!photos.length) return null;
+      return {
+        id: cleanString(block.id) || `pb${index + 1}`,
+        type: "photo-row",
+        height: Number(block.height) || 540,
+        photos,
+      };
+    })
+    .filter(Boolean);
+}
+
+function flattenPhotographyPhotos(blocks = []) {
+  const all = [];
+  (blocks || []).forEach((block, blockIndex) => {
+    if (block?.type === "hero-photo" || block?.type === "full-photo") {
+      if (block.photo?.url) {
+        all.push({
+          id: `${block.id}-0`,
+          blockId: block.id,
+          blockType: block.type,
+          order: all.length,
+          blockIndex,
+          ...block.photo,
+        });
+      }
+      return;
+    }
+    if (block?.type === "photo-row" || block?.type === "ghost-text-row") {
+      (block.photos || []).forEach((photo, photoIndex) => {
+        if (!photo?.url) return;
+        all.push({
+          id: `${block.id}-${photoIndex}`,
+          blockId: block.id,
+          blockType: block.type,
+          order: all.length,
+          blockIndex,
+          photoIndex,
+          ghostText: block.type === "ghost-text-row" ? cleanString(block.ghostText) : "",
+          ...photo,
+        });
+      });
+    }
+  });
+  return all;
+}
+
+function derivePhotographyCamera(blocks = [], explicit = "") {
+  const override = cleanString(explicit);
+  if (override) return override;
+  for (const block of blocks || []) {
+    if (block?.photo?.cameraModel) return cleanString(block.photo.cameraModel);
+    const media = (block?.photos || []).find((photo) => cleanString(photo?.cameraModel));
+    if (media) return cleanString(media.cameraModel);
+  }
+  return "";
+}
+
+function countPhotographyFrames(blocks = []) {
+  return (blocks || []).reduce((total, block) => {
+    if (block?.type === "hero-photo" || block?.type === "full-photo") return total + (block.photo?.url ? 1 : 0);
+    if (block?.type === "photo-row" || block?.type === "ghost-text-row") return total + ((block.photos || []).filter((photo) => photo?.url).length);
+    return total;
+  }, 0);
+}
+
+function buildPhotographyPublic(draft, slug) {
+  const blocks = cleanPhotographyBlocks(draft.blocks);
+  const allPhotos = flattenPhotographyPhotos(blocks);
+  if (!allPhotos.length) {
+    throw new Error("Photography shoots require at least one attached image before publishing.");
+  }
+  const heroBlock = blocks.find((block) => block.type === "hero-photo");
+  const coverPhoto = heroBlock?.photo?.url ? heroBlock.photo : allPhotos[0];
+  return {
+    slug,
+    title: cleanString(draft.title),
+    subtitle: cleanString(draft.subtitle),
+    shootDate: ensureIsoDate(draft.shootDate),
+    locationLabel: firstNonEmpty(draft.locationLabel, [cleanString(draft.city), cleanString(draft.country)].filter(Boolean).join(", ")),
+    city: cleanString(draft.city),
+    country: cleanString(draft.country),
+    descriptor: cleanString(draft.descriptor),
+    accentColor: cleanString(draft.accentColor) || "#c96b28",
+    template: cleanString(draft.template) || "desert-bloom",
+    cameraModel: derivePhotographyCamera(blocks, draft.cameraModel),
+    frameCount: countPhotographyFrames(blocks),
+    notes: cleanString(draft.notes),
+    coverPhoto,
+    allPhotos,
+    blocks,
   };
 }
 
@@ -288,6 +432,9 @@ export async function publishDraft(kind, id, actor = "system") {
         postId: id,
       });
     });
+  } else if (kind === "photography") {
+    publicData = buildPhotographyPublic(draft, slug);
+    batch.set(db.collection(PUBLIC_COLLECTIONS.photography).doc(id), publicData);
   } else {
     throw new Error(`Unsupported content kind: ${kind}`);
   }

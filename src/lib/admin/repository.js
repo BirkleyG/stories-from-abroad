@@ -144,6 +144,13 @@ export function subscribeSectionMediaConfig(callback, onError) {
   }, onError);
 }
 
+export function subscribePhotographyFeaturedConfig(callback, onError) {
+  assertFirestoreReady();
+  return onSnapshot(doc(db, SITE_CONFIG_COLLECTION, SITE_CONFIG_DOCS.photographyFeatured), (snapshot) => {
+    callback(snapshot.exists() ? { id: snapshot.id, ...snapshot.data() } : { items: [] });
+  }, onError);
+}
+
 export async function getDraft(kind, id) {
   assertFirestoreReady();
   const snapshot = await getDoc(doc(db, collectionName(kind), id));
@@ -253,6 +260,9 @@ export async function uploadMediaAsset(file, user, context = {}) {
     alt: "",
     caption: "",
     title: assetTitleFromFileName(file.name || safeName),
+    locationLabel: "",
+    cameraModel: "",
+    exifDate: "",
     createdAt: serverTimestamp(),
     createdBy: actor(user),
     updatedAt: serverTimestamp(),
@@ -269,6 +279,7 @@ export async function updateMediaAsset(id, updates, user) {
     alt: cleanText(updates.alt),
     caption: cleanText(updates.caption),
     title: cleanText(updates.title),
+    locationLabel: cleanText(updates.locationLabel),
     kind: cleanText(updates.kind),
     field: cleanText(updates.field),
     updatedAt: serverTimestamp(),
@@ -302,6 +313,33 @@ export async function saveSectionMediaConfig(config, user) {
   await setDoc(ref, payload, { merge: true });
   const snapshot = await getDoc(ref);
   return snapshot.exists() ? { id: snapshot.id, ...snapshot.data() } : {};
+}
+
+export async function savePhotographyFeaturedConfig(config, user) {
+  assertFirestoreReady();
+  const ref = doc(db, SITE_CONFIG_COLLECTION, SITE_CONFIG_DOCS.photographyFeatured);
+  const payload = sanitize({
+    items: Array.isArray(config?.items)
+      ? config.items
+        .map((item) => ({
+          shootId: cleanText(item?.shootId),
+          shootSlug: cleanText(item?.shootSlug),
+          shootTitle: cleanText(item?.shootTitle),
+          photoId: cleanText(item?.photoId),
+          photoUrl: cleanText(item?.photoUrl),
+          photoAlt: cleanText(item?.photoAlt),
+          locationLabel: cleanText(item?.locationLabel),
+          accentColor: cleanText(item?.accentColor),
+          caption: cleanText(item?.caption),
+        }))
+        .filter((item) => item.shootId && item.photoId && item.photoUrl)
+      : [],
+    updatedAt: serverTimestamp(),
+    updatedBy: actor(user),
+  });
+  await setDoc(ref, payload, { merge: true });
+  const snapshot = await getDoc(ref);
+  return snapshot.exists() ? { id: snapshot.id, ...snapshot.data() } : { items: [] };
 }
 
 function mediaMatchesTarget(value, target) {
@@ -356,14 +394,17 @@ export async function findMediaAssetUsages(asset) {
     storagePath: String(asset?.storagePath || ""),
   };
 
-  const [faces, papers, travel, publicFaces, publicPapers, publicTravel, sectionMediaSnap] = await Promise.all([
+  const [faces, papers, travel, photography, publicFaces, publicPapers, publicTravel, publicPhotography, sectionMediaSnap, photographyFeaturedSnap] = await Promise.all([
     collectCollectionUsages(ADMIN_COLLECTIONS.faces, target, "Faces drafts"),
     collectCollectionUsages(ADMIN_COLLECTIONS.papers, target, "Papers drafts"),
     collectCollectionUsages(ADMIN_COLLECTIONS.travel, target, "Travel drafts"),
+    collectCollectionUsages(ADMIN_COLLECTIONS.photography, target, "Photography drafts"),
     collectCollectionUsages("faces", target, "Published Faces"),
     collectCollectionUsages("papers", target, "Published Papers"),
     collectCollectionUsages("scrap_sheet_posts", target, "Published Travel"),
+    collectCollectionUsages("photo_shoots", target, "Published Photography"),
     getDoc(doc(db, SITE_CONFIG_COLLECTION, SITE_CONFIG_DOCS.sectionMedia)),
+    getDoc(doc(db, SITE_CONFIG_COLLECTION, SITE_CONFIG_DOCS.photographyFeatured)),
   ]);
 
   const siteAssets = [];
@@ -378,7 +419,18 @@ export async function findMediaAssetUsages(asset) {
     }
   }
 
-  return [...faces, ...papers, ...travel, ...publicFaces, ...publicPapers, ...publicTravel, ...siteAssets];
+  if (photographyFeaturedSnap.exists()) {
+    const paths = findMediaReferences(photographyFeaturedSnap.data(), target, "root", []);
+    if (paths.length) {
+      siteAssets.push({
+        label: "Photography featured",
+        docId: photographyFeaturedSnap.id,
+        paths,
+      });
+    }
+  }
+
+  return [...faces, ...papers, ...travel, ...photography, ...publicFaces, ...publicPapers, ...publicTravel, ...publicPhotography, ...siteAssets];
 }
 
 export async function deleteMediaAsset(asset, user) {

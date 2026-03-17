@@ -1,549 +1,628 @@
 ---
-import PhotographyLayout from "../layouts/PhotographyLayout.astro";
-import { siteCopy } from "../content/siteCopy";
-
-const copy = siteCopy.photography;
-const featured = copy.featured;
-const shoots = copy.shoots;
+const base = import.meta.env.BASE_URL ?? "/";
+const basePath = base.endsWith("/") ? base : `${base}/`;
+const publicFirestoreConfigJson = JSON.stringify({
+  projectId: import.meta.env.PUBLIC_FIREBASE_PROJECT_ID ?? "",
+  apiKey: import.meta.env.PUBLIC_FIREBASE_API_KEY ?? "",
+});
+const copyJson = JSON.stringify({
+  loading: "Loading photography archive...",
+});
 ---
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Photography | Stories From Abroad</title>
+    <meta name="description" content="Published photography shoots from Stories From Abroad." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500;600&family=Bebas+Neue&family=Cormorant+Garamond:wght@300;400;500;600;700&family=DM+Serif+Display:ital@0;1&family=Libre+Baskerville:ital,wght@0,400;1,400&family=Raleway:wght@300;400;500&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        --photo-bg: #0b0907;
+        --photo-paper: #f4efe5;
+        --photo-text: #f4efe5;
+        --photo-dim: rgba(244, 239, 229, 0.56);
+        --photo-line: rgba(244, 239, 229, 0.14);
+        --photo-accent: #c96b28;
+      }
 
-<PhotographyLayout title={copy.meta.title} navLabel={copy.nav.label} description={copy.meta.description}>
-  <section class="feat" id="featured" aria-label="Featured photographs">
-    <div class="feat-intro">
-      <div class="fi-label">{copy.hero.label}</div>
-      <h1 class="fi-h1">
-        {copy.hero.titleLines[0]}<br />
-        <span class="fi-oline">{copy.hero.titleLines[1]}</span><br />
-        <span class="fi-accent">{copy.hero.titleLines[2]}</span>
-      </h1>
-      <p class="fi-sub">{copy.hero.subtitle}</p>
-      <div class="scroll-hint" aria-hidden="true">
-        <span></span>
-      </div>
-    </div>
+      * { box-sizing: border-box; }
+      html, body { margin: 0; min-height: 100%; }
+      body {
+        background: var(--photo-bg);
+        color: var(--photo-text);
+        font-family: "Barlow Condensed", sans-serif;
+      }
+      body.is-lightbox-open { overflow: hidden; }
+      a { color: inherit; }
+      button { font: inherit; }
 
-    {featured.map((photo, i) => (
-      <div
-        class="fp"
-        data-index={i}
-        data-accent={photo.accent}
-        style={`--accent: ${photo.accent};`}
-      >
-        <div
-          class="fp-bg"
-          style={`background-image: url('${photo.demo}');`}
-          aria-hidden="true"
-        ></div>
+      .photo-topbar,
+      .shoot-title-bar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 40;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem 1.4rem;
+        background: linear-gradient(to bottom, rgba(11, 9, 7, 0.92), rgba(11, 9, 7, 0.58), transparent);
+      }
+      .shoot-title-bar {
+        opacity: 0;
+        pointer-events: none;
+        border-bottom: 1px solid var(--photo-line);
+        background: rgba(11, 9, 7, 0.94);
+        transition: opacity 0.24s ease;
+      }
+      .shoot-title-bar.visible {
+        opacity: 1;
+        pointer-events: auto;
+      }
+      .photo-topbar a,
+      .shoot-title-bar a {
+        text-decoration: none;
+        letter-spacing: 0.24em;
+        text-transform: uppercase;
+        font-size: 0.72rem;
+      }
+      .photo-topbar strong,
+      .shoot-title-bar strong {
+        font-family: "Bebas Neue", sans-serif;
+        font-size: 1.3rem;
+        letter-spacing: 0.22em;
+      }
+      .shoot-title-bar span {
+        color: var(--photo-dim);
+        font-size: 0.78rem;
+        letter-spacing: 0.12em;
+      }
 
-        <div class="fp-veil"></div>
+      .photo-archive {
+        min-height: 100vh;
+      }
+      .photo-hero {
+        min-height: 82vh;
+        padding: 8rem 1.4rem 3rem;
+        display: grid;
+        align-content: end;
+        border-bottom: 1px solid var(--photo-line);
+        background:
+          radial-gradient(circle at top right, rgba(201, 107, 40, 0.22), transparent 22rem),
+          linear-gradient(180deg, rgba(255,255,255,0.02), transparent 55%),
+          #080706;
+      }
+      .photo-kicker {
+        margin: 0 0 1rem;
+        color: #d7b57f;
+        text-transform: uppercase;
+        letter-spacing: 0.42em;
+        font-size: 0.7rem;
+      }
+      .photo-hero h1 {
+        margin: 0;
+        font-family: "Cormorant Garamond", serif;
+        font-size: clamp(3.6rem, 11vw, 8rem);
+        line-height: 0.92;
+        font-weight: 400;
+      }
+      .photo-hero h1 em {
+        font-style: italic;
+        color: #d7b57f;
+      }
+      .photo-hero p {
+        max-width: 38rem;
+        margin: 1.2rem 0 0;
+        font-family: "Libre Baskerville", serif;
+        line-height: 1.7;
+        color: var(--photo-dim);
+      }
+      .photo-count {
+        margin-top: 1.3rem;
+        font-size: 0.9rem;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--photo-dim);
+      }
 
-        <div class="fp-caption">
-          <div class="fp-cap-inner">
-            <div class="fp-cap-loc">{photo.location}</div>
-            <div class="fp-cap-title">{photo.title}</div>
-            <a class="fp-cap-link" href="#shoots">{copy.hero.linkLabel}</a>
+      .photo-section {
+        padding: 2rem 1.4rem 3rem;
+      }
+      .photo-section-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: end;
+        gap: 1rem;
+        margin-bottom: 1.25rem;
+      }
+      .photo-section-head h2 {
+        margin: 0;
+        font-family: "DM Serif Display", serif;
+        font-size: clamp(2rem, 5vw, 3.4rem);
+        font-weight: 400;
+      }
+      .photo-section-head span {
+        color: var(--photo-dim);
+        text-transform: uppercase;
+        letter-spacing: 0.22em;
+        font-size: 0.72rem;
+      }
+      .photo-feature-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+        gap: 1rem;
+      }
+      .photo-feature-card,
+      .photo-shoot-card {
+        display: block;
+        text-decoration: none;
+        border: 1px solid var(--photo-line);
+        background: rgba(255, 255, 255, 0.02);
+        overflow: hidden;
+      }
+      .photo-feature-card img,
+      .photo-shoot-cover img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+      .photo-feature-card {
+        min-height: 24rem;
+        position: relative;
+      }
+      .photo-feature-card img {
+        position: absolute;
+        inset: 0;
+      }
+      .photo-feature-card::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(to top, rgba(0,0,0,0.86), rgba(0,0,0,0.14) 50%);
+      }
+      .photo-feature-meta {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1;
+        padding: 1rem;
+        border-top: 2px solid var(--shoot-accent, var(--photo-accent));
+      }
+      .photo-feature-meta span {
+        display: block;
+        font-size: 0.72rem;
+        letter-spacing: 0.26em;
+        text-transform: uppercase;
+        color: #d7b57f;
+        margin-bottom: 0.4rem;
+      }
+      .photo-feature-meta strong {
+        display: block;
+        font-family: "DM Serif Display", serif;
+        font-size: 1.7rem;
+        margin-bottom: 0.35rem;
+      }
+      .photo-feature-meta p,
+      .photo-shoot-body p { margin: 0; color: var(--photo-dim); line-height: 1.6; }
+
+      .photo-shoot-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+        gap: 1rem;
+      }
+      .photo-shoot-cover {
+        aspect-ratio: 4 / 5;
+        background: rgba(255, 255, 255, 0.04);
+      }
+      .photo-shoot-cover.is-empty { min-height: 18rem; }
+      .photo-shoot-body { padding: 1rem; }
+      .photo-shoot-top {
+        display: flex;
+        justify-content: space-between;
+        gap: 0.5rem;
+        font-size: 0.72rem;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--photo-dim);
+        margin-bottom: 0.7rem;
+      }
+      .photo-shoot-body h3 {
+        margin: 0 0 0.55rem;
+        font-family: "Cormorant Garamond", serif;
+        font-size: 2rem;
+        font-weight: 500;
+      }
+      .photo-chip-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+        margin-top: 0.9rem;
+      }
+      .photo-chip {
+        border: 1px solid var(--photo-line);
+        padding: 0.24rem 0.5rem;
+        font-size: 0.68rem;
+        text-transform: uppercase;
+        letter-spacing: 0.18em;
+        color: #d7b57f;
+      }
+      .photo-empty { color: var(--photo-dim); }
+
+      .photo-shoot-view[hidden] { display: none; }
+      .shoot-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 10;
+        display: grid;
+        align-items: end;
+        padding: 0 1.4rem 3rem;
+        pointer-events: none;
+        background: linear-gradient(to top, rgba(11,9,7,0.9), rgba(11,9,7,0.12) 36%, transparent 72%);
+      }
+      .shoot-overlay-body { max-width: 44rem; }
+      .shoot-overlay-body span {
+        display: block;
+        margin-bottom: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.28em;
+        font-size: 0.72rem;
+        color: #d7b57f;
+      }
+      .shoot-overlay-body h2 {
+        margin: 0;
+        font-family: "Cormorant Garamond", serif;
+        font-size: clamp(3.8rem, 10vw, 7rem);
+        font-weight: 400;
+        line-height: 0.9;
+      }
+      .shoot-overlay-body p {
+        font-family: "Libre Baskerville", serif;
+        line-height: 1.7;
+        max-width: 36rem;
+        color: var(--photo-dim);
+      }
+      .shoot-overlay-body small {
+        display: block;
+        margin-top: 1rem;
+        color: var(--photo-dim);
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+      }
+      .shoot-hero {
+        min-height: 100vh;
+        border-bottom: 1px solid var(--photo-line);
+        background: #000;
+      }
+      .shoot-hero img {
+        width: 100%;
+        height: 100vh;
+        object-fit: cover;
+        display: block;
+      }
+      .shoot-blocks {
+        position: relative;
+        z-index: 1;
+      }
+      .shoot-note,
+      .shoot-section-title,
+      .shoot-footer {
+        padding: 2rem 1.4rem;
+        border-top: 1px solid var(--photo-line);
+      }
+      .shoot-note span,
+      .shoot-section-title span {
+        display: block;
+        text-transform: uppercase;
+        letter-spacing: 0.28em;
+        font-size: 0.72rem;
+        color: #d7b57f;
+        margin-bottom: 0.45rem;
+      }
+      .shoot-note h3,
+      .shoot-section-title h3 {
+        margin: 0 0 0.55rem;
+        font-family: "DM Serif Display", serif;
+        font-size: 1.7rem;
+        font-weight: 400;
+      }
+      .shoot-note p,
+      .shoot-section-title p {
+        margin: 0;
+        max-width: 42rem;
+        line-height: 1.7;
+        color: var(--photo-dim);
+      }
+      .shoot-single-frame,
+      .shoot-row-frame {
+        position: relative;
+        margin: 0;
+        background: #000;
+        overflow: hidden;
+        cursor: pointer;
+      }
+      .shoot-single-frame {
+        min-height: min(84vh, var(--frame-height, 780px));
+      }
+      .shoot-single-frame img,
+      .shoot-row-frame img {
+        width: 100%;
+        height: 100%;
+        display: block;
+        object-fit: contain;
+        background: #000;
+      }
+      .shoot-single-frame figcaption,
+      .shoot-row-frame figcaption {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        padding: 3rem 1rem 1rem;
+        background: linear-gradient(to top, rgba(0,0,0,0.84), rgba(0,0,0,0.18) 56%, transparent 100%);
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+      }
+      .shoot-single-frame figcaption strong,
+      .shoot-row-frame figcaption strong {
+        font-family: "DM Serif Display", serif;
+        font-size: 1rem;
+        font-weight: 400;
+      }
+      .shoot-single-frame figcaption span,
+      .shoot-row-frame figcaption span {
+        font-size: 0.7rem;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        color: var(--photo-dim);
+      }
+      .shoot-photo-row {
+        position: relative;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+        gap: 2px;
+        min-height: var(--row-height, 540px);
+        background: #000;
+      }
+      .shoot-photo-row.ghost { overflow: hidden; }
+      .shoot-ghost-text {
+        position: absolute;
+        z-index: 0;
+        color: rgba(244, 239, 229, 0.06);
+        font-family: "Bebas Neue", sans-serif;
+        font-size: clamp(5rem, 16vw, 12rem);
+        letter-spacing: 0.06em;
+        line-height: 0.9;
+        pointer-events: none;
+      }
+      .shoot-ghost-text.center { top: 50%; left: 50%; transform: translate(-50%, -50%); }
+      .shoot-ghost-text.top-left { top: 1rem; left: 1rem; }
+      .shoot-ghost-text.bottom-left { left: 1rem; bottom: 1rem; }
+      .shoot-ghost-text.bottom-right { right: 1rem; bottom: 1rem; }
+      .shoot-row-frame { z-index: 1; min-height: var(--row-height, 540px); }
+
+      .photo-shoot-view[data-template="desert-bloom"] {
+        --photo-accent: #c96b28;
+        font-family: "Raleway", sans-serif;
+      }
+      .photo-shoot-view[data-template="desert-bloom"] .shoot-overlay-body h2,
+      .photo-shoot-view[data-template="desert-bloom"] .shoot-note h3,
+      .photo-shoot-view[data-template="desert-bloom"] .shoot-section-title h3,
+      .photo-shoot-view[data-template="desert-bloom"] .shoot-footer h3 { font-family: "Libre Baskerville", serif; font-style: italic; }
+
+      .photo-shoot-view[data-template="desert-fill"] {
+        --photo-accent: #c8a870;
+        font-family: "Raleway", sans-serif;
+      }
+      .photo-shoot-view[data-template="desert-fill"] .shoot-note,
+      .photo-shoot-view[data-template="desert-fill"] .shoot-section-title { display: none; }
+      .photo-shoot-view[data-template="desert-fill"] .shoot-photo-row,
+      .photo-shoot-view[data-template="desert-fill"] .shoot-single-frame { gap: 0; }
+
+      .photo-shoot-view[data-template="kyoto-bold"] {
+        --photo-accent: #e8c547;
+        font-family: "Space Mono", monospace;
+      }
+      .photo-shoot-view[data-template="kyoto-bold"] .shoot-overlay-body h2,
+      .photo-shoot-view[data-template="kyoto-bold"] .shoot-section-title h3 { font-family: "Bebas Neue", sans-serif; letter-spacing: 0.06em; }
+      .photo-shoot-view[data-template="kyoto-bold"] .shoot-note h3,
+      .photo-shoot-view[data-template="kyoto-bold"] .shoot-single-frame figcaption strong,
+      .photo-shoot-view[data-template="kyoto-bold"] .shoot-row-frame figcaption strong { font-family: "DM Serif Display", serif; }
+
+      .photo-shoot-view[data-template="tokyo-fragments"] {
+        --photo-accent: #c8321f;
+        font-family: "Barlow Condensed", sans-serif;
+      }
+      .photo-shoot-view[data-template="tokyo-fragments"] .shoot-overlay-body h2,
+      .photo-shoot-view[data-template="tokyo-fragments"] .shoot-footer h3 { font-family: "Cormorant Garamond", serif; font-style: italic; }
+      .photo-shoot-view[data-template="tokyo-fragments"] .shoot-photo-row { grid-template-columns: 1.2fr 0.8fr; }
+
+      .shoot-footer {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        align-items: end;
+      }
+      .shoot-footer h3 {
+        margin: 0;
+        font-family: "Cormorant Garamond", serif;
+        font-size: clamp(2.4rem, 7vw, 5rem);
+        font-weight: 400;
+      }
+      .shoot-footer div:last-child { text-align: right; }
+      .shoot-footer p { margin: 0 0 0.8rem; color: var(--photo-dim); }
+      .shoot-footer a { text-decoration: none; text-transform: uppercase; letter-spacing: 0.24em; font-size: 0.72rem; }
+
+      .photo-lightbox {
+        position: fixed;
+        inset: 0;
+        z-index: 90;
+        display: none;
+        background: rgba(0, 0, 0, 0.96);
+      }
+      .photo-lightbox.open { display: grid; grid-template-columns: minmax(0, 1fr) 20rem; }
+      .photo-lightbox-main {
+        position: relative;
+        display: grid;
+        place-items: center;
+        padding: 4.8rem 1rem 2rem;
+      }
+      .photo-lightbox-main img {
+        max-width: 100%;
+        max-height: calc(100vh - 7rem);
+        object-fit: contain;
+      }
+      .photo-lightbox-side {
+        border-left: 1px solid var(--photo-line);
+        padding: 5rem 1.2rem 1.4rem;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+      }
+      .photo-lightbox-side p { margin: 0; }
+      .photo-lightbox-side strong { font-family: "DM Serif Display", serif; font-size: 1.5rem; font-weight: 400; }
+      .photo-lightbox-side span { color: var(--photo-dim); text-transform: uppercase; letter-spacing: 0.2em; font-size: 0.72rem; }
+      .photo-lightbox-side dl {
+        display: grid;
+        gap: 0.8rem;
+        margin: 0;
+      }
+      .photo-lightbox-side dl div { display: grid; gap: 0.18rem; }
+      .photo-lightbox-side dt { color: var(--photo-dim); text-transform: uppercase; letter-spacing: 0.18em; font-size: 0.68rem; }
+      .photo-lightbox-side dd { margin: 0; }
+      .photo-lightbox-close,
+      .photo-lightbox-nav {
+        position: absolute;
+        border: 1px solid var(--photo-line);
+        background: rgba(11, 9, 7, 0.86);
+        color: var(--photo-text);
+        cursor: pointer;
+      }
+      .photo-lightbox-close { top: 1rem; right: 1rem; padding: 0.5rem 0.8rem; text-transform: uppercase; letter-spacing: 0.2em; font-size: 0.7rem; }
+      .photo-lightbox-nav { top: 50%; transform: translateY(-50%); width: 2.7rem; height: 2.7rem; }
+      .photo-lightbox-nav.prev { left: 1rem; }
+      .photo-lightbox-nav.next { right: 1rem; }
+      .photo-lightbox-counter { position: absolute; left: 1rem; bottom: 1rem; color: var(--photo-dim); letter-spacing: 0.2em; text-transform: uppercase; font-size: 0.72rem; }
+
+      @media (max-width: 900px) {
+        .photo-lightbox.open { grid-template-columns: 1fr; }
+        .photo-lightbox-side { border-left: 0; border-top: 1px solid var(--photo-line); max-height: 40vh; overflow-y: auto; }
+        .shoot-overlay { padding-bottom: 1.6rem; }
+        .shoot-overlay-body h2 { font-size: clamp(3rem, 16vw, 5.2rem); }
+      }
+
+      @media (max-width: 640px) {
+        .photo-hero { padding-top: 6.8rem; }
+        .photo-feature-grid,
+        .photo-shoot-grid,
+        .shoot-photo-row,
+        .photo-shoot-view[data-template="tokyo-fragments"] .shoot-photo-row { grid-template-columns: 1fr; }
+        .shoot-footer { flex-direction: column; align-items: start; }
+        .shoot-footer div:last-child { text-align: left; }
+        .photo-lightbox-main { padding-inline: 0.6rem; }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="photo-topbar">
+      <a href={`${basePath}`}>Back Home</a>
+      <strong>SFA</strong>
+    </header>
+
+    <main id="photography-archive-view" class="photo-archive">
+      <section class="photo-hero">
+        <p class="photo-kicker">Published Photography</p>
+        <h1>Frames from <em>the road</em></h1>
+        <p>Published shoots, featured frames, and the visual side of Stories From Abroad. Each shoot keeps its own tone, sequence, and lightbox metadata.</p>
+        <div class="photo-count"><span id="photography-count">0</span> published shoots</div>
+        <p id="photography-status" class="photo-count"></p>
+      </section>
+
+      <section class="photo-section">
+        <div class="photo-section-head">
+          <div>
+            <span>Featured</span>
+            <h2>Selected frames</h2>
           </div>
         </div>
+        <div class="photo-feature-grid" id="photography-featured-list"></div>
+      </section>
 
-        <div class="fp-idx" aria-hidden="true">
-          {String(i + 1).padStart(2, "0")} / {String(featured.length).padStart(2, "0")}
+      <section class="photo-section">
+        <div class="photo-section-head">
+          <div>
+            <span>Archive</span>
+            <h2>Published shoots</h2>
+          </div>
         </div>
+        <div class="photo-shoot-grid" id="photography-shoot-grid"></div>
+      </section>
+    </main>
+
+    <main id="photography-shoot-view" class="photo-shoot-view" hidden>
+      <header class="shoot-title-bar" id="shoot-title-bar">
+        <a href={`${basePath}photography/`} data-shoot-back>All shoots</a>
+        <strong id="shoot-bar-name">Shoot</strong>
+        <span id="shoot-bar-meta"></span>
+      </header>
+      <section class="shoot-overlay">
+        <div class="shoot-overlay-body">
+          <span id="shoot-overlay-eyebrow"></span>
+          <h2 id="shoot-overlay-title"></h2>
+          <p id="shoot-overlay-subtitle"></p>
+          <small id="shoot-overlay-meta"></small>
+        </div>
+      </section>
+      <section class="shoot-hero" id="shoot-hero-media"></section>
+      <section class="shoot-blocks" id="shoot-blocks"></section>
+      <footer class="shoot-footer">
+        <div><h3 id="shoot-footer-title"></h3></div>
+        <div>
+          <p id="shoot-footer-meta"></p>
+          <a href={`${basePath}photography/`} data-shoot-back>Back to archive</a>
+        </div>
+      </footer>
+    </main>
+
+    <div class="photo-lightbox" id="photo-lightbox">
+      <div class="photo-lightbox-main">
+        <button class="photo-lightbox-close" type="button" data-photo-lightbox-close>Close</button>
+        <button class="photo-lightbox-nav prev" id="lightbox-prev" type="button">&#8592;</button>
+        <button class="photo-lightbox-nav next" id="lightbox-next" type="button">&#8594;</button>
+        <div class="photo-lightbox-counter" id="lightbox-counter"></div>
+        <img id="lightbox-image" src="" alt="" />
       </div>
-    ))}
-  </section>
-
-  <section class="shoots" id="shoots">
-    <div class="shoots-head">
-      <div class="sec-label">{copy.archive.label}</div>
-      <div class="sec-title">{copy.archive.title}</div>
+      <aside class="photo-lightbox-side">
+        <span id="lightbox-location"></span>
+        <strong id="lightbox-caption"></strong>
+        <dl id="lightbox-meta"></dl>
+      </aside>
     </div>
 
-    <div class="shoots-grid">
-      {shoots.map((s) => (
-        <a class="sc" href="#shoots" style={`--accent: ${s.accent};`}>
-          <div class="sc-img-w">
-            <img class="sc-img" src={s.cover} alt={s.title} loading="lazy" />
-          </div>
-          <div class="sc-body">
-            <div class="sc-top">
-              <span class="sc-date">{s.date}</span>
-              <span class="sc-ct">{s.count} {copy.shootCountSuffix}</span>
-            </div>
-            <div class="sc-title">{s.title}</div>
-            <div class="sc-desc">{s.desc}</div>
-            <div class="sc-tags">
-              {s.tags.map((t) => (
-                <span class="tag">{t}</span>
-              ))}
-            </div>
-            <div class="sc-loc">{s.loc}</div>
-          </div>
-          <div class="sc-bar"></div>
-        </a>
-      ))}
-    </div>
-  </section>
-
-  <footer class="footer">
-    <div class="foot-l">{copy.footer.left}</div>
-    <div class="foot-r">{copy.footer.right}</div>
-  </footer>
-
-  <style>
-    .feat {
-      position: relative;
-    }
-
-    .feat-intro {
-      height: 100vh;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      padding: 0 40px;
-      border-bottom: 1px solid #1a1a1a;
-      position: relative;
-    }
-
-    .fi-label {
-      font-family: "IBM Plex Mono", monospace;
-      font-size: 9px;
-      letter-spacing: 6px;
-      text-transform: uppercase;
-      color: #ff2d78;
-      margin-bottom: 22px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .fi-label::before {
-      content: "";
-      display: inline-block;
-      width: 32px;
-      height: 1px;
-      background: #ff2d78;
-    }
-
-    .fi-h1 {
-      font-family: "Bebas Neue", sans-serif;
-      font-size: clamp(80px, 13vw, 168px);
-      line-height: 0.88;
-      letter-spacing: -1px;
-      animation: fadeUp 0.8s ease both;
-    }
-
-    .fi-oline {
-      -webkit-text-stroke: 1.5px #f0efeb;
-      color: transparent;
-    }
-
-    .fi-accent {
-      color: #ff2d78;
-    }
-
-    .fi-sub {
-      font-family: "Cormorant Garamond", serif;
-      font-size: 16px;
-      font-style: italic;
-      color: #505050;
-      margin-top: 32px;
-      animation: fadeUp 0.8s 0.2s ease both;
-    }
-
-    .scroll-hint {
-      position: absolute;
-      bottom: 36px;
-      left: 50%;
-      transform: translateX(-50%);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .scroll-hint span {
-      display: block;
-      width: 1px;
-      height: 56px;
-      background: linear-gradient(to bottom, #505050, transparent);
-      animation: scrollPulse 2s ease infinite;
-    }
-
-    @keyframes scrollPulse {
-      0%,
-      100% {
-        opacity: 0.3;
-        transform: scaleY(1);
-      }
-      50% {
-        opacity: 1;
-        transform: scaleY(1.15);
-      }
-    }
-
-    .fp {
-      position: relative;
-      height: 100vh;
-      overflow: hidden;
-      cursor: crosshair;
-    }
-
-    .fp-bg {
-      position: absolute;
-      inset: -20% 0;
-      background-size: cover;
-      background-position: center;
-      will-change: transform;
-      transition: filter 0.4s;
-    }
-
-    .fp-veil {
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(
-        to bottom,
-        rgba(8, 8, 8, 0.15) 0%,
-        rgba(8, 8, 8, 0.05) 40%,
-        rgba(8, 8, 8, 0.45) 100%
-      );
-      transition: background 0.4s;
-    }
-
-    .fp-caption {
-      position: absolute;
-      inset: 0;
-      display: flex;
-      align-items: flex-end;
-      padding: 48px 44px;
-      opacity: 0;
-      transition: opacity 0.45s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    }
-
-    .fp:hover .fp-caption {
-      opacity: 1;
-    }
-
-    .fp:hover .fp-veil {
-      background: linear-gradient(
-        to bottom,
-        rgba(8, 8, 8, 0.2) 0%,
-        rgba(8, 8, 8, 0.1) 35%,
-        rgba(8, 8, 8, 0.72) 100%
-      );
-    }
-
-    .fp-cap-inner {
-      transform: translateY(10px);
-      transition: transform 0.45s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    }
-
-    .fp:hover .fp-cap-inner {
-      transform: translateY(0);
-    }
-
-    .fp-cap-loc {
-      font-family: "IBM Plex Mono", monospace;
-      font-size: 9px;
-      letter-spacing: 4px;
-      text-transform: uppercase;
-      color: var(--accent);
-      margin-bottom: 8px;
-    }
-
-    .fp-cap-title {
-      font-family: "Bebas Neue", sans-serif;
-      font-size: clamp(42px, 6vw, 80px);
-      line-height: 0.9;
-      letter-spacing: 1px;
-      color: #f0efeb;
-      margin-bottom: 20px;
-    }
-
-    .fp-cap-link {
-      font-family: "IBM Plex Mono", monospace;
-      font-size: 9px;
-      letter-spacing: 3px;
-      text-transform: uppercase;
-      color: #f0efeb;
-      border-bottom: 1px solid var(--accent);
-      padding-bottom: 2px;
-      display: inline-flex;
-      gap: 6px;
-      transition: color 0.2s;
-    }
-
-    .fp-cap-link:hover {
-      color: var(--accent);
-    }
-
-    .fp-idx {
-      position: absolute;
-      top: 24px;
-      right: 32px;
-      font-family: "IBM Plex Mono", monospace;
-      font-size: 9px;
-      letter-spacing: 3px;
-      color: rgba(240, 239, 235, 0.3);
-    }
-
-    .fp::after {
-      content: "";
-      position: absolute;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      height: 2px;
-      background: var(--accent);
-      opacity: 0.7;
-    }
-
-    .shoots {
-      border-top: 1px solid #1a1a1a;
-    }
-
-    .shoots-head {
-      padding: 64px 40px 40px;
-    }
-
-    .shoots-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 2px;
-      padding: 0 0 0 0;
-    }
-
-    .sc {
-      display: block;
-      background: #111;
-      overflow: hidden;
-      transition: transform 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-      text-decoration: none;
-    }
-
-    .sc:hover {
-      transform: translateY(-6px);
-    }
-
-    .sc-img-w {
-      overflow: hidden;
-    }
-
-    .sc-img {
-      width: 100%;
-      aspect-ratio: 3 / 4;
-      object-fit: cover;
-      filter: brightness(0.85);
-      transition: transform 0.55s cubic-bezier(0.25, 0.46, 0.45, 0.94), filter 0.35s;
-    }
-
-    .sc:hover .sc-img {
-      transform: scale(1.05);
-      filter: brightness(1);
-    }
-
-    .sc-body {
-      padding: 18px 20px 8px;
-    }
-
-    .sc-top {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 10px;
-    }
-
-    .sc-date {
-      font-family: "IBM Plex Mono", monospace;
-      font-size: 8.5px;
-      letter-spacing: 2px;
-      color: #505050;
-    }
-
-    .sc-ct {
-      font-family: "IBM Plex Mono", monospace;
-      font-size: 7.5px;
-      letter-spacing: 2px;
-      text-transform: uppercase;
-      padding: 2px 8px;
-      color: var(--accent);
-      border: 1px solid var(--accent);
-    }
-
-    .sc-title {
-      font-family: "Bebas Neue", sans-serif;
-      font-size: 26px;
-      letter-spacing: 1px;
-      color: #f0efeb;
-      margin-bottom: 7px;
-    }
-
-    .sc-desc {
-      font-family: "Cormorant Garamond", serif;
-      font-size: 13px;
-      font-style: italic;
-      color: #888;
-      margin-bottom: 14px;
-      line-height: 1.55;
-    }
-
-    .sc-tags {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 5px;
-      margin-bottom: 12px;
-    }
-
-    .sc-loc {
-      font-family: "IBM Plex Mono", monospace;
-      font-size: 8.5px;
-      letter-spacing: 1.5px;
-      color: #505050;
-      margin-bottom: 18px;
-    }
-
-    .sc-bar {
-      height: 3px;
-      background: var(--accent);
-      transition: height 0.25s;
-    }
-
-    .sc:hover .sc-bar {
-      height: 5px;
-    }
-
-    @media (max-width: 900px) {
-      .feat-intro {
-        padding: 0 24px;
-      }
-
-      .fi-sub {
-        max-width: 32ch;
-      }
-
-      .fp {
-        height: min(78vh, 620px);
-      }
-
-      .fp-caption {
-        opacity: 1;
-        padding: 28px 22px;
-      }
-
-      .fp-cap-inner {
-        transform: translateY(0);
-      }
-
-      .fp-veil {
-        background: linear-gradient(
-          to bottom,
-          rgba(8, 8, 8, 0.2) 0%,
-          rgba(8, 8, 8, 0.14) 35%,
-          rgba(8, 8, 8, 0.76) 100%
-        );
-      }
-
-      .fp-cap-link {
-        font-size: 8px;
-        letter-spacing: 2.2px;
-      }
-
-      .shoots-head {
-        padding: 52px 24px 30px;
-      }
-
-      .shoots-grid {
-        grid-template-columns: repeat(2, 1fr);
-      }
-    }
-
-    @media (max-width: 640px) {
-      .feat-intro {
-        height: calc(100vh - 40px);
-        padding: 0 14px;
-      }
-
-      .fi-label {
-        letter-spacing: 4px;
-        margin-bottom: 16px;
-      }
-
-      .fi-h1 {
-        font-size: clamp(52px, 19vw, 88px);
-      }
-
-      .fi-sub {
-        margin-top: 18px;
-        font-size: 15px;
-      }
-
-      .fp {
-        height: min(72vh, 520px);
-      }
-
-      .fp-cap-title {
-        font-size: clamp(30px, 10vw, 56px);
-      }
-
-      .fp-cap-loc {
-        letter-spacing: 2.6px;
-        font-size: 8px;
-      }
-
-      .fp-idx {
-        top: 12px;
-        right: 14px;
-        letter-spacing: 2px;
-      }
-
-      .scroll-hint {
-        bottom: 24px;
-      }
-
-      .shoots-head {
-        padding: 42px 14px 24px;
-      }
-
-      .sc-body {
-        padding: 14px 14px 6px;
-      }
-
-      .sc-title {
-        font-size: 23px;
-      }
-
-      .sc-desc {
-        font-size: 12px;
-        margin-bottom: 11px;
-      }
-
-      .shoots-grid {
-        grid-template-columns: 1fr;
-      }
-    }
-  </style>
-
-  <script>
-    (function () {
-      const panels = document.querySelectorAll(".fp");
-
-      function onScroll() {
-        const winH = window.innerHeight;
-
-        panels.forEach((panel) => {
-          const rect = panel.getBoundingClientRect();
-          if (rect.bottom < -winH || rect.top > winH * 2) return;
-
-          const center = rect.top + rect.height / 2 - winH / 2;
-          const progress = center / winH;
-          const shift = progress * 40;
-
-          const bg = panel.querySelector(".fp-bg");
-          if (bg) bg.style.transform = `translateY(${shift}px)`;
+    <script id="public-firestore-config" type="application/json" set:html={publicFirestoreConfigJson}></script>
+    <script id="photography-copy" type="application/json" set:html={copyJson}></script>
+    <script src={`${basePath}scripts/public-firestore.js`}></script>
+    <script src={`${basePath}scripts/photography-public.js`}></script>
+    <script is:inline>
+      (function () {
+        if (!window.SFAPublicFirestore || !window.SFAPhotographyPublic) return;
+        var firestoreConfig = {};
+        var copy = {};
+        try { firestoreConfig = JSON.parse(document.getElementById("public-firestore-config").textContent || "{}"); } catch (error) {}
+        try { copy = JSON.parse(document.getElementById("photography-copy").textContent || "{}"); } catch (error) {}
+        window.SFAPhotographyPublic.boot({
+          basePath: {JSON.stringify(basePath)},
+          firestoreConfig: firestoreConfig,
+          copy: copy,
         });
-      }
-
-      window.addEventListener("scroll", onScroll, { passive: true });
-      onScroll();
-    })();
-  </script>
-</PhotographyLayout>
+      })();
+    </script>
+  </body>
+</html>

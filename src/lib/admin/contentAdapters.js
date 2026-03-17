@@ -69,14 +69,37 @@ export function collectSearchText(kind, draftInput) {
       ...(draft.keywords || []),
     ].join(" ").toLowerCase();
   }
+  if (kind === "travel") {
+    return [
+      draft.title,
+      draft.dispatchType,
+      draft.locationName,
+      draft.excerpt,
+      draft.bodyText,
+      ...(draft.quotes || []).map((quote) => quote.text),
+    ].join(" ").toLowerCase();
+  }
   return [
     draft.title,
-    draft.dispatchType,
-    draft.locationName,
-    draft.excerpt,
-    draft.bodyText,
-    ...(draft.quotes || []).map((quote) => quote.text),
+    draft.subtitle,
+    draft.locationLabel,
+    draft.city,
+    draft.country,
+    draft.descriptor,
+    draft.notes,
+    draft.template,
+    ...(draft.blocks || []).flatMap((block) => {
+      if (block.type === "text-note") return [block.noteLabel, block.title, block.text];
+      if (block.type === "section-title") return [block.tag, block.title, block.rightNote];
+      if (block.type === "ghost-text-row") return [block.ghostText];
+      return [];
+    }),
   ].join(" ").toLowerCase();
+}
+
+function numberOrNull(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
 }
 
 function cleanMedia(media = {}) {
@@ -86,9 +109,16 @@ function cleanMedia(media = {}) {
     alt: String(media.alt || "").trim(),
     title: String(media.title || "").trim(),
     caption: String(media.caption || "").trim(),
+    locationLabel: String(media.locationLabel || "").trim(),
     storagePath: String(media.storagePath || "").trim(),
     contentType: String(media.contentType || "").trim(),
     fileName: String(media.fileName || "").trim(),
+    focusX: numberOrNull(media.focusX) ?? 50,
+    focusY: numberOrNull(media.focusY) ?? 50,
+    width: numberOrNull(media.width),
+    height: numberOrNull(media.height),
+    cameraModel: String(media.cameraModel || "").trim(),
+    exifDate: String(media.exifDate || "").trim(),
   };
 }
 
@@ -122,6 +152,126 @@ function cleanFaceBlocks(blocks = []) {
       return text ? { id: block.id || `p${index + 1}`, type: "paragraph", text } : null;
     })
     .filter(Boolean);
+}
+
+function cleanPhotoMediaList(photos = []) {
+  return (Array.isArray(photos) ? photos : []).map(cleanMedia).filter((item) => item.url);
+}
+
+function cleanPhotoBlocks(blocks = []) {
+  return (Array.isArray(blocks) ? blocks : [])
+    .map((block, index) => {
+      if (!block || typeof block !== "object") return null;
+      if (block.type === "text-note") {
+        const noteLabel = String(block.noteLabel || "Field Note").trim();
+        const title = String(block.title || "").trim();
+        const text = String(block.text || "").trim();
+        if (!title && !text) return null;
+        return { id: block.id || `pb${index + 1}`, type: "text-note", noteLabel, title, text };
+      }
+      if (block.type === "section-title") {
+        const tag = String(block.tag || "").trim();
+        const title = String(block.title || "").trim();
+        const rightNote = String(block.rightNote || "").trim();
+        if (!tag && !title && !rightNote) return null;
+        return { id: block.id || `pb${index + 1}`, type: "section-title", tag, title, rightNote };
+      }
+      if (block.type === "ghost-text-row") {
+        const photos = cleanPhotoMediaList(block.photos);
+        if (!photos.length) return null;
+        return {
+          id: block.id || `pb${index + 1}`,
+          type: "ghost-text-row",
+          ghostText: String(block.ghostText || "").trim(),
+          ghostPosition: String(block.ghostPosition || "center").trim() || "center",
+          height: Number(block.height) || 540,
+          photos,
+        };
+      }
+      if (block.type === "hero-photo") {
+        const photo = cleanMedia(block.photo || block);
+        if (!photo.url) return null;
+        return {
+          id: block.id || `pb${index + 1}`,
+          type: "hero-photo",
+          eyebrow: String(block.eyebrow || "").trim(),
+          photo,
+        };
+      }
+      if (block.type === "full-photo") {
+        const photo = cleanMedia(block.photo || block);
+        if (!photo.url) return null;
+        return {
+          id: block.id || `pb${index + 1}`,
+          type: "full-photo",
+          height: Number(block.height) || 860,
+          photo,
+        };
+      }
+      const photos = cleanPhotoMediaList(block.photos);
+      if (!photos.length) return null;
+      return {
+        id: block.id || `pb${index + 1}`,
+        type: "photo-row",
+        height: Number(block.height) || 540,
+        photos,
+      };
+    })
+    .filter(Boolean);
+}
+
+function countPhotographyFrames(blocks = []) {
+  return (blocks || []).reduce((total, block) => {
+    if (block?.type === "hero-photo" || block?.type === "full-photo") return total + (block.photo?.url ? 1 : 0);
+    if (block?.type === "photo-row" || block?.type === "ghost-text-row") return total + ((block.photos || []).filter((photo) => photo?.url).length);
+    return total;
+  }, 0);
+}
+
+function derivePhotographyCamera(blocks = [], explicit = "") {
+  const override = String(explicit || "").trim();
+  if (override) return override;
+  for (const block of blocks || []) {
+    if (block?.photo?.cameraModel) return block.photo.cameraModel;
+    const mediaWithCamera = (block?.photos || []).find((photo) => photo?.cameraModel);
+    if (mediaWithCamera?.cameraModel) return mediaWithCamera.cameraModel;
+  }
+  return "";
+}
+
+function flattenPhotographyPhotos(blocks = []) {
+  const all = [];
+  (blocks || []).forEach((block, blockIndex) => {
+    if (block?.type === "hero-photo" || block?.type === "full-photo") {
+      if (block.photo?.url) {
+        all.push({
+          id: `${block.id}-0`,
+          blockId: block.id,
+          blockType: block.type,
+          order: all.length,
+          blockIndex,
+          ...block.photo,
+        });
+      }
+      return;
+    }
+    if (block?.type === "photo-row" || block?.type === "ghost-text-row") {
+      (block.photos || []).forEach((photo, photoIndex) => {
+        if (!photo?.url) return;
+        all.push({
+          id: `${block.id}-${photoIndex}`,
+          blockId: block.id,
+          blockType: block.type,
+          order: all.length,
+          blockIndex,
+          photoIndex,
+          ghostText: block.type === "ghost-text-row" ? block.ghostText || "" : "",
+          ...photo,
+        });
+      });
+    }
+  });
+  return all;
 }
 
 export function prepareDraftForSave(kind, draftInput) {
@@ -185,24 +335,50 @@ export function prepareDraftForSave(kind, draftInput) {
     };
   }
 
+  if (kind === "travel") {
+    return {
+      ...draft,
+      ...common,
+      title: String(draft.title || "").trim(),
+      dispatchType: String(draft.dispatchType || "travel").trim() || "travel",
+      audienceLevel: String(draft.audienceLevel || "standard").trim() || "standard",
+      locationName: String(draft.locationName || "").trim(),
+      longitude: String(draft.longitude || "").trim(),
+      latitude: String(draft.latitude || "").trim(),
+      excerpt: String(draft.excerpt || "").trim(),
+      bodyText: String(draft.bodyText || "").trim(),
+      timeLabel: String(draft.timeLabel || "").trim(),
+      pinned: Boolean(draft.pinned),
+      photos: (draft.photos || []).map(cleanMedia).filter((item) => item.url),
+      quotes: (draft.quotes || []).map((quote) => ({
+        id: quote.id,
+        text: String(quote.text || "").trim(),
+      })).filter((quote) => quote.text),
+    };
+  }
+
+  const cleanedBlocks = cleanPhotoBlocks(draft.blocks);
+  const frameCount = countPhotographyFrames(cleanedBlocks);
+  const cameraModel = derivePhotographyCamera(cleanedBlocks, draft.cameraModel);
   return {
     ...draft,
-    ...common,
+    status: draft.status,
+    slug: slugify(draft.slug || draft.title || draft.locationLabel),
+    scheduledPublishAt: ensureIsoDateTime(draft.scheduledPublishAt) || "",
+    searchText: collectSearchText(kind, draft),
     title: String(draft.title || "").trim(),
-    dispatchType: String(draft.dispatchType || "travel").trim() || "travel",
-    audienceLevel: String(draft.audienceLevel || "standard").trim() || "standard",
-    locationName: String(draft.locationName || "").trim(),
-    longitude: String(draft.longitude || "").trim(),
-    latitude: String(draft.latitude || "").trim(),
-    excerpt: String(draft.excerpt || "").trim(),
-    bodyText: String(draft.bodyText || "").trim(),
-    timeLabel: String(draft.timeLabel || "").trim(),
-    pinned: Boolean(draft.pinned),
-    photos: (draft.photos || []).map(cleanMedia).filter((item) => item.url),
-    quotes: (draft.quotes || []).map((quote) => ({
-      id: quote.id,
-      text: String(quote.text || "").trim(),
-    })).filter((quote) => quote.text),
+    subtitle: String(draft.subtitle || "").trim(),
+    shootDate: ensureIsoDate(draft.shootDate) || "",
+    locationLabel: String(draft.locationLabel || "").trim(),
+    city: String(draft.city || "").trim(),
+    country: String(draft.country || "").trim(),
+    descriptor: String(draft.descriptor || "").trim(),
+    accentColor: String(draft.accentColor || "#c96b28").trim() || "#c96b28",
+    template: String(draft.template || "desert-bloom").trim() || "desert-bloom",
+    cameraModel,
+    frameCount,
+    notes: String(draft.notes || "").trim(),
+    blocks: cleanedBlocks,
   };
 }
 
@@ -235,6 +411,7 @@ export function faceDraftToPublic(draftInput, slugOverride = "") {
         alt: block.alt,
         caption: block.caption,
         title: block.title,
+        locationLabel: block.locationLabel,
       };
       return { type: "photo", id: photoId };
     }
@@ -321,6 +498,7 @@ export function dispatchDraftToPublic(draftInput, slugOverride = "") {
         url: photo.url,
         caption: photo.caption,
         title: photo.title,
+        locationLabel: photo.locationLabel,
       })),
       pinned: Boolean(draft.pinned),
       lngLat: coords.isValid ? [coords.longitude, coords.latitude] : null,
@@ -328,5 +506,32 @@ export function dispatchDraftToPublic(draftInput, slugOverride = "") {
     quotes: draft.quotes.map((quote) => ({
       text: quote.text,
     })),
+  };
+}
+
+export function photographyDraftToPublic(draftInput, slugOverride = "") {
+  const draft = prepareDraftForSave("photography", draftInput);
+  const slug = slugOverride || draft.slug || slugify(`${draft.title}-${draft.locationLabel}`);
+  const allPhotos = flattenPhotographyPhotos(draft.blocks);
+  const coverPhoto = draft.blocks.find((block) => block.type === "hero-photo")?.photo?.url
+    ? draft.blocks.find((block) => block.type === "hero-photo")?.photo
+    : allPhotos[0] || null;
+  return {
+    slug,
+    title: draft.title,
+    subtitle: draft.subtitle,
+    shootDate: draft.shootDate || ensureIsoDate(new Date().toISOString()),
+    locationLabel: draft.locationLabel || firstNonEmpty([draft.city, draft.country]),
+    city: draft.city,
+    country: draft.country,
+    descriptor: draft.descriptor,
+    accentColor: draft.accentColor,
+    template: draft.template,
+    cameraModel: draft.cameraModel || derivePhotographyCamera(draft.blocks),
+    frameCount: draft.frameCount || countPhotographyFrames(draft.blocks),
+    notes: draft.notes,
+    coverPhoto,
+    allPhotos,
+    blocks: draft.blocks,
   };
 }

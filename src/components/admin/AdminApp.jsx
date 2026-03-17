@@ -3,8 +3,9 @@ import "../../styles/admin.css";
 import { firebaseReady } from "../../lib/firebaseClient";
 import { completeAdminSignIn, getAdminSession, onAdminAuthChange, sendAdminSignInLink, signOutAdmin } from "../../lib/admin/adminAuth";
 import { assignAdminClaim, publishDraft, repairCoordinates, scheduleDraft, unpublishDraft } from "../../lib/admin/functions";
-import { dispatchDraftToPublic, faceDraftToPublic, paperDraftToPublic, slugify } from "../../lib/admin/contentAdapters";
-import { createDraft, deleteDraft as deleteDraftRecord, deleteMediaAsset as deleteMediaAssetRecord, getDraft, listVersions, restoreVersion, saveDraft, saveSectionMediaConfig, subscribeDraftList, subscribeMediaAssets, subscribeSectionMediaConfig, updateMediaAsset, uploadMediaAsset } from "../../lib/admin/repository";
+import { dispatchDraftToPublic, faceDraftToPublic, paperDraftToPublic, photographyDraftToPublic, slugify } from "../../lib/admin/contentAdapters";
+import { collectFeaturedPhotoOptions, createPhotographyBlockFromTemplate, getTemplateDefinition, mediaSummaryFromBlocks } from "../../lib/admin/photographyTemplates";
+import { createDraft, deleteDraft as deleteDraftRecord, deleteMediaAsset as deleteMediaAssetRecord, getDraft, listVersions, restoreVersion, saveDraft, savePhotographyFeaturedConfig, saveSectionMediaConfig, subscribeDraftList, subscribeMediaAssets, subscribePhotographyFeaturedConfig, subscribeSectionMediaConfig, updateMediaAsset, uploadMediaAsset } from "../../lib/admin/repository";
 import {
   AUDIENCE_LEVELS,
   CONTENT_LABELS,
@@ -12,6 +13,8 @@ import {
   createFaceBlock,
   createLocalId,
   createMediaValue,
+  PHOTO_BLOCK_PRESETS,
+  PHOTO_TEMPLATES,
   DISPATCH_TYPES,
   DRAFT_STATUSES,
   hydrateDraft,
@@ -25,6 +28,7 @@ const NAV_ITEMS = [
   { id: "faces", label: CONTENT_LABELS.faces },
   { id: "papers", label: CONTENT_LABELS.papers },
   { id: "travel", label: CONTENT_LABELS.travel },
+  { id: "photography", label: CONTENT_LABELS.photography },
   { id: "site-assets", label: "Site Assets" },
   { id: "media", label: "Media Library" },
 ];
@@ -117,11 +121,16 @@ function stripMediaAsset(asset) {
     alt: String(asset.alt || ""),
     title: String(asset.title || asset.fileName || asset.originalName || ""),
     caption: String(asset.caption || ""),
+    locationLabel: String(asset.locationLabel || ""),
     storagePath: String(asset.storagePath || ""),
     contentType: String(asset.contentType || ""),
     fileName: String(asset.fileName || asset.originalName || ""),
     focusX: Number.isFinite(Number(asset.focusX)) ? Number(asset.focusX) : 50,
     focusY: Number.isFinite(Number(asset.focusY)) ? Number(asset.focusY) : 50,
+    width: Number.isFinite(Number(asset.width)) ? Number(asset.width) : null,
+    height: Number.isFinite(Number(asset.height)) ? Number(asset.height) : null,
+    cameraModel: String(asset.cameraModel || ""),
+    exifDate: String(asset.exifDate || ""),
   };
 }
 
@@ -741,10 +750,280 @@ function TravelPreview({ draft }) {
   );
 }
 
+function PhotographyFeaturedManager({ config, options, onChange, onSave, saving }) {
+  const items = Array.isArray(config?.items) ? config.items : [];
+  const optionMap = new Map(options.map((option) => [`${option.shootId}:${option.photoId}`, option]));
+
+  function upsert(index, key) {
+    const selected = optionMap.get(key);
+    const nextItems = [...items];
+    if (!selected) {
+      nextItems.splice(index, 1);
+    } else {
+      nextItems[index] = selected;
+    }
+    onChange({ items: nextItems.filter(Boolean) });
+  }
+
+  return (
+    <section className="admin-panel admin-featured-panel">
+      <div className="admin-panel-head">
+        <div>
+          <h2>Featured photos</h2>
+          <p>Choose ordered hero photos for the public photography archive. Only published shoot photos appear here.</p>
+        </div>
+        <div className="admin-button-row compact">
+          <button type="button" className="admin-mini-button" onClick={() => onChange({ items: [...items, null].filter(Boolean) })}>
+            Add slot
+          </button>
+          <button type="button" className="admin-primary-button" onClick={onSave} disabled={saving}>
+            {saving ? "Saving..." : "Save featured"}
+          </button>
+        </div>
+      </div>
+      {!options.length ? <p className="admin-empty-inline">Publish a photography shoot first, then its photos will be available to feature.</p> : null}
+      <div className="admin-stack">
+        {items.map((item, index) => (
+          <article key={`${item?.shootId || "empty"}-${item?.photoId || index}`} className="admin-subcard">
+            <div className="admin-subcard-head">
+              <strong>Featured slot {index + 1}</strong>
+              <div className="admin-button-row compact">
+                <button type="button" className="admin-mini-button" disabled={index === 0} onClick={() => {
+                  const next = [...items];
+                  [next[index - 1], next[index]] = [next[index], next[index - 1]];
+                  onChange({ items: next });
+                }}>Up</button>
+                <button type="button" className="admin-mini-button" disabled={index === items.length - 1} onClick={() => {
+                  const next = [...items];
+                  [next[index], next[index + 1]] = [next[index + 1], next[index]];
+                  onChange({ items: next });
+                }}>Down</button>
+                <button type="button" className="admin-mini-button danger" onClick={() => onChange({ items: items.filter((_, itemIndex) => itemIndex !== index) })}>Remove</button>
+              </div>
+            </div>
+            <label className="admin-field">
+              <span className="admin-field-label">Featured photo</span>
+              <select
+                className="admin-select"
+                value={item ? `${item.shootId}:${item.photoId}` : ""}
+                onChange={(event) => upsert(index, event.target.value)}
+              >
+                <option value="">Select a published photo</option>
+                {options.map((option) => (
+                  <option key={`${option.shootId}:${option.photoId}`} value={`${option.shootId}:${option.photoId}`}>
+                    {option.shootTitle} | {option.locationLabel || option.caption || option.photoId}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {item?.photoUrl ? (
+              <div className="admin-featured-photo-preview">
+                <img src={item.photoUrl} alt={item.photoAlt || item.caption || item.shootTitle || "Featured photo"} />
+                <div>
+                  <strong>{item.shootTitle}</strong>
+                  <p>{item.locationLabel || item.caption || "No caption"}</p>
+                </div>
+              </div>
+            ) : null}
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function PhotographyForm({ draft, onChange, onUpload, assets }) {
+  const template = getTemplateDefinition(draft.template);
+  const summary = mediaSummaryFromBlocks(draft.blocks || []);
+
+  function updateBlock(blockId, updater) {
+    onChange({
+      ...draft,
+      blocks: (draft.blocks || []).map((block) => (block.id === blockId ? updater(block) : block)),
+    });
+  }
+
+  function removeBlock(blockId) {
+    onChange({
+      ...draft,
+      blocks: (draft.blocks || []).filter((block) => block.id !== blockId),
+    });
+  }
+
+  function moveBlock(blockId, direction) {
+    const index = (draft.blocks || []).findIndex((block) => block.id === blockId);
+    if (index < 0) return;
+    const nextIndex = index + direction;
+    if (nextIndex < 0 || nextIndex >= draft.blocks.length) return;
+    const next = [...draft.blocks];
+    [next[index], next[nextIndex]] = [next[nextIndex], next[index]];
+    onChange({ ...draft, blocks: next });
+  }
+
+  function addBlock(type) {
+    const nextBlock = createPhotographyBlockFromTemplate(draft.template, type);
+    onChange({ ...draft, blocks: [...(draft.blocks || []), nextBlock] });
+  }
+
+  return (
+    <div className="admin-form-stack">
+      <section className="admin-panel">
+        <div className="admin-panel-head tight">
+          <div>
+            <h2>Shoot setup</h2>
+            <p>Template-driven photography shoots publish into the live archive and the shoot detail viewer.</p>
+          </div>
+        </div>
+        <div className="admin-grid two-up">
+          <SelectField label="Status" value={draft.status} onChange={(next) => onChange({ ...draft, status: next })} options={DRAFT_STATUSES} />
+          <TextInput label="Title" value={draft.title} onChange={(next) => onChange({ ...draft, title: next, slug: draft.slug || slugify(next) })} />
+          <TextInput label="Subtitle" value={draft.subtitle} onChange={(next) => onChange({ ...draft, subtitle: next })} />
+          <TextInput label="Shoot date" type="date" value={draft.shootDate} onChange={(next) => onChange({ ...draft, shootDate: next })} />
+          <TextInput label="Location label" value={draft.locationLabel} onChange={(next) => onChange({ ...draft, locationLabel: next })} />
+          <TextInput label="City" value={draft.city} onChange={(next) => onChange({ ...draft, city: next })} />
+          <TextInput label="Country" value={draft.country} onChange={(next) => onChange({ ...draft, country: next })} />
+          <TextInput label="Descriptor" hint="One-word or short descriptor that appears in archive cards." value={draft.descriptor} onChange={(next) => onChange({ ...draft, descriptor: next })} />
+          <TextInput label="Accent color" type="color" value={draft.accentColor || "#c96b28"} onChange={(next) => onChange({ ...draft, accentColor: next })} />
+          <SelectField label="Template" hint={template.theme} value={draft.template} onChange={(next) => onChange({ ...draft, template: next })} options={PHOTO_TEMPLATES} />
+          <TextInput label="Camera model" hint="Auto-filled from attached photos when possible, but overrideable here." value={draft.cameraModel} onChange={(next) => onChange({ ...draft, cameraModel: next })} />
+          <TextInput label="Schedule publish" type="datetime-local" value={formatDateTimeLocal(draft.scheduledPublishAt)} onChange={(next) => onChange({ ...draft, scheduledPublishAt: toIsoDateTime(next) })} />
+          <TextInput label="Slug" hint="Used for the photography viewer URL, such as kyoto-in-winter." value={draft.slug} onChange={(next) => onChange({ ...draft, slug: slugify(next) })} />
+          <TextInput label="Frame count" hint="Derived from current blocks." value={String(summary.frames || draft.frameCount || 0)} onChange={() => {}} />
+        </div>
+        <TextArea label="Shoot notes / intro" value={draft.notes} onChange={(next) => onChange({ ...draft, notes: next })} rows={4} />
+        <p className="admin-field-hint">Detected camera: {summary.cameraModel || draft.cameraModel || "Unknown"} | Frames in builder: {summary.frames}</p>
+      </section>
+
+      <section className="admin-card-section">
+        <div className="admin-section-head">
+          <div>
+            <h3>Block builder</h3>
+            <p>{template.label} allows {template.allowedBlocks.join(", ")}.</p>
+          </div>
+          <div className="admin-button-row compact">
+            {template.allowedBlocks.map((type) => (
+              <button key={type} type="button" className="admin-mini-button" onClick={() => addBlock(type)}>
+                Add {PHOTO_BLOCK_PRESETS[type]?.label || type}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="admin-stack">
+          {(draft.blocks || []).map((block, index) => (
+            <article className="admin-subcard" key={block.id}>
+              <div className="admin-subcard-head">
+                <strong>{PHOTO_BLOCK_PRESETS[block.type]?.label || block.type}</strong>
+                <div className="admin-button-row compact">
+                  <button type="button" className="admin-mini-button" disabled={index === 0} onClick={() => moveBlock(block.id, -1)}>Up</button>
+                  <button type="button" className="admin-mini-button" disabled={index === draft.blocks.length - 1} onClick={() => moveBlock(block.id, 1)}>Down</button>
+                  <button type="button" className="admin-mini-button danger" onClick={() => removeBlock(block.id)}>Remove</button>
+                </div>
+              </div>
+
+              {block.type === "hero-photo" ? (
+                <div className="admin-form-stack">
+                  <TextInput label="Eyebrow" value={block.eyebrow} onChange={(next) => updateBlock(block.id, (current) => ({ ...current, eyebrow: next }))} />
+                  <AssetField label="Hero photo" accept="image/*" value={block.photo} assets={assets} onUpload={onUpload} onChange={(next) => updateBlock(block.id, (current) => ({ ...current, photo: next }))} kind="photography" field="hero-photo" hint="Sets the shoot opener and default cover image." />
+                </div>
+              ) : null}
+
+              {block.type === "full-photo" ? (
+                <div className="admin-form-stack">
+                  <TextInput label="Height" value={String(block.height || 860)} onChange={(next) => updateBlock(block.id, (current) => ({ ...current, height: Number(next) || 860 }))} />
+                  <AssetField label="Full-width photo" accept="image/*" value={block.photo} assets={assets} onUpload={onUpload} onChange={(next) => updateBlock(block.id, (current) => ({ ...current, photo: next }))} kind="photography" field="full-photo" hint="Best for a strong single frame between rows." />
+                </div>
+              ) : null}
+
+              {block.type === "photo-row" ? (
+                <div className="admin-form-stack">
+                  <TextInput label="Row height" value={String(block.height || 540)} onChange={(next) => updateBlock(block.id, (current) => ({ ...current, height: Number(next) || 540 }))} />
+                  <GalleryEditor label="Row photos" items={block.photos || []} onChange={(next) => updateBlock(block.id, (current) => ({ ...current, photos: next }))} onUpload={onUpload} assets={assets} kind="photography" />
+                </div>
+              ) : null}
+
+              {block.type === "ghost-text-row" ? (
+                <div className="admin-form-stack">
+                  <div className="admin-grid two-up">
+                    <TextInput label="Ghost text" value={block.ghostText} onChange={(next) => updateBlock(block.id, (current) => ({ ...current, ghostText: next }))} />
+                    <SelectField label="Ghost position" value={block.ghostPosition || "center"} onChange={(next) => updateBlock(block.id, (current) => ({ ...current, ghostPosition: next }))} options={[{ value: "top-left", label: "Top left" }, { value: "center", label: "Center" }, { value: "bottom-left", label: "Bottom left" }, { value: "bottom-right", label: "Bottom right" }]} />
+                    <TextInput label="Row height" value={String(block.height || 540)} onChange={(next) => updateBlock(block.id, (current) => ({ ...current, height: Number(next) || 540 }))} />
+                  </div>
+                  <GalleryEditor label="Ghost row photos" items={block.photos || []} onChange={(next) => updateBlock(block.id, (current) => ({ ...current, photos: next }))} onUpload={onUpload} assets={assets} kind="photography" />
+                </div>
+              ) : null}
+
+              {block.type === "text-note" ? (
+                <div className="admin-grid two-up">
+                  <TextInput label="Note label" value={block.noteLabel} onChange={(next) => updateBlock(block.id, (current) => ({ ...current, noteLabel: next }))} />
+                  <TextInput label="Note title" value={block.title} onChange={(next) => updateBlock(block.id, (current) => ({ ...current, title: next }))} />
+                  <TextArea label="Note text" value={block.text} onChange={(next) => updateBlock(block.id, (current) => ({ ...current, text: next }))} rows={4} />
+                </div>
+              ) : null}
+
+              {block.type === "section-title" ? (
+                <div className="admin-grid two-up">
+                  <TextInput label="Tag" value={block.tag} onChange={(next) => updateBlock(block.id, (current) => ({ ...current, tag: next }))} />
+                  <TextInput label="Section title" value={block.title} onChange={(next) => updateBlock(block.id, (current) => ({ ...current, title: next }))} />
+                  <TextInput label="Right note" value={block.rightNote} onChange={(next) => updateBlock(block.id, (current) => ({ ...current, rightNote: next }))} />
+                </div>
+              ) : null}
+            </article>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function PhotographyPreview({ draft }) {
+  const preview = photographyDraftToPublic(draft);
+  return (
+    <section className={`admin-preview-shell photography-preview photography-preview-${preview.template}`}>
+      <div className="admin-photo-preview-head" style={{ "--photo-accent": preview.accentColor || "#c96b28" }}>
+        {preview.coverPhoto?.url ? <img src={preview.coverPhoto.url} alt={preview.coverPhoto.alt || preview.title || "Shoot cover"} /> : <div className="admin-preview-placeholder">Cover photo</div>}
+        <div className="admin-photo-preview-overlay">
+          <span>{preview.locationLabel || "No location"}</span>
+          <h2>{preview.title || "Untitled shoot"}</h2>
+          <p>{preview.subtitle || "Add a subtitle to shape the shoot atmosphere."}</p>
+          <small>{preview.frameCount} frame{preview.frameCount === 1 ? "" : "s"} | {preview.cameraModel || "Unknown camera"}</small>
+        </div>
+      </div>
+      <div className="admin-photo-preview-blocks">
+        {(preview.blocks || []).slice(0, 4).map((block) => {
+          if (block.type === "text-note") {
+            return <article key={block.id} className="admin-photo-preview-note"><strong>{block.noteLabel}</strong><h3>{block.title || "Field note"}</h3><p>{block.text}</p></article>;
+          }
+          if (block.type === "section-title") {
+            return <article key={block.id} className="admin-photo-preview-section"><small>{block.tag}</small><h3>{block.title || "Section heading"}</h3><p>{block.rightNote}</p></article>;
+          }
+          if (block.type === "hero-photo" || block.type === "full-photo") {
+            return (
+              <figure key={block.id} className="admin-preview-figure compact">
+                <img src={block.photo?.url} alt={block.photo?.alt || preview.title} />
+                <figcaption>{block.photo?.caption || block.photo?.locationLabel || "Single frame"}</figcaption>
+              </figure>
+            );
+          }
+          return (
+            <div key={block.id} className="admin-preview-photo-grid">
+              {(block.photos || []).slice(0, 3).map((photo, index) => (
+                <figure key={`${block.id}-${index}`} className="admin-preview-figure compact">
+                  <img src={photo.url} alt={photo.alt || preview.title} />
+                  <figcaption>{photo.caption || photo.locationLabel || "Photo"}</figcaption>
+                </figure>
+              ))}
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 function MediaLibrary({ assets, onUpload, onSaveMetadata, onDeleteAsset }) {
   const inputRef = useRef(null);
   const [selectedId, setSelectedId] = useState("");
-  const [editorState, setEditorState] = useState({ title: "", caption: "", alt: "", kind: "", field: "" });
+  const [editorState, setEditorState] = useState({ title: "", caption: "", alt: "", locationLabel: "", kind: "", field: "" });
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -768,6 +1047,7 @@ function MediaLibrary({ assets, onUpload, onSaveMetadata, onDeleteAsset }) {
       title: selectedAsset?.title || "",
       caption: selectedAsset?.caption || "",
       alt: selectedAsset?.alt || "",
+      locationLabel: selectedAsset?.locationLabel || "",
       kind: selectedAsset?.kind || "",
       field: selectedAsset?.field || "",
     });
@@ -877,6 +1157,7 @@ function MediaLibrary({ assets, onUpload, onSaveMetadata, onDeleteAsset }) {
                   <TextInput label="Title" hint="Internal media title or reusable label." value={editorState.title} onChange={(next) => setEditorState((current) => ({ ...current, title: next }))} />
                   <TextInput label="Alt text" hint="Describe the image for screen readers and image fallbacks." value={editorState.alt} onChange={(next) => setEditorState((current) => ({ ...current, alt: next }))} />
                   <TextInput label="Caption" hint="Visible caption text reused when the page supports it." value={editorState.caption} onChange={(next) => setEditorState((current) => ({ ...current, caption: next }))} />
+                  <TextInput label="Location label" hint="Reusable location metadata for photo lightboxes and captions." value={editorState.locationLabel} onChange={(next) => setEditorState((current) => ({ ...current, locationLabel: next }))} />
                   <TextInput label="Kind" hint="Optional organizing tag, such as travel or faces." value={editorState.kind} onChange={(next) => setEditorState((current) => ({ ...current, kind: next }))} />
                 </div>
                 <TextInput label="Field" hint="Optional slot label to help you remember where the asset came from." value={editorState.field} onChange={(next) => setEditorState((current) => ({ ...current, field: next }))} />
@@ -970,6 +1251,7 @@ function Dashboard({ lists, onCreate, onJump }) {
           <button type="button" className="admin-primary-button" onClick={() => onCreate("faces")}>New Face</button>
           <button type="button" className="admin-primary-button" onClick={() => onCreate("papers")}>New Paper</button>
           <button type="button" className="admin-primary-button" onClick={() => onCreate("travel")}>New Dispatch</button>
+          <button type="button" className="admin-primary-button" onClick={() => onCreate("photography")}>New Shoot</button>
         </div>
       </div>
       <div className="admin-panel full-span">
@@ -1207,6 +1489,7 @@ function PreviewPanel({ kind, draft }) {
       {kind === "faces" ? <FacePreview draft={draft} /> : null}
       {kind === "papers" ? <PaperPreview draft={draft} /> : null}
       {kind === "travel" ? <TravelPreview draft={draft} /> : null}
+      {kind === "photography" ? <PhotographyPreview draft={draft} /> : null}
     </section>
   );
 }
@@ -1214,14 +1497,15 @@ function PreviewPanel({ kind, draft }) {
 export default function AdminApp() {
   const [authState, setAuthState] = useState({ loading: true, user: null, claims: {}, isAdmin: false, error: "" });
   const [activeSection, setActiveSection] = useState("dashboard");
-  const [lists, setLists] = useState({ faces: [], papers: [], travel: [] });
+  const [lists, setLists] = useState({ faces: [], papers: [], travel: [], photography: [] });
   const [mediaAssets, setMediaAssets] = useState([]);
   const [sectionMediaConfig, setSectionMediaConfig] = useState({
     readStoryPortrait: createMediaValue(),
     papersHeroImage: createMediaValue(),
     papersAuthorPortrait: createMediaValue(),
   });
-  const [selectedIds, setSelectedIds] = useState({ faces: "", papers: "", travel: "" });
+  const [photographyFeaturedConfig, setPhotographyFeaturedConfig] = useState({ items: [] });
+  const [selectedIds, setSelectedIds] = useState({ faces: "", papers: "", travel: "", photography: "" });
   const [draft, setDraft] = useState(null);
   const [versions, setVersions] = useState([]);
   const [loadingDraft, setLoadingDraft] = useState(false);
@@ -1231,7 +1515,7 @@ export default function AdminApp() {
   const [working, setWorking] = useState(false);
   const [saveState, setSaveState] = useState("Idle");
   const baselineRef = useRef("");
-  const isContentSection = activeSection === "faces" || activeSection === "papers" || activeSection === "travel";
+  const isContentSection = activeSection === "faces" || activeSection === "papers" || activeSection === "travel" || activeSection === "photography";
   const activeItems = isContentSection ? (lists[activeSection] || []) : [];
   const draftId = isContentSection ? selectedIds[activeSection] : "";
   const canEdit = authState.isAdmin && isContentSection && draftId;
@@ -1289,7 +1573,10 @@ export default function AdminApp() {
         papersAuthorPortrait: config?.papersAuthorPortrait || createMediaValue(),
       });
     }, (error) => setNotice({ tone: "error", message: `Site assets failed to load: ${error.message}` }));
-    unsubscribers.push(unsubscribeMedia, unsubscribeSectionMedia);
+    const unsubscribePhotographyFeatured = subscribePhotographyFeaturedConfig((config) => {
+      setPhotographyFeaturedConfig({ items: Array.isArray(config?.items) ? config.items : [] });
+    }, (error) => setNotice({ tone: "error", message: `Photography featured failed to load: ${error.message}` }));
+    unsubscribers.push(unsubscribeMedia, unsubscribeSectionMedia, unsubscribePhotographyFeatured);
     return () => unsubscribers.forEach((unsubscribe) => typeof unsubscribe === "function" && unsubscribe());
   }, [authState.isAdmin]);
 
@@ -1370,7 +1657,13 @@ export default function AdminApp() {
     faces: lists.faces.length,
     papers: lists.papers.length,
     travel: lists.travel.length,
+    photography: lists.photography.length,
   }), [lists]);
+
+  const photographyFeaturedOptions = useMemo(
+    () => collectFeaturedPhotoOptions((lists.photography || []).filter((item) => item.status === "published" || item.publishedRecord?.slug)),
+    [lists.photography]
+  );
 
   async function refreshSession(force = true) {
     if (!authState.user) return;
@@ -1570,6 +1863,19 @@ export default function AdminApp() {
     }
   }
 
+  async function handleSavePhotographyFeatured() {
+    try {
+      setWorking(true);
+      const saved = await savePhotographyFeaturedConfig(photographyFeaturedConfig, authState.user);
+      setPhotographyFeaturedConfig({ items: Array.isArray(saved?.items) ? saved.items : [] });
+      setNotice({ tone: "success", message: "Featured photography updated." });
+    } catch (error) {
+      setNotice({ tone: "error", message: error.message || "Featured photography could not be saved." });
+    } finally {
+      setWorking(false);
+    }
+  }
+
   async function handleRepairCoordinates() {
     try {
       setWorking(true);
@@ -1612,6 +1918,7 @@ export default function AdminApp() {
     if (activeSection === "faces") return <FacesForm draft={draft} onChange={(next) => setDraft(hydrateDraft("faces", next))} onUpload={handleUpload} assets={mediaAssets} />;
     if (activeSection === "papers") return <PapersForm draft={draft} onChange={(next) => setDraft(hydrateDraft("papers", next))} onUpload={handleUpload} assets={mediaAssets} />;
     if (activeSection === "travel") return <TravelForm draft={draft} onChange={(next) => setDraft(hydrateDraft("travel", next))} onUpload={handleUpload} assets={mediaAssets} />;
+    if (activeSection === "photography") return <PhotographyForm draft={draft} onChange={(next) => setDraft(hydrateDraft("photography", next))} onUpload={handleUpload} assets={mediaAssets} />;
     return null;
   }
 
@@ -1706,25 +2013,36 @@ export default function AdminApp() {
           />
         ) : null}
         {isContentSection ? (
-          <section className="admin-editor-grid">
-            <CollectionList kind={activeSection} items={lists[activeSection] || []} selectedId={draftId} onSelect={(id) => setSelectedIds((current) => ({ ...current, [activeSection]: id }))} onCreate={handleCreate} />
-            <section className="admin-panel admin-editor-panel">
-              <div className="admin-panel-head">
-                <div>
-                  <h2>{draft?.title || draft?.profileName || draft?.locationName || "Untitled draft"}</h2>
-                  <p>
-                    Last updated {draft?.updatedAt ? formatStamp(draft.updatedAt) : "not yet"}
-                    {draft?.publishedRecord?.slug ? ` | public slug ${draft.publishedRecord.slug}` : ""}
-                  </p>
+          <>
+            {activeSection === "photography" ? (
+              <PhotographyFeaturedManager
+                config={photographyFeaturedConfig}
+                options={photographyFeaturedOptions}
+                onChange={setPhotographyFeaturedConfig}
+                onSave={handleSavePhotographyFeatured}
+                saving={working}
+              />
+            ) : null}
+            <section className="admin-editor-grid">
+              <CollectionList kind={activeSection} items={lists[activeSection] || []} selectedId={draftId} onSelect={(id) => setSelectedIds((current) => ({ ...current, [activeSection]: id }))} onCreate={handleCreate} />
+              <section className="admin-panel admin-editor-panel">
+                <div className="admin-panel-head">
+                  <div>
+                    <h2>{draft?.title || draft?.profileName || draft?.locationName || "Untitled draft"}</h2>
+                    <p>
+                      Last updated {draft?.updatedAt ? formatStamp(draft.updatedAt) : "not yet"}
+                      {draft?.publishedRecord?.slug ? ` | public slug ${draft.publishedRecord.slug}` : ""}
+                    </p>
+                  </div>
                 </div>
+                {loadingDraft ? <p className="admin-empty-inline">Loading draft...</p> : renderActiveForm()}
+              </section>
+              <div className="admin-aside-stack">
+                {draft ? <PreviewPanel kind={activeSection} draft={draft} /> : null}
+                <VersionsPanel versions={versions} onRestore={handleRestoreVersion} loading={loadingVersions} />
               </div>
-              {loadingDraft ? <p className="admin-empty-inline">Loading draft...</p> : renderActiveForm()}
             </section>
-            <div className="admin-aside-stack">
-              {draft ? <PreviewPanel kind={activeSection} draft={draft} /> : null}
-              <VersionsPanel versions={versions} onRestore={handleRestoreVersion} loading={loadingVersions} />
-            </div>
-          </section>
+          </>
         ) : null}
       </section>
     </main>

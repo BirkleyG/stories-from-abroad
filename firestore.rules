@@ -198,6 +198,11 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    match /photo_shoots/{shootId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
     match /admin_faces/{docId} {
       allow read, write: if isAdmin();
 
@@ -222,12 +227,20 @@ service cloud.firestore {
       }
     }
 
+    match /admin_shoots/{docId} {
+      allow read, write: if isAdmin();
+
+      match /versions/{versionId} {
+        allow read, write: if isAdmin();
+      }
+    }
+
     match /media_assets/{assetId} {
       allow read, write: if isAdmin();
     }
 
     match /site_config/{docId} {
-      allow read: if docId == "section_media";
+      allow read: if docId == "section_media" || docId == "photography_featured";
       allow write: if isAdmin();
     }
 

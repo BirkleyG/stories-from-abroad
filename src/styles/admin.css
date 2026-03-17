@@ -525,6 +525,102 @@ body {
   object-fit: cover;
 }
 
+.admin-featured-panel {
+  margin-bottom: 1rem;
+}
+
+.admin-featured-photo-preview {
+  display: grid;
+  grid-template-columns: 6rem 1fr;
+  gap: 0.9rem;
+  align-items: center;
+}
+
+.admin-featured-photo-preview img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border: 1px solid var(--admin-line);
+}
+
+.admin-featured-photo-preview p {
+  margin: 0.25rem 0 0;
+  color: var(--admin-soft);
+}
+
+.photography-preview {
+  overflow: hidden;
+}
+
+.admin-photo-preview-head {
+  position: relative;
+  min-height: 20rem;
+  border: 1px solid var(--admin-line);
+  background: #0f0f0f;
+}
+
+.admin-photo-preview-head img {
+  width: 100%;
+  height: 20rem;
+  object-fit: cover;
+  display: block;
+}
+
+.admin-photo-preview-overlay {
+  position: absolute;
+  inset: auto 0 0 0;
+  padding: 1rem;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.88), transparent);
+  color: #faf7f2;
+}
+
+.admin-photo-preview-overlay span,
+.admin-photo-preview-overlay small {
+  color: rgba(250, 247, 242, 0.72);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-size: 0.72rem;
+}
+
+.admin-photo-preview-overlay h2 {
+  margin: 0.35rem 0;
+  font-size: 2rem;
+}
+
+.admin-photo-preview-overlay p {
+  margin: 0;
+  color: rgba(250, 247, 242, 0.84);
+}
+
+.admin-photo-preview-blocks {
+  display: grid;
+  gap: 0.9rem;
+  margin-top: 1rem;
+}
+
+.admin-photo-preview-note,
+.admin-photo-preview-section {
+  padding: 1rem;
+  border: 1px solid var(--admin-line);
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.admin-photo-preview-note strong,
+.admin-photo-preview-section small {
+  display: block;
+  margin-bottom: 0.35rem;
+  color: var(--admin-accent);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.admin-photo-preview-note h3,
+.admin-photo-preview-section h3 {
+  margin: 0 0 0.4rem;
+  font-family: "Cormorant Garamond", "Georgia", serif;
+  font-size: 1.4rem;
+}
+
 .admin-preview-placeholder,
 .admin-asset-preview-empty,
 .admin-doc-pill {
