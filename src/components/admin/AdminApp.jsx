@@ -4,7 +4,7 @@ import { firebaseReady } from "../../lib/firebaseClient";
 import { completeAdminSignIn, getAdminSession, onAdminAuthChange, sendAdminSignInLink, signOutAdmin } from "../../lib/admin/adminAuth";
 import { assignAdminClaim, publishDraft, repairCoordinates, scheduleDraft, unpublishDraft } from "../../lib/admin/functions";
 import { dispatchDraftToPublic, faceDraftToPublic, paperDraftToPublic, slugify } from "../../lib/admin/contentAdapters";
-import { createDraft, deleteDraft as deleteDraftRecord, getDraft, listVersions, restoreVersion, saveDraft, saveSectionMediaConfig, subscribeDraftList, subscribeMediaAssets, subscribeSectionMediaConfig, updateMediaAsset, uploadMediaAsset } from "../../lib/admin/repository";
+import { createDraft, deleteDraft as deleteDraftRecord, deleteMediaAsset as deleteMediaAssetRecord, getDraft, listVersions, restoreVersion, saveDraft, saveSectionMediaConfig, subscribeDraftList, subscribeMediaAssets, subscribeSectionMediaConfig, updateMediaAsset, uploadMediaAsset } from "../../lib/admin/repository";
 import {
   AUDIENCE_LEVELS,
   CONTENT_LABELS,
@@ -655,7 +655,7 @@ function TravelPreview({ draft }) {
   );
 }
 
-function MediaLibrary({ assets, onUpload, onSaveMetadata }) {
+function MediaLibrary({ assets, onUpload, onSaveMetadata, onDeleteAsset }) {
   const inputRef = useRef(null);
   const [selectedId, setSelectedId] = useState("");
   const [editorState, setEditorState] = useState({ title: "", caption: "", alt: "", kind: "", field: "" });
@@ -712,6 +712,16 @@ function MediaLibrary({ assets, onUpload, onSaveMetadata }) {
     }
   }
 
+  async function handleDelete() {
+    if (!selectedAsset) return;
+    const confirmed = typeof window === "undefined"
+      ? true
+      : window.confirm(`Delete "${selectedAsset.title || selectedAsset.fileName || "this asset"}"? This is blocked if the asset is still referenced.`);
+    if (!confirmed) return;
+    await onDeleteAsset(selectedAsset);
+    setSelectedId("");
+  }
+
   return (
     <section className="admin-panel media-panel-full">
       <div className="admin-panel-head">
@@ -756,9 +766,14 @@ function MediaLibrary({ assets, onUpload, onSaveMetadata }) {
                     <h3>Asset Details</h3>
                     <p>Edit reusable copy and inspect the extracted file metadata.</p>
                   </div>
-                  <button type="button" className="admin-mini-button primary" onClick={handleSave} disabled={saving}>
-                    {saving ? "Saving..." : "Save metadata"}
-                  </button>
+                  <div className="admin-button-row compact">
+                    <button type="button" className="admin-mini-button primary" onClick={handleSave} disabled={saving}>
+                      {saving ? "Saving..." : "Save metadata"}
+                    </button>
+                    <button type="button" className="admin-mini-button danger" onClick={handleDelete} disabled={saving}>
+                      Delete media
+                    </button>
+                  </div>
                 </div>
 
                 <div className="admin-asset-preview">
@@ -1440,6 +1455,18 @@ export default function AdminApp() {
     }
   }
 
+  async function handleDeleteMediaAsset(asset) {
+    try {
+      setWorking(true);
+      await deleteMediaAssetRecord(asset, authState.user);
+      setNotice({ tone: "success", message: "Media deleted." });
+    } catch (error) {
+      setNotice({ tone: "error", message: error.message || "Media could not be deleted." });
+    } finally {
+      setWorking(false);
+    }
+  }
+
   async function handleSaveSectionMedia() {
     try {
       setWorking(true);
@@ -1580,7 +1607,7 @@ export default function AdminApp() {
         </header>
         <Notice notice={notice} onDismiss={() => setNotice(null)} />
         {activeSection === "dashboard" ? <Dashboard lists={lists} onCreate={handleCreate} onJump={(kind, id) => { setActiveSection(kind); setSelectedIds((current) => ({ ...current, [kind]: id })); }} /> : null}
-        {activeSection === "media" ? <MediaLibrary assets={mediaAssets} onUpload={handleUpload} onSaveMetadata={handleSaveMediaMetadata} /> : null}
+        {activeSection === "media" ? <MediaLibrary assets={mediaAssets} onUpload={handleUpload} onSaveMetadata={handleSaveMediaMetadata} onDeleteAsset={handleDeleteMediaAsset} /> : null}
         {activeSection === "site-assets" ? (
           <SiteAssetsForm
             config={sectionMediaConfig}

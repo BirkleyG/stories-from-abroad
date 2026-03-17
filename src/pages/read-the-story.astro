@@ -1,6 +1,7 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
 import { siteCopy } from "../content/siteCopy";
+import readStoryPageUrl from "../scripts/readStoryPage.js?url";
 
 const base = import.meta.env.BASE_URL ?? "/";
 const basePath = base.endsWith("/") ? base : `${base}/`;
@@ -137,16 +138,5 @@ const copy = siteCopy.readStory;
       }
     }
   </style>
-  <script type="module">
-    import { loadSectionMediaConfig } from "../lib/siteSectionMedia";
-
-    const portrait = document.getElementById("read-story-portrait");
-    if (portrait) {
-      loadSectionMediaConfig().then((config) => {
-        const asset = config?.readStoryPortrait;
-        if (!asset?.url) return;
-        portrait.innerHTML = `<img src="${asset.url}" alt="${asset.alt || "Stories From Abroad portrait"}" loading="lazy" />`;
-      });
-    }
-  </script>
+  <script type="module" src={readStoryPageUrl}></script>
 </BaseLayout>

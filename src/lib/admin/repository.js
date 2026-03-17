@@ -1,6 +1,7 @@
 import {
   addDoc,
   collection,
+  deleteDoc,
   doc,
   getDoc,
   getDocs,
@@ -12,7 +13,7 @@ import {
   setDoc,
   writeBatch,
 } from "firebase/firestore";
-import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
+import { deleteObject, getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { db, firestoreReady, storage } from "../firebaseClient";
 import { buildVersionSnapshot, prepareDraftForSave } from "./contentAdapters";
 import { ADMIN_COLLECTIONS, CONTENT_KINDS, createEmptyDraft, hydrateDraft, SITE_CONFIG_COLLECTION, SITE_CONFIG_DOCS } from "./schemas";
@@ -301,4 +302,100 @@ export async function saveSectionMediaConfig(config, user) {
   await setDoc(ref, payload, { merge: true });
   const snapshot = await getDoc(ref);
   return snapshot.exists() ? { id: snapshot.id, ...snapshot.data() } : {};
+}
+
+function mediaMatchesTarget(value, target) {
+  return Boolean(
+    value
+    && typeof value === "object"
+    && (
+      (target.assetId && String(value.assetId || "") === target.assetId)
+      || (target.url && String(value.url || "") === target.url)
+      || (target.storagePath && String(value.storagePath || "") === target.storagePath)
+    )
+  );
+}
+
+function findMediaReferences(value, target, path = "root", matches = []) {
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => findMediaReferences(item, target, `${path}[${index}]`, matches));
+    return matches;
+  }
+  if (value && typeof value === "object") {
+    if (mediaMatchesTarget(value, target)) {
+      matches.push(path);
+    }
+    Object.entries(value).forEach(([key, entry]) => {
+      findMediaReferences(entry, target, path === "root" ? key : `${path}.${key}`, matches);
+    });
+  }
+  return matches;
+}
+
+async function collectCollectionUsages(collectionName, target, label) {
+  const snapshot = await getDocs(collection(db, collectionName));
+  const usages = [];
+  snapshot.docs.forEach((item) => {
+    const paths = findMediaReferences(item.data(), target, "root", []);
+    if (paths.length) {
+      usages.push({
+        label,
+        docId: item.id,
+        paths,
+      });
+    }
+  });
+  return usages;
+}
+
+export async function findMediaAssetUsages(asset) {
+  assertFirestoreReady();
+  const target = {
+    assetId: String(asset?.id || asset?.assetId || ""),
+    url: String(asset?.url || ""),
+    storagePath: String(asset?.storagePath || ""),
+  };
+
+  const [faces, papers, travel, publicFaces, publicPapers, publicTravel, sectionMediaSnap] = await Promise.all([
+    collectCollectionUsages(ADMIN_COLLECTIONS.faces, target, "Faces drafts"),
+    collectCollectionUsages(ADMIN_COLLECTIONS.papers, target, "Papers drafts"),
+    collectCollectionUsages(ADMIN_COLLECTIONS.travel, target, "Travel drafts"),
+    collectCollectionUsages("faces", target, "Published Faces"),
+    collectCollectionUsages("papers", target, "Published Papers"),
+    collectCollectionUsages("scrap_sheet_posts", target, "Published Travel"),
+    getDoc(doc(db, SITE_CONFIG_COLLECTION, SITE_CONFIG_DOCS.sectionMedia)),
+  ]);
+
+  const siteAssets = [];
+  if (sectionMediaSnap.exists()) {
+    const paths = findMediaReferences(sectionMediaSnap.data(), target, "root", []);
+    if (paths.length) {
+      siteAssets.push({
+        label: "Site assets",
+        docId: sectionMediaSnap.id,
+        paths,
+      });
+    }
+  }
+
+  return [...faces, ...papers, ...travel, ...publicFaces, ...publicPapers, ...publicTravel, ...siteAssets];
+}
+
+export async function deleteMediaAsset(asset, user) {
+  assertFirestoreReady();
+  assertStorageReady();
+  const usages = await findMediaAssetUsages(asset);
+  if (usages.length) {
+    const summary = usages.map((usage) => `${usage.label} (${usage.docId} -> ${usage.paths.join(", ")})`).join("; ");
+    throw new Error(`This media is still in use: ${summary}`);
+  }
+
+  if (asset?.storagePath) {
+    await deleteObject(ref(storage, asset.storagePath));
+  }
+  await deleteDoc(doc(db, ADMIN_COLLECTIONS.media, String(asset.id || asset.assetId || "")));
+  return {
+    id: String(asset.id || asset.assetId || ""),
+    deletedBy: actor(user),
+  };
 }

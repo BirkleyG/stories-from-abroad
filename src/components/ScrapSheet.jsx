@@ -178,9 +178,15 @@ function deriveCurrentLocation(posts) {
       name: latest.location,
       lng: latest.lngLat[0],
       lat: latest.lngLat[1],
+      hasData: true,
     };
   }
-  return copy.currentLocation;
+  return {
+    name: "",
+    lng: 0,
+    lat: 0,
+    hasData: false,
+  };
 }
 
 function normalizeQuote(q) {
@@ -419,15 +425,17 @@ function Globe(props) {
     scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(rp), ringMat));
 
     // Current location pin (filled)
-    var pinV = llToV3(currentLocation.lng, currentLocation.lat);
-    var pinMesh = new THREE.Mesh(new THREE.SphereGeometry(0.045,10,10), new THREE.MeshBasicMaterial({color:0xCC1111}));
-    pinMesh.position.copy(pinV);
-    grp.add(pinMesh);
-    var prp = [];
-    for (var qi = 0; qi <= 64; qi++) { var qa = qi/64*Math.PI*2; prp.push(new THREE.Vector3(Math.cos(qa)*0.09,Math.sin(qa)*0.09,0)); }
-    var pinRing = new THREE.Line(new THREE.BufferGeometry().setFromPoints(prp), new THREE.LineBasicMaterial({color:0xCC1111,transparent:true,opacity:0.5}));
-    pinRing.position.copy(pinV); pinRing.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1), pinV.clone().normalize());
-    grp.add(pinRing);
+    if (currentLocation.hasData !== false) {
+      var pinV = llToV3(currentLocation.lng, currentLocation.lat);
+      var pinMesh = new THREE.Mesh(new THREE.SphereGeometry(0.045,10,10), new THREE.MeshBasicMaterial({color:0xCC1111}));
+      pinMesh.position.copy(pinV);
+      grp.add(pinMesh);
+      var prp = [];
+      for (var qi = 0; qi <= 64; qi++) { var qa = qi/64*Math.PI*2; prp.push(new THREE.Vector3(Math.cos(qa)*0.09,Math.sin(qa)*0.09,0)); }
+      var pinRing = new THREE.Line(new THREE.BufferGeometry().setFromPoints(prp), new THREE.LineBasicMaterial({color:0xCC1111,transparent:true,opacity:0.5}));
+      pinRing.position.copy(pinV); pinRing.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1), pinV.clone().normalize());
+      grp.add(pinRing);
+    }
 
     // GeoJSON land outlines
     fetch("https://cdn.jsdelivr.net/npm/world-atlas@2/land-110m.json")
@@ -1030,8 +1038,8 @@ function SubModal({ email, setEmail, subscribed, onSubscribe, onClose, statusMes
 export default function ScrapSheet({ backHref = "/" }) {
   var filterS=useState("all"),filter=filterS[0],setFilter=filterS[1];
   var expandedS=useState(null),expandedId=expandedS[0],setExpandedId=expandedS[1];
-  var fallbackPosts = POSTS.map(normalizePost);
-  var fallbackQuotes = QUOTES.map(normalizeQuote);
+  var fallbackPosts = [];
+  var fallbackQuotes = [];
   var postsS=useState(fallbackPosts),posts=postsS[0],setPosts=postsS[1];
   var quotesS=useState(fallbackQuotes),quotes=quotesS[0],setQuotes=quotesS[1];
   var reactionsS=useState(reactionsFromPosts(fallbackPosts)),reactions=reactionsS[0],setReactions=reactionsS[1];
@@ -1119,32 +1127,31 @@ export default function ScrapSheet({ backHref = "/" }) {
     (async function(){
       if (!firestoreReady || !db) {
         if (active) {
-          setPosts(fallbackPosts);
-          setQuotes(fallbackQuotes);
-          setReactions(reactionsFromPosts(fallbackPosts));
+          setPosts([]);
+          setQuotes([]);
+          setReactions({});
         }
         return;
       }
       try {
         var postSnap = await getDocs(query(collection(db, COLLECTIONS.posts), orderBy("date", "desc")));
         var loadedPosts = postSnap.docs.map(function(doc){ return normalizePost(Object.assign({ id: doc.id }, doc.data())); });
-        if (!loadedPosts.length) loadedPosts = fallbackPosts;
         if (active) {
           setPosts(loadedPosts);
           setReactions(reactionsFromPosts(loadedPosts));
         }
       } catch (e) {
         if (active) {
-          setPosts(fallbackPosts);
-          setReactions(reactionsFromPosts(fallbackPosts));
+          setPosts([]);
+          setReactions({});
         }
       }
       try {
         var quoteSnap = await getDocs(collection(db, COLLECTIONS.quotes));
         var loadedQuotes = quoteSnap.docs.map(function(doc){ return normalizeQuote(Object.assign({ id: doc.id }, doc.data())); }).filter(function(q){return q.text;});
-        if (active) setQuotes(loadedQuotes.length ? loadedQuotes : fallbackQuotes);
+        if (active) setQuotes(loadedQuotes);
       } catch (e) {
-        if (active) setQuotes(fallbackQuotes);
+        if (active) setQuotes([]);
       }
     })();
     return function(){active=false;};
@@ -1408,8 +1415,12 @@ export default function ScrapSheet({ backHref = "/" }) {
   var filtered = searchQ.trim() ? base.filter(function(p){return matchesSearch(p,searchQ);}) : base;
   var expanded = expandedId?posts.find(function(p){return p.id===String(expandedId);}):null;
   var currentLocation = deriveCurrentLocation(posts);
-  var heroLastReported = copy.hero.lastReported.replace("{location}", currentLocation.name);
-  var heroLocationLabel = copy.hero.locationLabel.replace("{location}", currentLocation.name);
+  var heroLastReported = currentLocation.hasData
+    ? copy.hero.lastReported.replace("{location}", currentLocation.name)
+    : "No dispatches published yet";
+  var heroLocationLabel = currentLocation.hasData
+    ? copy.hero.locationLabel.replace("{location}", currentLocation.name)
+    : "Awaiting first dispatch";
   var dispatchCount = copy.hero.countTemplate
     .replace("{current}", String(posts.length).padStart(2,"0"))
     .replace("{total}", String(posts.length).padStart(2,"0"));

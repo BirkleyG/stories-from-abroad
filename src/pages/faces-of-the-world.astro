@@ -194,13 +194,15 @@ body{font-family:var(--bod);color:var(--white);background:#000;overflow-x:hidden
 .art-pull{margin:2.7rem -1rem;padding:1.6rem 2.2rem;border-top:1px solid rgba(201,168,76,.13);border-bottom:1px solid rgba(201,168,76,.13);position:relative}
 .art-pull::before{content:'\201C';font-family:var(--dis);font-size:5rem;line-height:.8;color:var(--gold);opacity:.07;position:absolute;top:.8rem;left:1.3rem}
 .art-pull-text{font-family:var(--dis);font-style:italic;font-size:clamp(.95rem,1.45vw,1.2rem);color:var(--white);line-height:1.62;position:relative;z-index:1}
-.art-photo-slot{margin:2.2rem 0;border:1px dashed rgba(201,168,76,.09);cursor:pointer;overflow:hidden;transition:border-color .2s}
+.art-photo-slot{margin:2.2rem 0;border:1px solid rgba(201,168,76,.14);cursor:pointer;overflow:hidden;transition:border-color .2s;background:linear-gradient(180deg,rgba(14,9,5,.98),rgba(7,4,2,.96))}
 .art-photo-slot:hover{border-color:rgba(201,168,76,.28)}
 .art-photo-ph{padding:2.2rem 2rem;display:flex;flex-direction:column;align-items:center;gap:.5rem;background:rgba(6,3,1,.32)}
 .art-photo-ph svg{opacity:.07}
 .art-photo-ph span{font-style:italic;font-size:.65rem;color:rgba(201,168,76,.16);letter-spacing:.1em}
-.art-photo-slot img{width:100%;display:block;max-height:480px;object-fit:cover}
+.art-photo-slot img{width:100%;display:block;max-height:480px;object-fit:contain;background:radial-gradient(circle at top,rgba(201,168,76,.08),rgba(10,6,2,.98) 68%);padding:.8rem}
 .art-photo-slot.is-static{border-style:solid;cursor:default}
+.art-photo-empty{padding:1.4rem 1rem;text-align:center;font-family:var(--dis);font-style:italic;color:rgba(230,220,201,.52);border:1px dashed rgba(201,168,76,.14);background:rgba(7,4,2,.84)}
+.prof-portrait-ph{width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,rgba(18,12,7,.98),rgba(8,5,2,.96));border:1px solid rgba(201,168,76,.12);font-family:var(--dis);font-style:italic;color:rgba(230,220,201,.5);letter-spacing:.08em;text-transform:uppercase;font-size:.7rem}
 .art-photo-cap{padding:.8rem 1rem 1rem;font-size:.8rem;line-height:1.6;color:rgba(230,220,201,.72);border-top:1px solid rgba(201,168,76,.08)}
 .art-photo-slot input{display:none}
 .hidden{display:none!important}
@@ -312,7 +314,7 @@ const localInterviews = [
   {slug:'tomas-varga',name:'Tom\u00e1s Varga',age:55,religion:'Catholic',occupation:'Beekeeper',city:'Mendoza',country:'Argentina',date:'2026-02-28',lngLat:[-68.84,-32.89],pic:52,descriptor:'A keeper of fifty thousand small lives',excerpt:'A hive is not a colony. It is a single organism that happens to be made of individual creatures. That distinction is everything.',article:[{type:'para',text:'Tom\u00e1s Varga keeps nineteen hives in the foothills east of Mendoza, between vineyards and scrubland.'},{type:'photo',id:'p1'},{type:'qa',q:'What have bees taught you that nothing else could?',a:'That everything in nature operates with a purpose that doesn\'t require your understanding. Bees remind me to have more humility.'},{type:'pull',text:'Fear and respect are not the same thing, and bees deserve the second, not the first.'}]}
 ];
 
-let interviews = [...localInterviews];
+let interviews = [];
 let byDate = [];
 
 const FIREBASE_CONFIG = (() => {
@@ -327,7 +329,7 @@ const FIREBASE_CONFIG = (() => {
 })();
 const HAS_FIRESTORE_CONFIG = Object.values(FIREBASE_CONFIG).every(Boolean);
 const CACHE_KEYS = {
-  interviews: 'faces-world-interviews-v1',
+  interviews: 'faces-world-interviews-v2',
   worldAtlas: 'faces-world-atlas-v1',
 };
 const CACHE_TTL_MS = {
@@ -505,7 +507,7 @@ function parseLocation(rawLocation) {
 }
 
 function normalizeInterviewDoc(raw, fallback, index, seenSlugs) {
-  const fallbackLocal = fallback || localInterviews[index] || null;
+  const fallbackLocal = fallback || null;
   const fromLocation = parseLocation(raw.location);
 
   const baseSlug = slugifyName(raw.slug || raw.id || raw.name || (fallbackLocal && fallbackLocal.slug) || '') || ('portrait-' + (index + 1));
@@ -593,12 +595,12 @@ async function loadFirestoreInterviews() {
     );
     if (!snap || snap.empty) return null;
 
-    const bySlug = new Map(localInterviews.map((iv) => [iv.slug, iv]));
+    const bySlug = new Map();
     const seenSlugs = new Set();
     const docs = snap.docs
       .map((doc, index) => {
         const raw = { id: doc.id, ...doc.data() };
-        const fallback = bySlug.get(raw.slug) || bySlug.get(raw.id) || localInterviews[index] || null;
+        const fallback = bySlug.get(raw.slug) || bySlug.get(raw.id) || null;
         return normalizeInterviewDoc(raw, fallback, index, seenSlugs);
       })
       .filter(Boolean);
@@ -618,7 +620,7 @@ function loadInterviewsFromCache() {
     interviews = cached;
     return true;
   }
-  interviews = [...localInterviews];
+  interviews = [];
   return false;
 }
 
@@ -639,20 +641,16 @@ function resolvePortraitImage(iv) {
   if (typeof iv.portraitUrl === 'string' && iv.portraitUrl.trim()) {
     return iv.portraitUrl.trim();
   }
-  const fallback = 'https://picsum.photos/seed/' + encodeURIComponent(iv.pic ?? iv.slug) + '/1600/900';
   if (typeof iv.pic === 'string') {
     const trimmed = iv.pic.trim();
-    if (!trimmed) return fallback;
+    if (!trimmed) return '';
     if (/^data:image\//i.test(trimmed) || /^blob:/i.test(trimmed) || /^https?:\/\//i.test(trimmed) || trimmed.startsWith('/')) {
       return trimmed;
     }
     if (/\.(png|jpe?g|webp|gif|avif|svg)(\?.*)?$/i.test(trimmed)) return trimmed;
-    if (/^-?\d+(\.\d+)?$/.test(trimmed)) {
-      return 'https://picsum.photos/seed/' + encodeURIComponent(trimmed) + '/1600/900';
-    }
-    return fallback;
+    return '';
   }
-  return fallback;
+  return '';
 }
 
 /* === MAP === */
@@ -1407,11 +1405,13 @@ function setArchHeight() {
 function makeSlide(iv, idx, total) {
   const isRight = idx % 2 === 1;
   const div = document.createElement('div'); div.className = 'stage-slot';
+  const portraitSrc = resolvePortraitImage(iv);
   const img = document.createElement('img');
-  img.src = resolvePortraitImage(iv);
+  img.src = portraitSrc || 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%221%22 height=%221%22/%3E';
   img.alt = iv.name;
   img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;filter:brightness(0.62) saturate(0.75)';
   div.appendChild(img);
+  if (!portraitSrc) img.style.opacity = '.08';
   const ul = document.createElement('label'); ul.className = 'stage-upload';
   ul.style[isRight ? 'right' : 'left'] = '1.1rem';
   const ui = document.createElement('input'); ui.type='file'; ui.accept='image/*';
@@ -1558,11 +1558,14 @@ function renderProfile(iv) {
       if (media && media.url) {
         return '<figure class="art-photo-slot is-static"><img src="'+esc(media.url)+'" alt="'+esc(media.alt || iv.name)+'">' + (media.caption ? '<figcaption class="art-photo-cap">'+esc(media.caption)+'</figcaption>' : '') + '</figure>';
       }
-      return '<div class="art-photo-slot"><div class="art-photo-ph"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="rgba(201,168,76,.28)" stroke-width="1.2"><rect x="3" y="3" width="18" height="18" rx="1"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg><span>Click to add photograph</span></div><input type="file" accept="image/*"></div>';
+      return '<div class="art-photo-empty">Photograph not available.</div>';
     }
     return '';
   }).join('');
-  document.getElementById('prof-content').innerHTML = '<div class="prof-hero-cart"><div class="prof-split"><div class="prof-portrait-zone" id="ppz"><img src="'+esc(portraitSrc)+'" alt="'+esc(iv.name)+'"></div><div class="prof-meta"><p class="prof-location">'+esc(iv.city)+', '+esc(iv.country)+' \u00b7 '+esc(fmtDate(iv.date))+'</p><h1 class="prof-name">'+esc(iv.name)+'</h1><p class="prof-desc">'+esc(iv.descriptor)+'</p><div class="prof-dets"><div class="prof-det"><span class="det-k">Age</span><span class="det-v">'+esc(iv.age)+'</span></div><div class="prof-det"><span class="det-k">Faith</span><span class="det-v">'+esc(iv.religion)+'</span></div><div class="prof-det"><span class="det-k">Work</span><span class="det-v">'+esc(iv.occupation)+'</span></div><div class="prof-det"><span class="det-k">Location</span><span class="det-v">'+esc(iv.city)+', '+esc(iv.country)+'</span></div></div><p class="prof-excerpt">'+esc(iv.excerpt)+'</p></div></div></div><div class="prof-article-wrap"><div class="prof-article-cart">'+blocks+'</div></div>';
+  const portraitMarkup = portraitSrc
+    ? '<img src="'+esc(portraitSrc)+'" alt="'+esc(iv.name)+'">'
+    : '<div class="prof-portrait-ph">Portrait Pending</div>';
+  document.getElementById('prof-content').innerHTML = '<div class="prof-hero-cart"><div class="prof-split"><div class="prof-portrait-zone" id="ppz">'+portraitMarkup+'</div><div class="prof-meta"><p class="prof-location">'+esc(iv.city)+', '+esc(iv.country)+' \u00b7 '+esc(fmtDate(iv.date))+'</p><h1 class="prof-name">'+esc(iv.name)+'</h1><p class="prof-desc">'+esc(iv.descriptor)+'</p><div class="prof-dets"><div class="prof-det"><span class="det-k">Age</span><span class="det-v">'+esc(iv.age)+'</span></div><div class="prof-det"><span class="det-k">Faith</span><span class="det-v">'+esc(iv.religion)+'</span></div><div class="prof-det"><span class="det-k">Work</span><span class="det-v">'+esc(iv.occupation)+'</span></div><div class="prof-det"><span class="det-k">Location</span><span class="det-v">'+esc(iv.city)+', '+esc(iv.country)+'</span></div></div><p class="prof-excerpt">'+esc(iv.excerpt)+'</p></div></div></div><div class="prof-article-wrap"><div class="prof-article-cart">'+blocks+'</div></div>';
   const bw = document.createElement('div'); bw.style.cssText='position:relative;z-index:2;padding:.75rem 2.8vw';
   bw.innerHTML='<button class="back-btn" id="prof-back"><svg width="13" height="9" viewBox="0 0 14 10" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="13" y1="5" x2="1" y2="5"/><polyline points="5,1 1,5 5,9"/></svg> All Portraits</button>';
   document.getElementById('prof-content').insertBefore(bw, document.getElementById('prof-content').firstChild);
