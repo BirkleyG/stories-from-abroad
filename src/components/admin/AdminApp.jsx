@@ -753,6 +753,7 @@ function TravelPreview({ draft }) {
 function PhotographyFeaturedManager({ config, options, onChange, onSave, saving }) {
   const items = Array.isArray(config?.items) ? config.items : [];
   const optionMap = new Map(options.map((option) => [`${option.shootId}:${option.photoId}`, option]));
+  const firstOption = options[0] || null;
 
   function upsert(index, key) {
     const selected = optionMap.get(key);
@@ -773,7 +774,29 @@ function PhotographyFeaturedManager({ config, options, onChange, onSave, saving 
           <p>Choose ordered hero photos for the public photography archive. Only published shoot photos appear here.</p>
         </div>
         <div className="admin-button-row compact">
-          <button type="button" className="admin-mini-button" onClick={() => onChange({ items: [...items, null].filter(Boolean) })}>
+          <button
+            type="button"
+            className="admin-mini-button"
+            onClick={() => onChange({
+              items: [
+                ...items,
+                firstOption
+                  ? { ...firstOption }
+                  : {
+                    shootId: "",
+                    shootSlug: "",
+                    shootTitle: "",
+                    photoId: "",
+                    photoUrl: "",
+                    photoAlt: "",
+                    locationLabel: "",
+                    accentColor: "#c96b28",
+                    caption: "",
+                  },
+              ],
+            })}
+            disabled={!options.length}
+          >
             Add slot
           </button>
           <button type="button" className="admin-primary-button" onClick={onSave} disabled={saving}>
@@ -784,7 +807,7 @@ function PhotographyFeaturedManager({ config, options, onChange, onSave, saving 
       {!options.length ? <p className="admin-empty-inline">Publish a photography shoot first, then its photos will be available to feature.</p> : null}
       <div className="admin-stack">
         {items.map((item, index) => (
-          <article key={`${item?.shootId || "empty"}-${item?.photoId || index}`} className="admin-subcard">
+          <article key={`featured-slot-${index}-${item?.shootId || "empty"}-${item?.photoId || "empty"}`} className="admin-subcard">
             <div className="admin-subcard-head">
               <strong>Featured slot {index + 1}</strong>
               <div className="admin-button-row compact">

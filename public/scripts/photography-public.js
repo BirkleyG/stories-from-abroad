@@ -19,6 +19,44 @@
     return parsed.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
   }
 
+  function clampNumber(value, min, max, fallback) {
+    var parsed = Number(value);
+    if (!Number.isFinite(parsed)) return fallback;
+    return Math.max(min, Math.min(max, parsed));
+  }
+
+  function photoRatio(photo) {
+    var width = Number(photo && photo.width);
+    var height = Number(photo && photo.height);
+    if (!Number.isFinite(width) || !Number.isFinite(height) || height <= 0) return 1;
+    return width / height;
+  }
+
+  function normalizeHex(color) {
+    var raw = String(color || "").trim();
+    if (!raw) return "";
+    if (!/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(raw)) return "";
+    if (raw.length === 4) {
+      return "#" + raw.slice(1).split("").map(function (char) { return char + char; }).join("");
+    }
+    return raw.toLowerCase();
+  }
+
+  function tintHex(color, amount) {
+    var hex = normalizeHex(color);
+    if (!hex) return "";
+    var value = hex.slice(1);
+    var r = parseInt(value.slice(0, 2), 16);
+    var g = parseInt(value.slice(2, 4), 16);
+    var b = parseInt(value.slice(4, 6), 16);
+    var nextR = Math.max(0, Math.min(255, Math.round(r + (255 - r) * amount)));
+    var nextG = Math.max(0, Math.min(255, Math.round(g + (255 - g) * amount)));
+    var nextB = Math.max(0, Math.min(255, Math.round(b + (255 - b) * amount)));
+    return "#" + [nextR, nextG, nextB].map(function (channel) {
+      return channel.toString(16).padStart(2, "0");
+    }).join("");
+  }
+
   function buildShootPath(basePath, slug) {
     return slug ? basePath + "photography/" + encodeURIComponent(slug) + "/" : basePath + "photography/";
   }
@@ -136,13 +174,17 @@
     archive.hidden = true;
     root.hidden = false;
     root.dataset.template = shoot.template || "desert-bloom";
+    var shootAccent = normalizeHex(shoot.accentColor) || "#c96b28";
+    root.style.setProperty("--shoot-accent", shootAccent);
+    root.style.setProperty("--shoot-accent-soft", tintHex(shootAccent, -0.35) || shootAccent);
 
+    var frameCount = Number(shoot.frameCount || (shoot.allPhotos || []).length || 0);
     byId("shoot-overlay-eyebrow").textContent = shoot.locationLabel || "Published shoot";
     byId("shoot-overlay-title").textContent = shoot.title || "Untitled shoot";
     byId("shoot-overlay-subtitle").textContent = shoot.subtitle || shoot.notes || "";
-    byId("shoot-overlay-meta").textContent = [formatDate(shoot.shootDate), String(shoot.frameCount || (shoot.allPhotos || []).length || 0) + " frames", shoot.cameraModel || "Unknown camera"].filter(Boolean).join(" | ");
+    byId("shoot-overlay-meta").textContent = [formatDate(shoot.shootDate), String(frameCount) + " frames", shoot.cameraModel || "Unknown camera"].filter(Boolean).join(" | ");
     byId("shoot-bar-name").textContent = shoot.title || "Untitled shoot";
-    byId("shoot-bar-meta").textContent = [shoot.locationLabel || "", String(shoot.frameCount || 0) + " frames"].filter(Boolean).join(" | ");
+    byId("shoot-bar-meta").textContent = [shoot.locationLabel || "", String(frameCount) + " frames"].filter(Boolean).join(" | ");
     byId("shoot-footer-title").textContent = shoot.title || "Untitled shoot";
     byId("shoot-footer-meta").textContent = [formatDate(shoot.shootDate), shoot.cameraModel || "Unknown camera", shoot.locationLabel || ""].filter(Boolean).join(" | ");
 
@@ -151,25 +193,27 @@
     heroEl.innerHTML = heroPhoto ? '<img src="' + esc(heroPhoto.url) + '" alt="' + esc(heroPhoto.alt || shoot.title || 'Shoot cover') + '">' : '<div class="photo-empty">No hero image</div>';
 
     var blocksEl = byId("shoot-blocks");
-    blocksEl.innerHTML = (shoot.blocks || []).map(function (block) {
+    blocksEl.innerHTML = (shoot.blocks || []).map(function (block, blockIndex) {
       if (block.type === "text-note") {
         return '<article class="shoot-note"><span>' + esc(block.noteLabel || 'Field Note') + '</span><h3>' + esc(block.title || 'Field note') + '</h3><p>' + esc(block.text || '') + '</p></article>';
       }
       if (block.type === "section-title") {
-        return '<article class="shoot-section-title"><span>' + esc(block.tag || '') + '</span><h3>' + esc(block.title || 'Section') + '</h3><p>' + esc(block.rightNote || '') + '</p></article>';
+        return '<article class="shoot-section-title"><b class="shoot-section-index">' + esc(String(blockIndex + 1).padStart(2, "0")) + '</b><div><span>' + esc(block.tag || '') + '</span><h3>' + esc(block.title || 'Section') + '</h3><p>' + esc(block.rightNote || '') + '</p></div></article>';
       }
       if (block.type === "hero-photo" || block.type === "full-photo") {
         var photo = block.photo || null;
         if (!photo || !photo.url) return '';
-        return '<figure class="shoot-single-frame" data-photo-open="' + esc((photo.id || block.id || '') + '') + '" data-photo-ref="' + esc(block.id + '-0') + '" style="--frame-height:' + esc(String(block.height || 780)) + 'px">' +
+        var frameHeight = clampNumber(block.height, 320, 760, 620);
+        return '<figure class="shoot-single-frame" data-photo-open="' + esc((photo.id || block.id || '') + '') + '" data-photo-ref="' + esc(block.id + '-0') + '" style="--frame-height:' + esc(String(frameHeight)) + 'px">' +
           '<img src="' + esc(photo.url) + '" alt="' + esc(photo.alt || shoot.title || 'Photograph') + '" loading="lazy">' +
           '<figcaption><strong>' + esc(photo.caption || photo.title || '') + '</strong><span>' + esc(photo.locationLabel || '') + '</span></figcaption>' +
         '</figure>';
       }
       var rowClass = block.type === 'ghost-text-row' ? 'shoot-photo-row ghost' : 'shoot-photo-row';
       var ghost = block.type === 'ghost-text-row' && block.ghostText ? '<div class="shoot-ghost-text ' + esc(block.ghostPosition || 'center') + '">' + esc(block.ghostText) + '</div>' : '';
-      return '<section class="' + rowClass + '" style="--row-height:' + esc(String(block.height || 540)) + 'px">' + ghost + (block.photos || []).map(function (photo, index) {
-        return '<figure class="shoot-row-frame" data-photo-open="' + esc(photo.id || '') + '" data-photo-ref="' + esc(block.id + '-' + index) + '">' +
+      var rowHeight = clampNumber(block.height, 260, 620, 440);
+      return '<section class="' + rowClass + '" style="--row-height:' + esc(String(rowHeight)) + 'px">' + ghost + (block.photos || []).map(function (photo, index) {
+        return '<figure class="shoot-row-frame" style="--photo-ratio:' + esc(String(photoRatio(photo))) + '" data-photo-open="' + esc(photo.id || '') + '" data-photo-ref="' + esc(block.id + '-' + index) + '">' +
           '<img src="' + esc(photo.url) + '" alt="' + esc(photo.alt || shoot.title || 'Photograph') + '" loading="lazy">' +
           '<figcaption><strong>' + esc(photo.caption || photo.title || '') + '</strong><span>' + esc(photo.locationLabel || '') + '</span></figcaption>' +
         '</figure>';
@@ -188,6 +232,8 @@
     if (!root || !archive) return;
     root.hidden = true;
     archive.hidden = false;
+    root.style.removeProperty("--shoot-accent");
+    root.style.removeProperty("--shoot-accent-soft");
     document.body.classList.remove("is-photo-viewing");
   }
 

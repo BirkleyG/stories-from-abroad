@@ -27,7 +27,9 @@ const basePathJson = JSON.stringify(basePath);
         --photo-text: #f4efe5;
         --photo-dim: rgba(244, 239, 229, 0.56);
         --photo-line: rgba(244, 239, 229, 0.14);
-        --photo-accent: #c96b28;
+        --photo-accent: #ff6a00;
+        --photo-accent-2: #ff2d78;
+        --photo-accent-3: #1478ff;
       }
 
       * { box-sizing: border-box; }
@@ -54,11 +56,24 @@ const basePathJson = JSON.stringify(basePath);
         padding: 1rem 1.4rem;
         background: linear-gradient(to bottom, rgba(11, 9, 7, 0.92), rgba(11, 9, 7, 0.58), transparent);
       }
+      .photo-topbar::after,
+      .shoot-title-bar::after {
+        content: "";
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 1px;
+        background: linear-gradient(90deg, var(--photo-accent-2), var(--photo-accent), var(--photo-accent-3));
+        opacity: 0.72;
+      }
       .shoot-title-bar {
         opacity: 0;
         pointer-events: none;
         border-bottom: 1px solid var(--photo-line);
-        background: rgba(11, 9, 7, 0.94);
+        background:
+          linear-gradient(90deg, var(--shoot-accent-soft, #1b1b1b), transparent 48%),
+          rgba(11, 9, 7, 0.94);
         transition: opacity 0.24s ease;
       }
       .shoot-title-bar.visible {
@@ -119,13 +134,13 @@ const basePathJson = JSON.stringify(basePath);
       .photo-hero h1 {
         margin: 1.55rem 0 0;
         font-family: "Bebas Neue", sans-serif;
-        font-size: clamp(4.8rem, 15vw, 10rem);
+        font-size: clamp(3.6rem, 12vw, 7.2rem);
         line-height: 0.84;
-        letter-spacing: 0.02em;
+        letter-spacing: 0.04em;
       }
       .photo-hero h1 .outline {
         color: transparent;
-        -webkit-text-stroke: 2px #f4efe5;
+        -webkit-text-stroke: 1.4px #f4efe5;
       }
       .photo-hero h1 .accent {
         color: #ff2d78;
@@ -134,7 +149,7 @@ const basePathJson = JSON.stringify(basePath);
         max-width: 34rem;
         margin: 1.55rem 0 0;
         font-family: "Cormorant Garamond", serif;
-        font-size: 1.7rem;
+        font-size: clamp(1.15rem, 3.6vw, 1.45rem);
         font-style: italic;
         line-height: 1.55;
         color: rgba(244, 239, 229, 0.66);
@@ -173,9 +188,10 @@ const basePathJson = JSON.stringify(basePath);
       }
       .photo-section-head h2 {
         margin: 0;
-        font-family: "DM Serif Display", serif;
-        font-size: clamp(2rem, 5vw, 3.4rem);
+        font-family: "Bebas Neue", sans-serif;
+        font-size: clamp(2rem, 6vw, 3.2rem);
         font-weight: 400;
+        letter-spacing: 0.05em;
       }
       .photo-section-head span {
         color: var(--photo-dim);
@@ -185,7 +201,7 @@ const basePathJson = JSON.stringify(basePath);
       }
       .photo-feature-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
         gap: 1rem;
       }
       .photo-feature-card,
@@ -195,6 +211,13 @@ const basePathJson = JSON.stringify(basePath);
         border: 1px solid var(--photo-line);
         background: rgba(255, 255, 255, 0.02);
         overflow: hidden;
+        transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+      }
+      .photo-feature-card:hover,
+      .photo-shoot-card:hover {
+        transform: translateY(-3px);
+        border-color: var(--shoot-accent, var(--photo-accent));
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
       }
       .photo-feature-card img,
       .photo-shoot-cover img {
@@ -204,7 +227,7 @@ const basePathJson = JSON.stringify(basePath);
         display: block;
       }
       .photo-feature-card {
-        min-height: 24rem;
+        min-height: 18rem;
         position: relative;
       }
       .photo-feature-card img {
@@ -231,13 +254,14 @@ const basePathJson = JSON.stringify(basePath);
         font-size: 0.72rem;
         letter-spacing: 0.26em;
         text-transform: uppercase;
-        color: #d7b57f;
+        color: var(--shoot-accent, #d7b57f);
         margin-bottom: 0.4rem;
       }
       .photo-feature-meta strong {
         display: block;
-        font-family: "DM Serif Display", serif;
-        font-size: 1.7rem;
+        font-family: "Bebas Neue", sans-serif;
+        font-size: 1.8rem;
+        letter-spacing: 0.04em;
         margin-bottom: 0.35rem;
       }
       .photo-feature-meta p,
@@ -245,11 +269,11 @@ const basePathJson = JSON.stringify(basePath);
 
       .photo-shoot-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
         gap: 1rem;
       }
       .photo-shoot-cover {
-        aspect-ratio: 4 / 5;
+        aspect-ratio: 5 / 4;
         background: rgba(255, 255, 255, 0.04);
       }
       .photo-shoot-cover.is-empty { min-height: 18rem; }
@@ -266,9 +290,10 @@ const basePathJson = JSON.stringify(basePath);
       }
       .photo-shoot-body h3 {
         margin: 0 0 0.55rem;
-        font-family: "Cormorant Garamond", serif;
-        font-size: 2rem;
-        font-weight: 500;
+        font-family: "Bebas Neue", sans-serif;
+        font-size: 1.9rem;
+        font-weight: 400;
+        letter-spacing: 0.04em;
       }
       .photo-chip-row {
         display: flex;
@@ -282,7 +307,7 @@ const basePathJson = JSON.stringify(basePath);
         font-size: 0.68rem;
         text-transform: uppercase;
         letter-spacing: 0.18em;
-        color: #d7b57f;
+        color: var(--shoot-accent, #d7b57f);
       }
       .photo-empty { color: var(--photo-dim); }
 
@@ -295,7 +320,9 @@ const basePathJson = JSON.stringify(basePath);
         align-items: end;
         padding: 0 1.4rem 3rem;
         pointer-events: none;
-        background: linear-gradient(to top, rgba(11,9,7,0.9), rgba(11,9,7,0.12) 36%, transparent 72%);
+        background:
+          radial-gradient(circle at 12% 82%, color-mix(in srgb, var(--shoot-accent, var(--photo-accent)) 28%, transparent), transparent 34rem),
+          linear-gradient(to top, rgba(11,9,7,0.9), rgba(11,9,7,0.12) 36%, transparent 72%);
       }
       .shoot-overlay-body { max-width: 44rem; }
       .shoot-overlay-body span {
@@ -304,19 +331,21 @@ const basePathJson = JSON.stringify(basePath);
         text-transform: uppercase;
         letter-spacing: 0.28em;
         font-size: 0.72rem;
-        color: #d7b57f;
+        color: var(--shoot-accent, #d7b57f);
       }
       .shoot-overlay-body h2 {
         margin: 0;
-        font-family: "Cormorant Garamond", serif;
-        font-size: clamp(3.8rem, 10vw, 7rem);
+        font-family: "Bebas Neue", sans-serif;
+        font-size: clamp(2.8rem, 9vw, 5rem);
         font-weight: 400;
-        line-height: 0.9;
+        line-height: 0.88;
+        letter-spacing: 0.05em;
       }
       .shoot-overlay-body p {
-        font-family: "Libre Baskerville", serif;
+        font-family: "Cormorant Garamond", serif;
         line-height: 1.7;
-        max-width: 36rem;
+        max-width: 34rem;
+        font-size: 1.15rem;
         color: var(--photo-dim);
       }
       .shoot-overlay-body small {
@@ -327,13 +356,13 @@ const basePathJson = JSON.stringify(basePath);
         text-transform: uppercase;
       }
       .shoot-hero {
-        min-height: 100vh;
+        min-height: 62vh;
         border-bottom: 1px solid var(--photo-line);
         background: #000;
       }
       .shoot-hero img {
         width: 100%;
-        height: 100vh;
+        height: min(72vh, 42rem);
         object-fit: cover;
         display: block;
       }
@@ -353,15 +382,16 @@ const basePathJson = JSON.stringify(basePath);
         text-transform: uppercase;
         letter-spacing: 0.28em;
         font-size: 0.72rem;
-        color: #d7b57f;
+        color: var(--shoot-accent, #d7b57f);
         margin-bottom: 0.45rem;
       }
       .shoot-note h3,
       .shoot-section-title h3 {
         margin: 0 0 0.55rem;
-        font-family: "DM Serif Display", serif;
-        font-size: 1.7rem;
+        font-family: "Bebas Neue", sans-serif;
+        font-size: 1.55rem;
         font-weight: 400;
+        letter-spacing: 0.03em;
       }
       .shoot-note p,
       .shoot-section-title p {
@@ -379,7 +409,8 @@ const basePathJson = JSON.stringify(basePath);
         cursor: pointer;
       }
       .shoot-single-frame {
-        min-height: min(84vh, var(--frame-height, 780px));
+        height: min(68vh, var(--frame-height, 620px));
+        min-height: 18rem;
       }
       .shoot-single-frame img,
       .shoot-row-frame img {
@@ -416,10 +447,9 @@ const basePathJson = JSON.stringify(basePath);
       }
       .shoot-photo-row {
         position: relative;
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+        display: flex;
         gap: 2px;
-        min-height: var(--row-height, 540px);
+        height: min(56vh, var(--row-height, 440px));
         background: #000;
       }
       .shoot-photo-row.ghost { overflow: hidden; }
@@ -437,7 +467,25 @@ const basePathJson = JSON.stringify(basePath);
       .shoot-ghost-text.top-left { top: 1rem; left: 1rem; }
       .shoot-ghost-text.bottom-left { left: 1rem; bottom: 1rem; }
       .shoot-ghost-text.bottom-right { right: 1rem; bottom: 1rem; }
-      .shoot-row-frame { z-index: 1; min-height: var(--row-height, 540px); }
+      .shoot-row-frame {
+        z-index: 1;
+        flex: var(--photo-ratio, 1);
+        min-width: 0;
+      }
+      .shoot-row-frame::after,
+      .shoot-single-frame::after {
+        content: "";
+        position: absolute;
+        inset: auto 0 0 0;
+        height: 2px;
+        background: linear-gradient(90deg, transparent, var(--shoot-accent, var(--photo-accent)), transparent);
+        opacity: 0;
+        transition: opacity 0.24s ease;
+      }
+      .shoot-row-frame:hover::after,
+      .shoot-single-frame:hover::after {
+        opacity: 0.92;
+      }
 
       .photo-shoot-view[data-template="desert-bloom"] {
         --photo-accent: #c96b28;
@@ -459,6 +507,7 @@ const basePathJson = JSON.stringify(basePath);
 
       .photo-shoot-view[data-template="kyoto-bold"] {
         --photo-accent: #e8c547;
+        --photo-accent-2: #8f7b26;
         font-family: "Space Mono", monospace;
       }
       .photo-shoot-view[data-template="kyoto-bold"] .shoot-overlay-body h2,
@@ -469,6 +518,7 @@ const basePathJson = JSON.stringify(basePath);
 
       .photo-shoot-view[data-template="tokyo-fragments"] {
         --photo-accent: #c8321f;
+        --photo-accent-2: #62160f;
         font-family: "Barlow Condensed", sans-serif;
       }
       .photo-shoot-view[data-template="tokyo-fragments"] .shoot-overlay-body h2,
@@ -483,13 +533,32 @@ const basePathJson = JSON.stringify(basePath);
       }
       .shoot-footer h3 {
         margin: 0;
-        font-family: "Cormorant Garamond", serif;
-        font-size: clamp(2.4rem, 7vw, 5rem);
+        font-family: "Bebas Neue", sans-serif;
+        font-size: clamp(2.1rem, 6vw, 4.1rem);
         font-weight: 400;
+        letter-spacing: 0.04em;
+      }
+
+      .shoot-section-title {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        align-items: baseline;
+        gap: 1rem;
+      }
+      .shoot-section-index {
+        font-family: "Bebas Neue", sans-serif;
+        font-size: clamp(2.4rem, 8vw, 4rem);
+        line-height: 1;
+        letter-spacing: 0.04em;
+        color: rgba(244, 239, 229, 0.12);
       }
       .shoot-footer div:last-child { text-align: right; }
       .shoot-footer p { margin: 0 0 0.8rem; color: var(--photo-dim); }
       .shoot-footer a { text-decoration: none; text-transform: uppercase; letter-spacing: 0.24em; font-size: 0.72rem; }
+      .shoot-footer a {
+        border-bottom: 1px solid var(--shoot-accent, var(--photo-accent));
+        padding-bottom: 0.15rem;
+      }
 
       .photo-lightbox {
         position: fixed;
@@ -557,9 +626,31 @@ const basePathJson = JSON.stringify(basePath);
         .photo-shoot-grid,
         .shoot-photo-row,
         .photo-shoot-view[data-template="tokyo-fragments"] .shoot-photo-row { grid-template-columns: 1fr; }
+        .shoot-photo-row { display: grid; height: auto; min-height: 0; }
+        .shoot-row-frame { min-height: 14rem; }
+        .shoot-single-frame { height: auto; min-height: 14rem; }
         .shoot-footer { flex-direction: column; align-items: start; }
         .shoot-footer div:last-child { text-align: left; }
         .photo-lightbox-main { padding-inline: 0.6rem; }
+        .shoot-section-title { grid-template-columns: 1fr; gap: 0.5rem; }
+      }
+
+      @media (prefers-reduced-motion: no-preference) {
+        .photo-feature-card,
+        .photo-shoot-card { animation: fadeup 0.5s ease both; }
+        .photo-feature-card:nth-child(2),
+        .photo-shoot-card:nth-child(2) { animation-delay: 0.06s; }
+        .photo-feature-card:nth-child(3),
+        .photo-shoot-card:nth-child(3) { animation-delay: 0.12s; }
+        .photo-feature-card:nth-child(4),
+        .photo-shoot-card:nth-child(4) { animation-delay: 0.18s; }
+        .photo-feature-card:nth-child(5),
+        .photo-shoot-card:nth-child(5) { animation-delay: 0.24s; }
+      }
+
+      @keyframes fadeup {
+        from { opacity: 0; transform: translateY(14px); }
+        to { opacity: 1; transform: translateY(0); }
       }
     </style>
   </head>
