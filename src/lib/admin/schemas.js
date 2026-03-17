@@ -20,6 +20,11 @@ export const ADMIN_COLLECTIONS = {
   media: "media_assets",
 };
 
+export const SITE_CONFIG_COLLECTION = "site_config";
+export const SITE_CONFIG_DOCS = {
+  sectionMedia: "section_media",
+};
+
 export const CONTENT_LABELS = {
   faces: "Faces of the World",
   papers: "Selected Papers",

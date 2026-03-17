@@ -88,6 +88,26 @@ function toNumber(value) {
   return Number.isFinite(num) ? num : null;
 }
 
+function isValidLongitude(value) {
+  return Number.isFinite(value) && value >= -180 && value <= 180;
+}
+
+function isValidLatitude(value) {
+  return Number.isFinite(value) && value >= -90 && value <= 90;
+}
+
+function normalizeCoordinates(longitudeValue, latitudeValue) {
+  const longitude = toNumber(longitudeValue);
+  const latitude = toNumber(latitudeValue);
+  if (isValidLongitude(longitude) && isValidLatitude(latitude)) {
+    return { longitude, latitude, swapped: false };
+  }
+  if (isValidLongitude(latitude) && isValidLatitude(longitude) && isValidLatitude(longitude)) {
+    return { longitude: latitude, latitude: longitude, swapped: true };
+  }
+  return null;
+}
+
 async function resolveUniqueSlug(collectionName, desiredSlug, docId) {
   const db = getDb();
   const base = slugify(desiredSlug) || `item-${docId}`;
@@ -142,9 +162,8 @@ function buildFacePublic(draft, slug) {
     Array.isArray(draft.bodyBlocks) ? draft.bodyBlocks.find((block) => block?.type === "paragraph")?.text : "",
     draft.subtitle
   );
-  const lng = toNumber(draft.longitude);
-  const lat = toNumber(draft.latitude);
-  if (lng === null || lat === null) {
+  const coords = normalizeCoordinates(draft.longitude, draft.latitude);
+  if (!coords) {
     throw new Error("Faces drafts require valid longitude and latitude before publishing.");
   }
   return {
@@ -158,7 +177,7 @@ function buildFacePublic(draft, slug) {
     city: cleanString(draft.locationName),
     country: cleanString(draft.countryRegion),
     date: ensureIsoDate(draft.publishDate),
-    lngLat: [lng, lat],
+    lngLat: [coords.longitude, coords.latitude],
     pic: cleanString(draft.portrait?.url) || cleanString(draft.hero?.url) || slug,
     portraitUrl: cleanString(draft.portrait?.url),
     portraitAlt: cleanString(draft.portrait?.alt) || cleanString(draft.profileName),
@@ -205,9 +224,8 @@ function buildPaperPublic(draft, slug) {
 }
 
 function buildTravelPublic(draft, slug) {
-  const lng = toNumber(draft.longitude);
-  const lat = toNumber(draft.latitude);
-  if (lng === null || lat === null) {
+  const coords = normalizeCoordinates(draft.longitude, draft.latitude);
+  if (!coords) {
     throw new Error("Travel drafts require valid longitude and latitude before publishing.");
   }
   return {
@@ -226,7 +244,7 @@ function buildTravelPublic(draft, slug) {
       title: item.title,
     })),
     pinned: Boolean(draft.pinned),
-    lngLat: [lng, lat],
+    lngLat: [coords.longitude, coords.latitude],
   };
 }
 
@@ -255,15 +273,15 @@ export async function publishDraft(kind, id, actor = "system") {
 
   if (kind === "faces") {
     publicData = buildFacePublic(draft, slug);
-    batch.set(db.collection(PUBLIC_COLLECTIONS.faces).doc(id), publicData, { merge: true });
+    batch.set(db.collection(PUBLIC_COLLECTIONS.faces).doc(id), publicData);
   } else if (kind === "papers") {
     publicData = buildPaperPublic(draft, slug);
-    batch.set(db.collection(PUBLIC_COLLECTIONS.papers).doc(id), publicData, { merge: true });
+    batch.set(db.collection(PUBLIC_COLLECTIONS.papers).doc(id), publicData);
   } else if (kind === "travel") {
     publicData = buildTravelPublic(draft, slug);
     const quotesSnap = await db.collection(PUBLIC_COLLECTIONS.travelQuotes).where("postId", "==", id).get();
     quotesSnap.forEach((doc) => batch.delete(doc.ref));
-    batch.set(db.collection(PUBLIC_COLLECTIONS.travel).doc(id), publicData, { merge: true });
+    batch.set(db.collection(PUBLIC_COLLECTIONS.travel).doc(id), publicData);
     (Array.isArray(draft.quotes) ? draft.quotes : []).map((quote) => cleanString(quote.text)).filter(Boolean).forEach((text, index) => {
       batch.set(db.collection(PUBLIC_COLLECTIONS.travelQuotes).doc(`${id}-quote-${index + 1}`), {
         text,
@@ -348,4 +366,35 @@ export async function processScheduledKind(kind, nowIso) {
     processed += 1;
   }
   return processed;
+}
+
+async function repairCollectionCoordinates(adminCollection, publicCollection) {
+  const db = getDb();
+  let repaired = 0;
+  const snapshot = await db.collection(adminCollection).get();
+  for (const item of snapshot.docs) {
+    const data = item.data() || {};
+    const coords = normalizeCoordinates(data.longitude, data.latitude);
+    if (!coords) continue;
+    if (String(data.longitude) === String(coords.longitude) && String(data.latitude) === String(coords.latitude)) continue;
+    await item.ref.set({
+      longitude: String(coords.longitude),
+      latitude: String(coords.latitude),
+      updatedAt: getFieldValue().serverTimestamp(),
+      updatedBy: "coordinate-repair",
+    }, { merge: true });
+    const publicRef = db.collection(publicCollection).doc(item.id);
+    const publicSnap = await publicRef.get();
+    if (publicSnap.exists) {
+      await publicRef.set({ lngLat: [coords.longitude, coords.latitude] }, { merge: true });
+    }
+    repaired += 1;
+  }
+  return repaired;
+}
+
+export async function repairCoordinateData() {
+  const faces = await repairCollectionCoordinates(ADMIN_COLLECTIONS.faces, PUBLIC_COLLECTIONS.faces);
+  const travel = await repairCollectionCoordinates(ADMIN_COLLECTIONS.travel, PUBLIC_COLLECTIONS.travel);
+  return { faces, travel, total: faces + travel };
 }

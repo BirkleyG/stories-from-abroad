@@ -61,3 +61,9 @@ export async function scheduleDraft(kind, id, scheduledPublishAt) {
   const result = await callable({ kind, id, scheduledPublishAt });
   return result.data;
 }
+
+export async function repairCoordinates() {
+  const callable = getCallable("repairCoordinates");
+  const result = await callable({});
+  return result.data;
+}

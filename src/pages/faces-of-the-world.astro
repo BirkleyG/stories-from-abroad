@@ -421,15 +421,21 @@ function toFiniteNumber(value, fallback) {
 }
 
 function normalizeLngLat(rawLngLat, rawLng, rawLat, fallbackLngLat) {
+  function isValidPair(lng, lat) {
+    return Number.isFinite(lng) && Number.isFinite(lat) && lng >= -180 && lng <= 180 && lat >= -90 && lat <= 90;
+  }
+
   if (Array.isArray(rawLngLat) && rawLngLat.length === 2) {
     const lng = toFiniteNumber(rawLngLat[0], null);
     const lat = toFiniteNumber(rawLngLat[1], null);
-    if (lng !== null && lat !== null) return [lng, lat];
+    if (isValidPair(lng, lat)) return [lng, lat];
+    if (isValidPair(lat, lng) && lng >= -90 && lng <= 90) return [lat, lng];
   }
   const lng = toFiniteNumber(rawLng, null);
   const lat = toFiniteNumber(rawLat, null);
-  if (lng !== null && lat !== null) return [lng, lat];
-  if (Array.isArray(fallbackLngLat) && fallbackLngLat.length === 2) return [...fallbackLngLat];
+  if (isValidPair(lng, lat)) return [lng, lat];
+  if (isValidPair(lat, lng) && lng >= -90 && lng <= 90) return [lat, lng];
+  if (Array.isArray(fallbackLngLat) && fallbackLngLat.length === 2 && isValidPair(fallbackLngLat[0], fallbackLngLat[1])) return [...fallbackLngLat];
   return null;
 }
 

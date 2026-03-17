@@ -28,9 +28,6 @@ import { siteCopy } from "../content/siteCopy";
 
 const copy = siteCopy.dispatches;
 const RED = "#CC1111";
-const CURRENT_LOC = copy.currentLocation;
-
-
 
 const QUOTES = copy.quotes;
 const POSTS = copy.posts;
@@ -134,6 +131,7 @@ function normalizePost(p) {
         return acc;
       }, {})
     : p.defaultReactions || {};
+  var lngLat = normalizeLngLatPair(p.lngLat);
   return {
     id: String(p.id || ""),
     category: p.category || "travel",
@@ -147,7 +145,42 @@ function normalizePost(p) {
     photos: photos,
     defaultReactions: defaultReactions,
     pinned: Boolean(p.pinned),
+    lngLat: lngLat,
   };
+}
+
+function hasValidLngLat(lngLat) {
+  return Array.isArray(lngLat)
+    && lngLat.length === 2
+    && Number.isFinite(lngLat[0])
+    && Number.isFinite(lngLat[1])
+    && lngLat[0] >= -180
+    && lngLat[0] <= 180
+    && lngLat[1] >= -90
+    && lngLat[1] <= 90;
+}
+
+function normalizeLngLatPair(rawLngLat) {
+  if (!Array.isArray(rawLngLat) || rawLngLat.length !== 2) return null;
+  var lng = Number(rawLngLat[0]);
+  var lat = Number(rawLngLat[1]);
+  if (hasValidLngLat([lng, lat])) return [lng, lat];
+  if (hasValidLngLat([lat, lng]) && lng >= -90 && lng <= 90) return [lat, lng];
+  return null;
+}
+
+function deriveCurrentLocation(posts) {
+  var latest = (Array.isArray(posts) ? posts : [])
+    .filter(function(post) { return hasValidLngLat(post.lngLat) && String(post.location || "").trim(); })
+    .sort(function(a, b) { return b.dateObj - a.dateObj; })[0];
+  if (latest) {
+    return {
+      name: latest.location,
+      lng: latest.lngLat[0],
+      lat: latest.lngLat[1],
+    };
+  }
+  return copy.currentLocation;
 }
 
 function normalizeQuote(q) {
@@ -339,7 +372,8 @@ function Styles() {
 
 // ── GLOBE ─────────────────────────────────────────────────────────────────────
 
-function Globe() {
+function Globe(props) {
+  var currentLocation = props.currentLocation || copy.currentLocation;
   var mountRef = useRef(null);
   useEffect(function() {
     var el = mountRef.current;
@@ -359,7 +393,7 @@ function Globe() {
 
     var grp = new THREE.Group();
     scene.add(grp);
-    grp.rotation.y = (CURRENT_LOC.lng - 90) * Math.PI / 180;
+    grp.rotation.y = (currentLocation.lng - 90) * Math.PI / 180;
 
     var gridMat = new THREE.LineBasicMaterial({ color: 0xCC1111, transparent: true, opacity: 0.1 });
     var eqMat   = new THREE.LineBasicMaterial({ color: 0xCC1111, transparent: true, opacity: 0.2 });
@@ -385,7 +419,7 @@ function Globe() {
     scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(rp), ringMat));
 
     // Current location pin (filled)
-    var pinV = llToV3(CURRENT_LOC.lng, CURRENT_LOC.lat);
+    var pinV = llToV3(currentLocation.lng, currentLocation.lat);
     var pinMesh = new THREE.Mesh(new THREE.SphereGeometry(0.045,10,10), new THREE.MeshBasicMaterial({color:0xCC1111}));
     pinMesh.position.copy(pinV);
     grp.add(pinMesh);
@@ -447,7 +481,7 @@ function Globe() {
       cv.removeEventListener("touchstart",ts);window.removeEventListener("touchmove",tm);window.removeEventListener("touchend",up);
       rdr.dispose();if(el.contains(cv))el.removeChild(cv);
     };
-  }, []);
+  }, [currentLocation.lat, currentLocation.lng]);
   return <div className="dispatch-globe-stage" ref={mountRef} style={{width:"100%",height:"100%",userSelect:"none",flexShrink:0}} />;
 }
 
@@ -1373,8 +1407,9 @@ export default function ScrapSheet({ backHref = "/" }) {
   var base = filter==="all"?posts:posts.filter(function(p){return p.category===filter;});
   var filtered = searchQ.trim() ? base.filter(function(p){return matchesSearch(p,searchQ);}) : base;
   var expanded = expandedId?posts.find(function(p){return p.id===String(expandedId);}):null;
-  var heroLastReported = copy.hero.lastReported.replace("{location}", CURRENT_LOC.name);
-  var heroLocationLabel = copy.hero.locationLabel.replace("{location}", CURRENT_LOC.name);
+  var currentLocation = deriveCurrentLocation(posts);
+  var heroLastReported = copy.hero.lastReported.replace("{location}", currentLocation.name);
+  var heroLocationLabel = copy.hero.locationLabel.replace("{location}", currentLocation.name);
   var dispatchCount = copy.hero.countTemplate
     .replace("{current}", String(posts.length).padStart(2,"0"))
     .replace("{total}", String(posts.length).padStart(2,"0"));
@@ -1456,7 +1491,7 @@ export default function ScrapSheet({ backHref = "/" }) {
         <FieldStamp/>
         <div className="dispatch-hero-globe" style={{position:"absolute",bottom:28,right:44,opacity:0.88,display:"flex",flexDirection:"column",alignItems:"center",gap:8}}>
           <div className="dispatch-globe-shell">
-            <Globe/>
+            <Globe currentLocation={currentLocation}/>
           </div>
           <div style={{fontFamily:"'Jost',sans-serif",fontSize:"8px",fontWeight:600,letterSpacing:".2em",textTransform:"uppercase",color:"rgba(240,233,223,0.22)"}}>{heroLocationLabel}</div>
         </div>

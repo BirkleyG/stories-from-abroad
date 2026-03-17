@@ -205,6 +205,11 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
+    match /site_config/{docId} {
+      allow read: if docId == "section_media";
+      allow write: if isAdmin();
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

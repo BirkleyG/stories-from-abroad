@@ -446,6 +446,10 @@ body {
   grid-template-columns: 18rem minmax(0, 1fr) 25rem;
 }
 
+.admin-editor-grid.single-panel {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .admin-list-scroll,
 .admin-version-list {
   display: grid;

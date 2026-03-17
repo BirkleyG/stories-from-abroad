@@ -2,9 +2,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import "../../styles/admin.css";
 import { firebaseReady } from "../../lib/firebaseClient";
 import { completeAdminSignIn, getAdminSession, onAdminAuthChange, sendAdminSignInLink, signOutAdmin } from "../../lib/admin/adminAuth";
-import { assignAdminClaim, publishDraft, scheduleDraft, unpublishDraft } from "../../lib/admin/functions";
+import { assignAdminClaim, publishDraft, repairCoordinates, scheduleDraft, unpublishDraft } from "../../lib/admin/functions";
 import { dispatchDraftToPublic, faceDraftToPublic, paperDraftToPublic, slugify } from "../../lib/admin/contentAdapters";
-import { createDraft, deleteDraft as deleteDraftRecord, getDraft, listVersions, restoreVersion, saveDraft, subscribeDraftList, subscribeMediaAssets, updateMediaAsset, uploadMediaAsset } from "../../lib/admin/repository";
+import { createDraft, deleteDraft as deleteDraftRecord, getDraft, listVersions, restoreVersion, saveDraft, saveSectionMediaConfig, subscribeDraftList, subscribeMediaAssets, subscribeSectionMediaConfig, updateMediaAsset, uploadMediaAsset } from "../../lib/admin/repository";
 import {
   AUDIENCE_LEVELS,
   CONTENT_LABELS,
@@ -18,12 +18,14 @@ import {
   PAPER_TYPES,
   QUOTE_STYLES,
 } from "../../lib/admin/schemas";
+import { swapCoordinateValues, validateCoordinates } from "../../lib/admin/coordinates";
 
 const NAV_ITEMS = [
   { id: "dashboard", label: "Dashboard" },
   { id: "faces", label: CONTENT_LABELS.faces },
   { id: "papers", label: CONTENT_LABELS.papers },
   { id: "travel", label: CONTENT_LABELS.travel },
+  { id: "site-assets", label: "Site Assets" },
   { id: "media", label: "Media Library" },
 ];
 
@@ -206,6 +208,21 @@ function TextArea({ label, hint, value, onChange, rows = 4, placeholder = "" }) 
       {hint ? <span className="admin-field-hint">{hint}</span> : null}
       <textarea className="admin-textarea" value={value || ""} rows={rows} placeholder={placeholder} onChange={(event) => onChange(event.target.value)} />
     </label>
+  );
+}
+
+function CoordinateNotice({ longitude, latitude, onSwap }) {
+  const state = validateCoordinates(longitude, latitude);
+  if (!state.message) return null;
+  return (
+    <div className={`admin-notice admin-notice-${state.looksSwapped ? "warning" : "info"}`}>
+      <span>{state.message}</span>
+      {state.looksSwapped ? (
+        <button type="button" className="admin-mini-button" onClick={onSwap}>
+          Swap coordinates
+        </button>
+      ) : null}
+    </div>
   );
 }
 
@@ -476,6 +493,62 @@ function GalleryEditor({ label, items, onChange, onUpload, assets, kind }) {
           </article>
         ))}
       </div>
+    </section>
+  );
+}
+
+function SiteAssetsForm({ config, assets, onUpload, onChange, onSave, onRepairCoordinates, saving }) {
+  return (
+    <section className="admin-editor-grid single-panel">
+      <section className="admin-panel admin-editor-panel">
+        <div className="admin-panel-head">
+          <div>
+            <h2>Section imagery</h2>
+            <p>These assets replace the remaining public placeholder portraits and hero art while keeping clean fallbacks when empty.</p>
+          </div>
+          <button type="button" className="admin-primary-button" onClick={onSave} disabled={saving}>
+            {saving ? "Saving..." : "Save site assets"}
+          </button>
+          <button type="button" className="admin-secondary-button" onClick={onRepairCoordinates} disabled={saving}>
+            Repair live coordinates
+          </button>
+        </div>
+        <div className="admin-form-stack">
+          <AssetField
+            label="Read the Story portrait"
+            accept="image/*"
+            value={config.readStoryPortrait}
+            assets={assets}
+            onUpload={onUpload}
+            onChange={(next) => onChange({ ...config, readStoryPortrait: next })}
+            kind="site"
+            field="read-story-portrait"
+            hint="Replaces the current placeholder portrait on the About / Read the Story page."
+          />
+          <AssetField
+            label="Selected Papers hero image"
+            accept="image/*"
+            value={config.papersHeroImage}
+            assets={assets}
+            onUpload={onUpload}
+            onChange={(next) => onChange({ ...config, papersHeroImage: next })}
+            kind="site"
+            field="papers-hero-image"
+            hint="Used in the Selected Papers hero instead of the current thin placeholder bar."
+          />
+          <AssetField
+            label="Selected Papers author portrait"
+            accept="image/*"
+            value={config.papersAuthorPortrait}
+            assets={assets}
+            onUpload={onUpload}
+            onChange={(next) => onChange({ ...config, papersAuthorPortrait: next })}
+            kind="site"
+            field="papers-author-portrait"
+            hint="Replaces the placeholder portrait in the author section on Selected Papers."
+          />
+        </div>
+      </section>
     </section>
   );
 }
@@ -855,6 +928,7 @@ function CollectionList({ kind, items, selectedId, onSelect, onCreate }) {
 }
 
 function FacesForm({ draft, onChange, onUpload, assets }) {
+  const coordinates = validateCoordinates(draft.longitude, draft.latitude);
   return (
     <div className="admin-form-stack">
       <section className="admin-panel">
@@ -886,6 +960,12 @@ function FacesForm({ draft, onChange, onUpload, assets }) {
             onChange={(next) => onChange({ ...draft, slug: slugify(next) })}
           />
         </div>
+        <CoordinateNotice
+          longitude={draft.longitude}
+          latitude={draft.latitude}
+          onSwap={() => onChange({ ...draft, ...swapCoordinateValues(draft.longitude, draft.latitude) })}
+        />
+        {coordinates.isValid ? <p className="admin-field-hint">Validated coordinates: {coordinates.longitude}, {coordinates.latitude}</p> : null}
         <TextArea label="Excerpt" value={draft.excerpt} onChange={(next) => onChange({ ...draft, excerpt: next })} rows={4} />
       </section>
       <AssetField label="Portrait photo" accept="image/*" value={draft.portrait} assets={assets} onUpload={onUpload} onChange={(next) => onChange({ ...draft, portrait: next })} kind="faces" field="portrait" hint="Publishes into the live card and profile portrait slot." />
@@ -922,6 +1002,7 @@ function PapersForm({ draft, onChange, onUpload, assets }) {
     <div className="admin-form-stack">
       <section className="admin-panel">
         <div className="admin-panel-head tight"><div><h2>Publication Setup</h2><p>Enough metadata to power the current archive page plus the richer publish payload.</p></div></div>
+        <p className="admin-field-hint">Only items in the <strong>Published</strong> state appear on the live Selected Papers page. Saving a draft does not change the public site.</p>
         <div className="admin-grid two-up">
           <SelectField label="Status" value={draft.status} onChange={(next) => onChange({ ...draft, status: next })} options={DRAFT_STATUSES} />
           <TextInput label="Title" value={draft.title} onChange={(next) => onChange({ ...draft, title: next, slug: draft.slug || slugify(next) })} />
@@ -956,6 +1037,7 @@ function PapersForm({ draft, onChange, onUpload, assets }) {
 }
 
 function TravelForm({ draft, onChange, onUpload, assets }) {
+  const coordinates = validateCoordinates(draft.longitude, draft.latitude);
   return (
     <div className="admin-form-stack">
       <section className="admin-panel">
@@ -983,6 +1065,12 @@ function TravelForm({ draft, onChange, onUpload, assets }) {
           <TextInput label="Publish date" type="date" value={draft.publishDate} onChange={(next) => onChange({ ...draft, publishDate: next })} />
           <TextInput label="Schedule publish" type="datetime-local" value={formatDateTimeLocal(draft.scheduledPublishAt)} onChange={(next) => onChange({ ...draft, scheduledPublishAt: toIsoDateTime(next) })} />
         </div>
+        <CoordinateNotice
+          longitude={draft.longitude}
+          latitude={draft.latitude}
+          onSwap={() => onChange({ ...draft, ...swapCoordinateValues(draft.longitude, draft.latitude) })}
+        />
+        {coordinates.isValid ? <p className="admin-field-hint">Validated coordinates: {coordinates.longitude}, {coordinates.latitude}</p> : null}
         <ToggleField label="Pin as featured dispatch" checked={draft.pinned} onChange={(next) => onChange({ ...draft, pinned: next })} hint="The public page already honors pinned items in its current list model." />
         <TextArea label="Excerpt / preview" value={draft.excerpt} onChange={(next) => onChange({ ...draft, excerpt: next })} rows={4} />
         <TextArea label="Body text" value={draft.bodyText} onChange={(next) => onChange({ ...draft, bodyText: next })} rows={10} />
@@ -1027,6 +1115,11 @@ export default function AdminApp() {
   const [activeSection, setActiveSection] = useState("dashboard");
   const [lists, setLists] = useState({ faces: [], papers: [], travel: [] });
   const [mediaAssets, setMediaAssets] = useState([]);
+  const [sectionMediaConfig, setSectionMediaConfig] = useState({
+    readStoryPortrait: createMediaValue(),
+    papersHeroImage: createMediaValue(),
+    papersAuthorPortrait: createMediaValue(),
+  });
   const [selectedIds, setSelectedIds] = useState({ faces: "", papers: "", travel: "" });
   const [draft, setDraft] = useState(null);
   const [versions, setVersions] = useState([]);
@@ -1088,7 +1181,14 @@ export default function AdminApp() {
       setLists((current) => ({ ...current, [kind]: items }));
     }, (error) => setNotice({ tone: "error", message: `${CONTENT_LABELS[kind]} failed to load: ${error.message}` })));
     const unsubscribeMedia = subscribeMediaAssets(setMediaAssets, (error) => setNotice({ tone: "error", message: `Media library failed to load: ${error.message}` }));
-    unsubscribers.push(unsubscribeMedia);
+    const unsubscribeSectionMedia = subscribeSectionMediaConfig((config) => {
+      setSectionMediaConfig({
+        readStoryPortrait: config?.readStoryPortrait || createMediaValue(),
+        papersHeroImage: config?.papersHeroImage || createMediaValue(),
+        papersAuthorPortrait: config?.papersAuthorPortrait || createMediaValue(),
+      });
+    }, (error) => setNotice({ tone: "error", message: `Site assets failed to load: ${error.message}` }));
+    unsubscribers.push(unsubscribeMedia, unsubscribeSectionMedia);
     return () => unsubscribers.forEach((unsubscribe) => typeof unsubscribe === "function" && unsubscribe());
   }, [authState.isAdmin]);
 
@@ -1233,6 +1333,10 @@ export default function AdminApp() {
 
   async function handlePublish() {
     if (!canEdit || !draft) return;
+    if ((activeSection === "faces" || activeSection === "travel") && !validateCoordinates(draft.longitude, draft.latitude).isValid) {
+      setNotice({ tone: "warning", message: "Fix the longitude and latitude before publishing. If they look reversed, use the swap button in the form." });
+      return;
+    }
     try {
       setWorking(true);
       await handleManualSave("pre-publish");
@@ -1253,6 +1357,10 @@ export default function AdminApp() {
   async function handleSchedule() {
     if (!canEdit || !draft?.scheduledPublishAt) {
       setNotice({ tone: "warning", message: "Set a future publish date and time before scheduling." });
+      return;
+    }
+    if ((activeSection === "faces" || activeSection === "travel") && !validateCoordinates(draft.longitude, draft.latitude).isValid) {
+      setNotice({ tone: "warning", message: "Fix the longitude and latitude before scheduling. If they look reversed, use the swap button in the form." });
       return;
     }
     try {
@@ -1327,6 +1435,35 @@ export default function AdminApp() {
     } catch (error) {
       setNotice({ tone: "error", message: error.message || "Media metadata could not be saved." });
       throw error;
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  async function handleSaveSectionMedia() {
+    try {
+      setWorking(true);
+      const saved = await saveSectionMediaConfig(sectionMediaConfig, authState.user);
+      setSectionMediaConfig({
+        readStoryPortrait: saved?.readStoryPortrait || createMediaValue(),
+        papersHeroImage: saved?.papersHeroImage || createMediaValue(),
+        papersAuthorPortrait: saved?.papersAuthorPortrait || createMediaValue(),
+      });
+      setNotice({ tone: "success", message: "Site assets saved." });
+    } catch (error) {
+      setNotice({ tone: "error", message: error.message || "Site assets could not be saved." });
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  async function handleRepairCoordinates() {
+    try {
+      setWorking(true);
+      const result = await repairCoordinates();
+      setNotice({ tone: "success", message: result?.message || "Coordinate repair completed." });
+    } catch (error) {
+      setNotice({ tone: "error", message: error.message || "Coordinate repair failed." });
     } finally {
       setWorking(false);
     }
@@ -1429,7 +1566,7 @@ export default function AdminApp() {
         <header className="admin-topbar">
           <div>
             <p className="admin-topbar-kicker">Protected editorial workspace</p>
-            <h2>{activeSection === "dashboard" ? "Dashboard" : activeSection === "media" ? "Media Library" : CONTENT_LABELS[activeSection]}</h2>
+            <h2>{activeSection === "dashboard" ? "Dashboard" : activeSection === "media" ? "Media Library" : activeSection === "site-assets" ? "Site Assets" : CONTENT_LABELS[activeSection]}</h2>
           </div>
           <div className="admin-topbar-actions">
             {isContentSection && draft ? <StatusPill status={draft.status || "draft"} /> : null}
@@ -1444,6 +1581,17 @@ export default function AdminApp() {
         <Notice notice={notice} onDismiss={() => setNotice(null)} />
         {activeSection === "dashboard" ? <Dashboard lists={lists} onCreate={handleCreate} onJump={(kind, id) => { setActiveSection(kind); setSelectedIds((current) => ({ ...current, [kind]: id })); }} /> : null}
         {activeSection === "media" ? <MediaLibrary assets={mediaAssets} onUpload={handleUpload} onSaveMetadata={handleSaveMediaMetadata} /> : null}
+        {activeSection === "site-assets" ? (
+          <SiteAssetsForm
+            config={sectionMediaConfig}
+            assets={mediaAssets}
+            onUpload={handleUpload}
+            onChange={setSectionMediaConfig}
+            onSave={handleSaveSectionMedia}
+            onRepairCoordinates={handleRepairCoordinates}
+            saving={working}
+          />
+        ) : null}
         {isContentSection ? (
           <section className="admin-editor-grid">
             <CollectionList kind={activeSection} items={lists[activeSection] || []} selectedId={draftId} onSelect={(id) => setSelectedIds((current) => ({ ...current, [activeSection]: id }))} onCreate={handleCreate} />

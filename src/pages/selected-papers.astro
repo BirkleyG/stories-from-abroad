@@ -170,11 +170,22 @@ const initialFeatCounter = copy.featured.counterTemplate
       }
       .hero-placeholder {
         width: min(420px, 72vw);
+        min-height: 16px;
+        margin: 14px 0 26px;
+        overflow: hidden;
+        border-radius: 14px;
+      }
+      .hero-placeholder.is-empty {
         height: 16px;
         border: 1px solid var(--gold);
         border-radius: 999px;
         opacity: 0.45;
-        margin: 14px 0 26px;
+      }
+      .hero-placeholder img {
+        width: 100%;
+        aspect-ratio: 16 / 6;
+        object-fit: cover;
+        display: block;
       }
       .hero-tw-wrap {
         max-width: 440px;
@@ -697,6 +708,12 @@ const initialFeatCounter = copy.featured.counterTemplate
         letter-spacing: 0.3em;
         text-transform: uppercase;
         color: rgba(255, 255, 255, 0.36);
+      }
+      .author-portrait img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
       }
       .portrait-drips {
         position: absolute;
@@ -1376,7 +1393,7 @@ const initialFeatCounter = copy.featured.counterTemplate
         <div class="hero-kicker">{copy.hero.kicker}</div>
         <h1 class="hero-title">{copy.hero.titleMain} <strong>{copy.hero.titleEm}</strong></h1>
         <div class="hero-divider"></div>
-        <div class="hero-placeholder" aria-hidden="true"></div>
+        <div class="hero-placeholder is-empty" id="papers-hero-media" aria-hidden="true"></div>
         <div class="hero-tw-wrap">
           <span class="hero-tw" id="tw-el"></span><span class="cursor"></span>
         </div>
@@ -1646,7 +1663,7 @@ const initialFeatCounter = copy.featured.counterTemplate
 
     <section id="author">
       <div class="author-portrait">
-        <span class="portrait-ph">{copy.author.portraitLabel}</span>
+        <span class="portrait-ph" id="papers-author-portrait">{copy.author.portraitLabel}</span>
       </div>
 
       <svg
@@ -1748,6 +1765,7 @@ const initialFeatCounter = copy.featured.counterTemplate
       import { collection, getDocs } from "firebase/firestore";
       import { db, firestoreReady } from "../lib/firebaseClient";
       import { fallbackPapers } from "../lib/fallbackData";
+      import { loadSectionMediaConfig } from "../lib/siteSectionMedia";
 
       const copy = {copyJson};
       const counterTemplate = copy.featured.counterTemplate;
@@ -1767,6 +1785,17 @@ const initialFeatCounter = copy.featured.counterTemplate
         featIdx: 0,
         autoTimer: null,
       };
+
+      function sortPapers(list) {
+        return [...list].sort((a, b) => {
+          const featuredDelta = Number(Boolean(b.featured)) - Number(Boolean(a.featured));
+          if (featuredDelta) return featuredDelta;
+          const aDate = Date.parse(a.date || `${a.year || 0}-01-01`) || 0;
+          const bDate = Date.parse(b.date || `${b.year || 0}-01-01`) || 0;
+          if (bDate !== aDate) return bDate - aDate;
+          return String(a.title).localeCompare(String(b.title));
+        });
+      }
 
       function normalizePaper(p, idx) {
         const kw = Array.isArray(p.keywords)
@@ -1809,15 +1838,15 @@ const initialFeatCounter = copy.featured.counterTemplate
 
       async function loadPapers() {
         if (!firestoreReady || !db) {
-          return fallbackPapers.map(normalizePaper);
+          return sortPapers(fallbackPapers.map(normalizePaper));
         }
         try {
           const snap = await getDocs(collection(db, "papers"));
           const data = snap.docs.map((doc, idx) => normalizePaper({ id: doc.id, ...doc.data() }, idx));
-          return data.length ? data : fallbackPapers.map(normalizePaper);
+          return data.length ? sortPapers(data) : sortPapers(fallbackPapers.map(normalizePaper));
         } catch (err) {
           console.warn("Firestore unavailable, using fallback.", err);
-          return fallbackPapers.map(normalizePaper);
+          return sortPapers(fallbackPapers.map(normalizePaper));
         }
       }
 
@@ -1973,6 +2002,18 @@ const initialFeatCounter = copy.featured.counterTemplate
             return "";
         }
       }
+
+      function applySectionMedia(config) {
+        const hero = document.getElementById("papers-hero-media");
+        const authorPortrait = document.getElementById("papers-author-portrait");
+        if (hero && config?.papersHeroImage?.url) {
+          hero.classList.remove("is-empty");
+          hero.innerHTML = `<img src="${config.papersHeroImage.url}" alt="${esc(config.papersHeroImage.alt || "Selected Papers hero image")}" loading="lazy" />`;
+        }
+        if (authorPortrait && config?.papersAuthorPortrait?.url) {
+          authorPortrait.outerHTML = `<img id="papers-author-portrait" src="${config.papersAuthorPortrait.url}" alt="${esc(config.papersAuthorPortrait.alt || "Author portrait")}" loading="lazy" />`;
+        }
+      }
       function setCit(pid, s) {
         const p = state.papers.find((x) => x.id === pid);
         if (!p) return;
@@ -2112,6 +2153,8 @@ const initialFeatCounter = copy.featured.counterTemplate
       });
 
       async function init() {
+        const sectionMedia = await loadSectionMediaConfig();
+        applySectionMedia(sectionMedia);
         const data = await loadPapers();
         state.papers = data;
         state.featured = data

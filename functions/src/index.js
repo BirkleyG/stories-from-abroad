@@ -4,7 +4,7 @@ import { onCall, onRequest, HttpsError } from "firebase-functions/v2/https";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import { logger } from "firebase-functions";
 import { defineString } from "firebase-functions/params";
-import { publishDraft, processScheduledKind, scheduleDraft, unpublishDraft } from "./publishers.js";
+import { publishDraft, processScheduledKind, repairCoordinateData, scheduleDraft, unpublishDraft } from "./publishers.js";
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -204,6 +204,20 @@ export const schedulePublish = onCall(async (request) => {
   } catch (error) {
     logger.error("schedulePublish failed", { kind, id, error: error.message });
     throw new HttpsError("internal", error.message || "Schedule failed.");
+  }
+});
+
+export const repairCoordinates = onCall(async (request) => {
+  const auth = requireAdmin(request);
+  try {
+    const result = await repairCoordinateData(String(auth.token.email || auth.uid || "admin"));
+    return {
+      ...result,
+      message: `Repaired ${result.total} coordinate record(s).`,
+    };
+  } catch (error) {
+    logger.error("repairCoordinates failed", { error: error.message });
+    throw new HttpsError("internal", error.message || "Coordinate repair failed.");
   }
 });
 

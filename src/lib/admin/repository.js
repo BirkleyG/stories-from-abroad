@@ -15,7 +15,7 @@ import {
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { db, firestoreReady, storage } from "../firebaseClient";
 import { buildVersionSnapshot, prepareDraftForSave } from "./contentAdapters";
-import { ADMIN_COLLECTIONS, CONTENT_KINDS, createEmptyDraft, hydrateDraft } from "./schemas";
+import { ADMIN_COLLECTIONS, CONTENT_KINDS, createEmptyDraft, hydrateDraft, SITE_CONFIG_COLLECTION, SITE_CONFIG_DOCS } from "./schemas";
 
 function assertFirestoreReady() {
   if (!firestoreReady || !db) {
@@ -134,6 +134,13 @@ export function subscribeMediaAssets(callback, onError) {
     (snapshot) => callback(snapshot.docs.map((item) => ({ id: item.id, ...item.data() }))),
     onError
   );
+}
+
+export function subscribeSectionMediaConfig(callback, onError) {
+  assertFirestoreReady();
+  return onSnapshot(doc(db, SITE_CONFIG_COLLECTION, SITE_CONFIG_DOCS.sectionMedia), (snapshot) => {
+    callback(snapshot.exists() ? { id: snapshot.id, ...snapshot.data() } : {});
+  }, onError);
 }
 
 export async function getDraft(kind, id) {
@@ -279,4 +286,19 @@ export async function deleteDraft(kind, id) {
   versionsSnap.forEach((versionDoc) => batch.delete(versionDoc.ref));
   batch.delete(draftRef);
   await batch.commit();
+}
+
+export async function saveSectionMediaConfig(config, user) {
+  assertFirestoreReady();
+  const ref = doc(db, SITE_CONFIG_COLLECTION, SITE_CONFIG_DOCS.sectionMedia);
+  const payload = sanitize({
+    readStoryPortrait: config?.readStoryPortrait || null,
+    papersHeroImage: config?.papersHeroImage || null,
+    papersAuthorPortrait: config?.papersAuthorPortrait || null,
+    updatedAt: serverTimestamp(),
+    updatedBy: actor(user),
+  });
+  await setDoc(ref, payload, { merge: true });
+  const snapshot = await getDoc(ref);
+  return snapshot.exists() ? { id: snapshot.id, ...snapshot.data() } : {};
 }

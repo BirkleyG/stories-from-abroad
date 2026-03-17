@@ -1,4 +1,5 @@
 import { hydrateDraft } from "./schemas";
+import { validateCoordinates } from "./coordinates";
 
 export function slugify(value) {
   return String(value ?? "")
@@ -218,6 +219,7 @@ export function buildVersionSnapshot(kind, draftInput) {
 export function faceDraftToPublic(draftInput, slugOverride = "") {
   const draft = prepareDraftForSave("faces", draftInput);
   const storySlug = slugOverride || draft.slug || slugify(draft.profileName || draft.title || draft.locationName);
+  const coords = validateCoordinates(draft.longitude, draft.latitude);
   const articlePhotos = {};
   const article = draft.bodyBlocks.map((block, index) => {
     if (block.type === "qa") {
@@ -257,7 +259,7 @@ export function faceDraftToPublic(draftInput, slugOverride = "") {
     city: draft.locationName,
     country: draft.countryRegion,
     date: draft.publishDate || ensureIsoDate(new Date().toISOString()),
-    lngLat: [Number(draft.longitude) || 0, Number(draft.latitude) || 0],
+    lngLat: coords.isValid ? [coords.longitude, coords.latitude] : null,
     pic: draft.portrait.url || draft.hero.url || storySlug,
     portraitUrl: draft.portrait.url || "",
     portraitAlt: draft.portrait.alt || draft.profileName,
@@ -303,6 +305,7 @@ export function paperDraftToPublic(draftInput) {
 export function dispatchDraftToPublic(draftInput, slugOverride = "") {
   const draft = prepareDraftForSave("travel", draftInput);
   const publishDate = draft.publishDate || ensureIsoDate(new Date().toISOString());
+  const coords = validateCoordinates(draft.longitude, draft.latitude);
   return {
     post: {
       slug: slugOverride || draft.slug || slugify(`${draft.title}-${draft.locationName}`),
@@ -320,7 +323,7 @@ export function dispatchDraftToPublic(draftInput, slugOverride = "") {
         title: photo.title,
       })),
       pinned: Boolean(draft.pinned),
-      lngLat: [Number(draft.longitude) || 0, Number(draft.latitude) || 0],
+      lngLat: coords.isValid ? [coords.longitude, coords.latitude] : null,
     },
     quotes: draft.quotes.map((quote) => ({
       text: quote.text,
