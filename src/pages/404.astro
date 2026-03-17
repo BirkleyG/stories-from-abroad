@@ -1,6 +1,7 @@
 ---
 const base = import.meta.env.BASE_URL ?? "/";
 const basePath = base.endsWith("/") ? base : `${base}/`;
+const basePathJson = JSON.stringify(basePath);
 ---
 <!DOCTYPE html>
 <html lang="en">
@@ -13,7 +14,7 @@ const basePath = base.endsWith("/") ? base : `${base}/`;
     <p>Redirecting...</p>
     <script is:inline>
       (function () {
-        var basePath = {JSON.stringify(basePath)};
+        var basePath = {basePathJson};
         var pathname = window.location.pathname || "";
         if (pathname.indexOf(basePath + "photography/") === 0) {
           var relative = pathname.slice((basePath + "photography/").length).split("/").filter(Boolean);

@@ -444,6 +444,13 @@ export async function publishDraft(kind, id, actor = "system") {
     docId: id,
     slug,
     publishedAt: new Date().toISOString(),
+    ...(kind === "photography" ? {
+      blocks: publicData.blocks,
+      coverPhoto: publicData.coverPhoto,
+      frameCount: publicData.frameCount,
+      cameraModel: publicData.cameraModel,
+      accentColor: publicData.accentColor,
+    } : {}),
   };
 
   batch.set(adminRef, {

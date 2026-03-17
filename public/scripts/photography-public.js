@@ -113,6 +113,18 @@
 
     var heroCount = byId("photography-count");
     if (heroCount) heroCount.textContent = String(state.shoots.length);
+    var frameCount = byId("photography-frame-count");
+    if (frameCount) {
+      var frames = state.shoots.reduce(function (total, shoot) {
+        return total + Number(shoot.frameCount || (shoot.allPhotos || []).length || 0);
+      }, 0);
+      frameCount.textContent = String(frames);
+    }
+    var locationCount = byId("photography-location-count");
+    if (locationCount) {
+      var locations = new Set(state.shoots.map(function (shoot) { return String(shoot.locationLabel || "").trim(); }).filter(Boolean));
+      locationCount.textContent = String(locations.size);
+    }
     var status = byId("photography-status");
     if (status) status.textContent = state.loading ? copy.loading : "";
   }

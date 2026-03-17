@@ -40,7 +40,11 @@ export function mediaSummaryFromBlocks(blocks = []) {
 
 export function collectFeaturedPhotoOptions(shoots = []) {
   return (Array.isArray(shoots) ? shoots : []).flatMap((shoot) => {
-    const blocks = Array.isArray(shoot?.publishedRecord?.blocks) ? shoot.publishedRecord.blocks : [];
+    const blocks = Array.isArray(shoot?.blocks)
+      ? shoot.blocks
+      : Array.isArray(shoot?.publishedRecord?.blocks)
+        ? shoot.publishedRecord.blocks
+        : [];
     const photos = [];
     blocks.forEach((block) => {
       if ((block?.type === "hero-photo" || block?.type === "full-photo") && block.photo?.url) {

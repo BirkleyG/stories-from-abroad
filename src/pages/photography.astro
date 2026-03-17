@@ -8,6 +8,7 @@ const publicFirestoreConfigJson = JSON.stringify({
 const copyJson = JSON.stringify({
   loading: "Loading photography archive...",
 });
+const basePathJson = JSON.stringify(basePath);
 ---
 <!DOCTYPE html>
 <html lang="en">
@@ -87,45 +88,64 @@ const copyJson = JSON.stringify({
         min-height: 100vh;
       }
       .photo-hero {
-        min-height: 82vh;
+        min-height: 100vh;
         padding: 8rem 1.4rem 3rem;
         display: grid;
         align-content: end;
         border-bottom: 1px solid var(--photo-line);
         background:
-          radial-gradient(circle at top right, rgba(201, 107, 40, 0.22), transparent 22rem),
-          linear-gradient(180deg, rgba(255,255,255,0.02), transparent 55%),
-          #080706;
+          radial-gradient(circle at top right, rgba(255, 46, 126, 0.16), transparent 18rem),
+          linear-gradient(180deg, rgba(255,255,255,0.03), transparent 60%),
+          #050505;
       }
       .photo-kicker {
-        margin: 0 0 1rem;
-        color: #d7b57f;
+        margin: 0 0 1.15rem;
+        color: #ff2d78;
         text-transform: uppercase;
-        letter-spacing: 0.42em;
-        font-size: 0.7rem;
+        letter-spacing: 0.52em;
+        font-size: 0.72rem;
       }
       .photo-hero h1 {
         margin: 0;
-        font-family: "Cormorant Garamond", serif;
-        font-size: clamp(3.6rem, 11vw, 8rem);
-        line-height: 0.92;
-        font-weight: 400;
+        font-family: "Bebas Neue", sans-serif;
+        font-size: clamp(4.8rem, 15vw, 10rem);
+        line-height: 0.84;
+        letter-spacing: 0.02em;
       }
-      .photo-hero h1 em {
-        font-style: italic;
-        color: #d7b57f;
+      .photo-hero h1 .outline {
+        color: transparent;
+        -webkit-text-stroke: 2px #f4efe5;
+      }
+      .photo-hero h1 .accent {
+        color: #ff2d78;
       }
       .photo-hero p {
-        max-width: 38rem;
-        margin: 1.2rem 0 0;
-        font-family: "Libre Baskerville", serif;
-        line-height: 1.7;
-        color: var(--photo-dim);
+        max-width: 34rem;
+        margin: 1.4rem 0 0;
+        font-family: "Cormorant Garamond", serif;
+        font-size: 1.7rem;
+        font-style: italic;
+        line-height: 1.55;
+        color: rgba(244, 239, 229, 0.66);
       }
       .photo-count {
-        margin-top: 1.3rem;
-        font-size: 0.9rem;
-        letter-spacing: 0.18em;
+        margin-top: 2.6rem;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 10rem));
+        gap: 1rem;
+      }
+      .photo-stat {
+        display: grid;
+        gap: 0.15rem;
+      }
+      .photo-stat strong {
+        font-family: "Bebas Neue", sans-serif;
+        font-size: clamp(2.6rem, 6vw, 4rem);
+        letter-spacing: 0.06em;
+      }
+      .photo-stat span {
+        font-size: 0.72rem;
+        letter-spacing: 0.36em;
         text-transform: uppercase;
         color: var(--photo-dim);
       }
@@ -520,6 +540,7 @@ const copyJson = JSON.stringify({
 
       @media (max-width: 640px) {
         .photo-hero { padding-top: 6.8rem; }
+        .photo-count { grid-template-columns: 1fr; gap: 0.7rem; }
         .photo-feature-grid,
         .photo-shoot-grid,
         .shoot-photo-row,
@@ -539,9 +560,26 @@ const copyJson = JSON.stringify({
     <main id="photography-archive-view" class="photo-archive">
       <section class="photo-hero">
         <p class="photo-kicker">Published Photography</p>
-        <h1>Frames from <em>the road</em></h1>
-        <p>Published shoots, featured frames, and the visual side of Stories From Abroad. Each shoot keeps its own tone, sequence, and lightbox metadata.</p>
-        <div class="photo-count"><span id="photography-count">0</span> published shoots</div>
+        <h1>
+          SEEN<br />
+          <span class="outline">FELT</span><br />
+          <span class="accent">KEPT</span>
+        </h1>
+        <p>Documenting light, texture, and the spaces between moments.</p>
+        <div class="photo-count">
+          <div class="photo-stat">
+            <strong id="photography-count">0</strong>
+            <span>Shoots</span>
+          </div>
+          <div class="photo-stat">
+            <strong id="photography-frame-count">0</strong>
+            <span>Photos</span>
+          </div>
+          <div class="photo-stat">
+            <strong id="photography-location-count">0</strong>
+            <span>Locations</span>
+          </div>
+        </div>
         <p id="photography-status" class="photo-count"></p>
       </section>
 
@@ -618,7 +656,7 @@ const copyJson = JSON.stringify({
         try { firestoreConfig = JSON.parse(document.getElementById("public-firestore-config").textContent || "{}"); } catch (error) {}
         try { copy = JSON.parse(document.getElementById("photography-copy").textContent || "{}"); } catch (error) {}
         window.SFAPhotographyPublic.boot({
-          basePath: {JSON.stringify(basePath)},
+          basePath: {basePathJson},
           firestoreConfig: firestoreConfig,
           copy: copy,
         });
