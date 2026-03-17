@@ -1660,10 +1660,19 @@ export default function AdminApp() {
     photography: lists.photography.length,
   }), [lists]);
 
-  const photographyFeaturedOptions = useMemo(
-    () => collectFeaturedPhotoOptions((lists.photography || []).filter((item) => item.status === "published" || item.publishedRecord?.slug)),
-    [lists.photography]
-  );
+  const photographyFeaturedOptions = useMemo(() => {
+    const items = [...(lists.photography || [])];
+    if (
+      activeSection === "photography"
+      && draftId
+      && draft
+      && !items.some((item) => item.id === draftId)
+      && (draft.status === "published" || draft.publishedRecord?.slug)
+    ) {
+      items.unshift({ id: draftId, ...draft });
+    }
+    return collectFeaturedPhotoOptions(items.filter((item) => item.status === "published" || item.publishedRecord?.slug));
+  }, [activeSection, draft, draftId, lists.photography]);
 
   async function refreshSession(force = true) {
     if (!authState.user) return;

@@ -12,9 +12,11 @@ const basePathJson = JSON.stringify(basePath);
   </head>
   <body>
     <p>Redirecting...</p>
+    <script id="redirect-base-path" type="application/json" set:html={basePathJson}></script>
     <script is:inline>
       (function () {
-        var basePath = {basePathJson};
+        var basePath = "/";
+        try { basePath = JSON.parse(document.getElementById("redirect-base-path").textContent || "\"/\""); } catch (error) {}
         var pathname = window.location.pathname || "";
         if (pathname.indexOf(basePath + "photography/") === 0) {
           var relative = pathname.slice((basePath + "photography/").length).split("/").filter(Boolean);

@@ -274,7 +274,23 @@ export async function completeSubscriberSignInFromLink() {
     return { completed: false as const, error: "missing_email" as const };
   }
 
-  const credential = await signInWithEmailLink(auth, email, href);
+  let credential;
+  try {
+    credential = await signInWithEmailLink(auth, email, href);
+  } catch (error: any) {
+    if (error?.code === "auth/invalid-action-code" || error?.code === "auth/expired-action-code") {
+      try {
+        const clean = new URL(window.location.href);
+        clean.search = "";
+        const cleanHref = clean.pathname + clean.hash;
+        window.history.replaceState({}, document.title, cleanHref || "/");
+      } catch (innerError) {
+        // Ignore URL replacement errors.
+      }
+      return { completed: false as const, error: "invalid_action_code" as const };
+    }
+    throw error;
+  }
   window.localStorage.setItem("sfa-last-email-link", email);
 
   await upsertSubscriberRecord(credential.user, {

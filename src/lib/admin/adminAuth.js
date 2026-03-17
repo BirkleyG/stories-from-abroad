@@ -10,6 +10,16 @@ import { auth, firebaseReady } from "../firebaseClient";
 
 const STORAGE_KEY = "stories-from-abroad-admin-email";
 
+function cleanActionUrl(targetUrl = "") {
+  if (typeof window === "undefined") return;
+  try {
+    const cleanUrl = String(targetUrl || window.location.href).split("?")[0].split("#")[0];
+    window.history.replaceState({}, document.title, cleanUrl);
+  } catch (error) {
+    // Ignore history replacement failures.
+  }
+}
+
 function assertAuthReady() {
   if (!firebaseReady || !auth) {
     throw new Error("Firebase Auth is not configured for this site.");
@@ -49,13 +59,20 @@ export async function completeAdminSignIn(currentUrl, fallbackEmail = "") {
   if (!email) {
     throw new Error("Open the admin sign-in link on the same device you requested it from, or enter the same email again.");
   }
-  const result = await signInWithEmailLink(auth, email, targetUrl);
-  if (typeof window !== "undefined") {
-    window.localStorage.removeItem(STORAGE_KEY);
-    const cleanUrl = targetUrl.split("?")[0].split("#")[0];
-    window.history.replaceState({}, document.title, cleanUrl);
+  try {
+    const result = await signInWithEmailLink(auth, email, targetUrl);
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem(STORAGE_KEY);
+    }
+    cleanActionUrl(targetUrl);
+    return result.user;
+  } catch (error) {
+    if (error?.code === "auth/invalid-action-code" || error?.code === "auth/expired-action-code") {
+      cleanActionUrl(targetUrl);
+      return null;
+    }
+    throw error;
   }
-  return result.user;
 }
 
 export function onAdminAuthChange(callback) {

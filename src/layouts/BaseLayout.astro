@@ -420,7 +420,20 @@ const publicFirebaseConfigJson = JSON.stringify({
         const pending = readPendingSubscriber();
         const email = normalizeEmail(pending?.email || window.localStorage.getItem("sfa-last-email-link") || window.prompt("Confirm your email to finish sign-in:") || "");
         if (!email) return { completed: false, error: "missing_email" };
-        const credential = await signInWithEmailLink(auth, email, window.location.href);
+        let credential;
+        try {
+          credential = await signInWithEmailLink(auth, email, window.location.href);
+        } catch (error) {
+          if (error?.code === "auth/invalid-action-code" || error?.code === "auth/expired-action-code") {
+            try {
+              const clean = new URL(window.location.href);
+              clean.search = "";
+              window.history.replaceState({}, document.title, clean.pathname + clean.hash);
+            } catch (innerError) {}
+            return { completed: false, error: "invalid_action_code" };
+          }
+          throw error;
+        }
         window.localStorage.setItem("sfa-last-email-link", email);
         await upsertSubscriberRecord(credential.user, {
           name: pending?.name,

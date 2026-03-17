@@ -89,24 +89,35 @@ const basePathJson = JSON.stringify(basePath);
       }
       .photo-hero {
         min-height: 100vh;
-        padding: 8rem 1.4rem 3rem;
+        padding: 5.75rem 1.4rem 3rem;
         display: grid;
-        align-content: end;
+        align-content: start;
         border-bottom: 1px solid var(--photo-line);
         background:
           radial-gradient(circle at top right, rgba(255, 46, 126, 0.16), transparent 18rem),
           linear-gradient(180deg, rgba(255,255,255,0.03), transparent 60%),
           #050505;
       }
+      .photo-hero-header {
+        display: inline-flex;
+        align-items: center;
+        gap: 1rem;
+        margin-top: 1.1rem;
+      }
+      .photo-hero-line {
+        width: 2.1rem;
+        height: 1px;
+        background: #ff2d78;
+      }
       .photo-kicker {
-        margin: 0 0 1.15rem;
+        margin: 0;
         color: #ff2d78;
         text-transform: uppercase;
         letter-spacing: 0.52em;
         font-size: 0.72rem;
       }
       .photo-hero h1 {
-        margin: 0;
+        margin: 1.55rem 0 0;
         font-family: "Bebas Neue", sans-serif;
         font-size: clamp(4.8rem, 15vw, 10rem);
         line-height: 0.84;
@@ -121,7 +132,7 @@ const basePathJson = JSON.stringify(basePath);
       }
       .photo-hero p {
         max-width: 34rem;
-        margin: 1.4rem 0 0;
+        margin: 1.55rem 0 0;
         font-family: "Cormorant Garamond", serif;
         font-size: 1.7rem;
         font-style: italic;
@@ -539,7 +550,8 @@ const basePathJson = JSON.stringify(basePath);
       }
 
       @media (max-width: 640px) {
-        .photo-hero { padding-top: 6.8rem; }
+        .photo-hero { padding-top: 4.9rem; }
+        .photo-hero-header { margin-top: 0.35rem; }
         .photo-count { grid-template-columns: 1fr; gap: 0.7rem; }
         .photo-feature-grid,
         .photo-shoot-grid,
@@ -559,7 +571,10 @@ const basePathJson = JSON.stringify(basePath);
 
     <main id="photography-archive-view" class="photo-archive">
       <section class="photo-hero">
-        <p class="photo-kicker">Published Photography</p>
+        <div class="photo-hero-header">
+          <span class="photo-hero-line"></span>
+          <p class="photo-kicker">Photography</p>
+        </div>
         <h1>
           SEEN<br />
           <span class="outline">FELT</span><br />
@@ -646,6 +661,7 @@ const basePathJson = JSON.stringify(basePath);
 
     <script id="public-firestore-config" type="application/json" set:html={publicFirestoreConfigJson}></script>
     <script id="photography-copy" type="application/json" set:html={copyJson}></script>
+    <script id="photography-base-path" type="application/json" set:html={basePathJson}></script>
     <script src={`${basePath}scripts/public-firestore.js`}></script>
     <script src={`${basePath}scripts/photography-public.js`}></script>
     <script is:inline>
@@ -653,10 +669,12 @@ const basePathJson = JSON.stringify(basePath);
         if (!window.SFAPublicFirestore || !window.SFAPhotographyPublic) return;
         var firestoreConfig = {};
         var copy = {};
+        var basePath = "/";
         try { firestoreConfig = JSON.parse(document.getElementById("public-firestore-config").textContent || "{}"); } catch (error) {}
         try { copy = JSON.parse(document.getElementById("photography-copy").textContent || "{}"); } catch (error) {}
+        try { basePath = JSON.parse(document.getElementById("photography-base-path").textContent || "\"/\""); } catch (error) {}
         window.SFAPhotographyPublic.boot({
-          basePath: {basePathJson},
+          basePath: basePath,
           firestoreConfig: firestoreConfig,
           copy: copy,
         });
