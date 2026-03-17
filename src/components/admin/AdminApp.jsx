@@ -120,7 +120,15 @@ function stripMediaAsset(asset) {
     storagePath: String(asset.storagePath || ""),
     contentType: String(asset.contentType || ""),
     fileName: String(asset.fileName || asset.originalName || ""),
+    focusX: Number.isFinite(Number(asset.focusX)) ? Number(asset.focusX) : 50,
+    focusY: Number.isFinite(Number(asset.focusY)) ? Number(asset.focusY) : 50,
   };
+}
+
+function clampPercent(value, fallback = 50) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return fallback;
+  return Math.max(0, Math.min(100, number));
 }
 
 function matchesAssetType(asset, accept = "") {
@@ -498,6 +506,7 @@ function GalleryEditor({ label, items, onChange, onUpload, assets, kind }) {
 }
 
 function SiteAssetsForm({ config, assets, onUpload, onChange, onSave, onRepairCoordinates, saving }) {
+  const authorPortrait = config.papersAuthorPortrait || createMediaValue();
   return (
     <section className="admin-editor-grid single-panel">
       <section className="admin-panel admin-editor-panel">
@@ -547,6 +556,83 @@ function SiteAssetsForm({ config, assets, onUpload, onChange, onSave, onRepairCo
             field="papers-author-portrait"
             hint="Replaces the placeholder portrait in the author section on Selected Papers."
           />
+          {authorPortrait?.url ? (
+            <div className="admin-field">
+              <span className="admin-field-label">Selected Papers portrait framing</span>
+              <span className="admin-field-hint">Adjust what part of the portrait is visible on the public page without reuploading the image.</span>
+              <div className="admin-focus-grid">
+                <label className="admin-field compact">
+                  <span className="admin-field-label">Horizontal focus</span>
+                  <input
+                    className="admin-range"
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={clampPercent(authorPortrait.focusX)}
+                    onChange={(event) => onChange({
+                      ...config,
+                      papersAuthorPortrait: {
+                        ...authorPortrait,
+                        focusX: clampPercent(event.target.value),
+                      },
+                    })}
+                  />
+                  <input
+                    className="admin-input"
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={clampPercent(authorPortrait.focusX)}
+                    onChange={(event) => onChange({
+                      ...config,
+                      papersAuthorPortrait: {
+                        ...authorPortrait,
+                        focusX: clampPercent(event.target.value),
+                      },
+                    })}
+                  />
+                </label>
+                <label className="admin-field compact">
+                  <span className="admin-field-label">Vertical focus</span>
+                  <input
+                    className="admin-range"
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={clampPercent(authorPortrait.focusY)}
+                    onChange={(event) => onChange({
+                      ...config,
+                      papersAuthorPortrait: {
+                        ...authorPortrait,
+                        focusY: clampPercent(event.target.value),
+                      },
+                    })}
+                  />
+                  <input
+                    className="admin-input"
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={clampPercent(authorPortrait.focusY)}
+                    onChange={(event) => onChange({
+                      ...config,
+                      papersAuthorPortrait: {
+                        ...authorPortrait,
+                        focusY: clampPercent(event.target.value),
+                      },
+                    })}
+                  />
+                </label>
+              </div>
+              <div className="admin-focus-preview">
+                <img
+                  src={authorPortrait.url}
+                  alt={authorPortrait.alt || authorPortrait.title || "Selected Papers portrait preview"}
+                  style={{ objectPosition: `${clampPercent(authorPortrait.focusX)}% ${clampPercent(authorPortrait.focusY)}%` }}
+                />
+              </div>
+            </div>
+          ) : null}
         </div>
       </section>
     </section>

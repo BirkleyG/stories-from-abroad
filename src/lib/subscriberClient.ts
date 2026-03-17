@@ -20,6 +20,14 @@ type PendingSubscriber = {
   source: string;
 };
 
+type SubscriberFlags = {
+  wantsAllUpdates: boolean;
+  wantsPapers: boolean;
+  wantsPhotography: boolean;
+  wantsFaces: boolean;
+  wantsTravel: boolean;
+};
+
 let authRef = null;
 let authPersistencePromise: Promise<void> | null = null;
 
@@ -50,6 +58,27 @@ function toPreferenceList(value: unknown) {
     .map((item) => normalizeString(item))
     .filter(Boolean)
     .slice(0, 10);
+}
+
+function flagsFromPreferences(value: unknown): SubscriberFlags {
+  const preferences = new Set(toPreferenceList(value));
+  return {
+    wantsAllUpdates: preferences.has("all"),
+    wantsPapers: preferences.has("articles") || preferences.has("papers"),
+    wantsPhotography: preferences.has("photography"),
+    wantsFaces: preferences.has("faces") || preferences.has("stories"),
+    wantsTravel: preferences.has("travel"),
+  };
+}
+
+function preferencesFromFlags(flags: SubscriberFlags) {
+  const next = [];
+  if (flags.wantsAllUpdates) next.push("all");
+  if (flags.wantsPapers) next.push("articles");
+  if (flags.wantsPhotography) next.push("photography");
+  if (flags.wantsFaces) next.push("faces");
+  if (flags.wantsTravel) next.push("travel");
+  return next;
 }
 
 function readPendingSubscriber(): PendingSubscriber | null {
@@ -139,6 +168,17 @@ export async function upsertSubscriberRecord(
   const nextPreferences = toPreferenceList(
     options?.preferences ?? (existing as { preferences?: unknown } | null)?.preferences ?? []
   );
+  const existingFlags = {
+    wantsAllUpdates: Boolean((existing as { wantsAllUpdates?: boolean } | null)?.wantsAllUpdates),
+    wantsPapers: Boolean((existing as { wantsPapers?: boolean } | null)?.wantsPapers),
+    wantsPhotography: Boolean((existing as { wantsPhotography?: boolean } | null)?.wantsPhotography),
+    wantsFaces: Boolean((existing as { wantsFaces?: boolean } | null)?.wantsFaces),
+    wantsTravel: Boolean((existing as { wantsTravel?: boolean } | null)?.wantsTravel),
+  };
+  const nextFlags = nextPreferences.length ? flagsFromPreferences(nextPreferences) : existingFlags;
+  if (!nextPreferences.length) {
+    nextPreferences.push(...preferencesFromFlags(existingFlags));
+  }
   const source = normalizeString(options?.source) || normalizeString((existing as { source?: string } | null)?.source) || "subscriber_modal";
   const emailLower = normalizeEmail(user.email);
 
@@ -146,8 +186,14 @@ export async function upsertSubscriberRecord(
     email: user.email,
     emailLower,
     name: nextName.slice(0, 80),
+    verified: true,
     status: "active",
     preferences: nextPreferences,
+    wantsAllUpdates: nextFlags.wantsAllUpdates,
+    wantsPapers: nextFlags.wantsPapers,
+    wantsPhotography: nextFlags.wantsPhotography,
+    wantsFaces: nextFlags.wantsFaces,
+    wantsTravel: nextFlags.wantsTravel,
     source: source.slice(0, 40),
     updatedAt: serverTimestamp(),
   };

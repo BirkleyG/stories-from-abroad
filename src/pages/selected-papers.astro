@@ -370,13 +370,15 @@ const initialFeatCounter = copy.featured.counterTemplate
         animation: heroTitleIn 0.85s ease 0.16s both;
       }
       .feat-summary {
-        font-family: "Lora", serif;
-        font-size: 15px;
-        font-style: italic;
-        line-height: 1.84;
+        font-family: "Cormorant Garamond", serif;
+        font-size: clamp(18px, 1.8vw, 27px);
+        font-style: normal;
+        font-weight: 500;
+        line-height: 1.56;
+        letter-spacing: 0.01em;
         color: white;
         mix-blend-mode: difference;
-        max-width: 520px;
+        max-width: 650px;
         margin-bottom: 28px;
         position: relative;
         animation: heroTitleIn 0.7s ease 0.26s both;
@@ -426,11 +428,16 @@ const initialFeatCounter = copy.featured.counterTemplate
         color: #fff;
         border: none;
         cursor: pointer;
-        transition: background 0.2s;
+        transition: background 0.2s, transform 0.2s;
         animation: heroTitleIn 0.6s ease 0.44s both;
+      }
+      .btn-read::after {
+        content: " →";
+        font-size: 0.95em;
       }
       .btn-read:hover {
         background: var(--green2);
+        transform: translateX(2px);
       }
       .feat-controls {
         position: absolute;
@@ -716,6 +723,7 @@ const initialFeatCounter = copy.featured.counterTemplate
         width: 100%;
         height: 100%;
         object-fit: cover;
+        object-position: 50% 50%;
         display: block;
       }
       .portrait-drips {
@@ -1813,7 +1821,9 @@ const initialFeatCounter = copy.featured.counterTemplate
             hero.innerHTML = '<img src="' + esc(config.papersHeroImage.url) + '" alt="' + esc(config.papersHeroImage.alt || "Selected Papers hero image") + '" loading="lazy">';
           }
           if (authorPortrait && config && config.papersAuthorPortrait && config.papersAuthorPortrait.url) {
-            authorPortrait.outerHTML = '<img id="papers-author-portrait" src="' + esc(config.papersAuthorPortrait.url) + '" alt="' + esc(config.papersAuthorPortrait.alt || "Author portrait") + '" loading="lazy">';
+            const focusX = Number.isFinite(Number(config.papersAuthorPortrait.focusX)) ? Number(config.papersAuthorPortrait.focusX) : 50;
+            const focusY = Number.isFinite(Number(config.papersAuthorPortrait.focusY)) ? Number(config.papersAuthorPortrait.focusY) : 50;
+            authorPortrait.outerHTML = '<img id="papers-author-portrait" src="' + esc(config.papersAuthorPortrait.url) + '" alt="' + esc(config.papersAuthorPortrait.alt || "Author portrait") + '" loading="lazy" style="object-position:' + focusX + '% ' + focusY + '%">';
           }
         }
 

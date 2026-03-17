@@ -25,9 +25,24 @@ service cloud.firestore {
     }
 
     function validSubscriberData(uid) {
-      return hasOnlyKeys(
+        return hasOnlyKeys(
           request.resource.data,
-          ["email", "emailLower", "name", "status", "preferences", "createdAt", "updatedAt", "source"]
+          [
+            "email",
+            "emailLower",
+            "name",
+            "verified",
+            "status",
+            "preferences",
+            "wantsAllUpdates",
+            "wantsPapers",
+            "wantsPhotography",
+            "wantsFaces",
+            "wantsTravel",
+            "createdAt",
+            "updatedAt",
+            "source"
+          ]
         )
         && request.auth.token.email != null
         && request.resource.data.email is string
@@ -37,11 +52,17 @@ service cloud.firestore {
         && request.resource.data.emailLower.size() <= 254
         && request.resource.data.name is string
         && request.resource.data.name.size() <= 80
+        && request.resource.data.verified is bool
         && request.resource.data.status == "active"
         && request.resource.data.source is string
         && request.resource.data.source.size() <= 40
         && request.resource.data.preferences is list
         && request.resource.data.preferences.size() <= 10
+        && request.resource.data.wantsAllUpdates is bool
+        && request.resource.data.wantsPapers is bool
+        && request.resource.data.wantsPhotography is bool
+        && request.resource.data.wantsFaces is bool
+        && request.resource.data.wantsTravel is bool
         && request.resource.data.updatedAt == request.time
         && (
           !exists(/databases/$(database)/documents/subscribers/$(uid))

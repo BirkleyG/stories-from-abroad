@@ -33,6 +33,12 @@ const currentRoute = currentPath.startsWith(basePath)
   : currentPath;
 
 const pageTitle = title ? `${title} | ${copy.siteTitle}` : copy.siteTitle;
+const publicFirebaseConfigJson = JSON.stringify({
+  apiKey: import.meta.env.PUBLIC_FIREBASE_API_KEY ?? "",
+  authDomain: import.meta.env.PUBLIC_FIREBASE_AUTH_DOMAIN ?? "",
+  projectId: import.meta.env.PUBLIC_FIREBASE_PROJECT_ID ?? "",
+  appId: import.meta.env.PUBLIC_FIREBASE_APP_ID ?? "",
+});
 ---
 
 <!DOCTYPE html>
@@ -101,61 +107,72 @@ const pageTitle = title ? `${title} | ${copy.siteTitle}` : copy.siteTitle;
 
     <div class="modal-overlay" id="subscribe-modal" data-modal="subscribe">
       <div class="modal">
-        <button class="modal-close" type="button" data-modal-close>{copy.subscribeModal.closeLabel}</button>
-        <div id="modal-form-view">
-          <div class="modal-ornament"></div>
-          <h2 class="modal-title">{copy.subscribeModal.title}</h2>
-          <p class="modal-sub">{copy.subscribeModal.subtitle}</p>
-          <div class="form-group">
-            <label class="form-label" for="sub-email">{copy.subscribeModal.emailLabel}</label>
-            <input type="email" class="form-input" id="sub-email" placeholder={copy.subscribeModal.emailPlaceholder} />
+        <div class="modal-scroll">
+          <button class="modal-close" type="button" data-modal-close><span aria-hidden="true">×</span>{copy.subscribeModal.closeLabel}</button>
+          <div id="modal-form-view">
+            <div class="modal-topline">
+              <span></span>
+              <strong>&amp;</strong>
+              <span></span>
+            </div>
+            <h2 class="modal-title">
+              <span>Subscribe to</span>
+              <em>Dispatches</em>
+            </h2>
+            <p class="modal-sub">{copy.subscribeModal.subtitle}</p>
+            <div class="form-group">
+              <label class="form-label" for="sub-email">{copy.subscribeModal.emailLabel}</label>
+              <input type="email" class="form-input" id="sub-email" placeholder={copy.subscribeModal.emailPlaceholder} />
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="sub-name">{copy.subscribeModal.nameLabel}</label>
+              <input type="text" class="form-input" id="sub-name" placeholder={copy.subscribeModal.namePlaceholder} />
+            </div>
+            <span class="pref-label">{copy.subscribeModal.preferenceLabel}</span>
+            <div class="checkboxes">
+              <label class="checkbox-row">
+                <input type="checkbox" id="pref-all" checked /> <span>{copy.subscribeModal.checkboxes[0]}</span>
+              </label>
+              <label class="checkbox-row">
+                <input type="checkbox" id="pref-articles" /> <span>{copy.subscribeModal.checkboxes[1]}</span>
+              </label>
+              <label class="checkbox-row">
+                <input type="checkbox" id="pref-photo" /> <span>{copy.subscribeModal.checkboxes[2]}</span>
+              </label>
+              <label class="checkbox-row">
+                <input type="checkbox" id="pref-faces" /> <span>{copy.subscribeModal.checkboxes[3]}</span>
+              </label>
+              <label class="checkbox-row">
+                <input type="checkbox" id="pref-travel" /> <span>{copy.subscribeModal.checkboxes[4]}</span>
+              </label>
+            </div>
+            <button class="btn-ghost modal-submit" type="button" id="modal-submit">
+              {copy.subscribeModal.submitLabel}
+            </button>
+            <p class="modal-status" id="modal-status" aria-live="polite"></p>
           </div>
-          <div class="form-group">
-            <label class="form-label" for="sub-name">{copy.subscribeModal.nameLabel}</label>
-            <input type="text" class="form-input" id="sub-name" placeholder={copy.subscribeModal.namePlaceholder} />
+          <div class="modal-success" id="modal-success-view">
+            <div class="modal-check">{copy.subscribeModal.success.title}</div>
+            <h3 id="modal-success-title">{copy.subscribeModal.success.subtitle}</h3>
+            <p id="modal-success-body">{copy.subscribeModal.success.body}</p>
           </div>
-          <span class="pref-label">{copy.subscribeModal.preferenceLabel}</span>
-          <div class="checkboxes">
-            <label class="checkbox-row">
-              <input type="checkbox" id="pref-all" checked /> <span>{copy.subscribeModal.checkboxes[0]}</span>
-            </label>
-            <label class="checkbox-row">
-              <input type="checkbox" id="pref-articles" /> <span>{copy.subscribeModal.checkboxes[1]}</span>
-            </label>
-            <label class="checkbox-row">
-              <input type="checkbox" id="pref-photo" /> <span>{copy.subscribeModal.checkboxes[2]}</span>
-            </label>
-            <label class="checkbox-row">
-              <input type="checkbox" id="pref-faces" /> <span>{copy.subscribeModal.checkboxes[3]}</span>
-            </label>
-            <label class="checkbox-row">
-              <input type="checkbox" id="pref-travel" /> <span>{copy.subscribeModal.checkboxes[4]}</span>
-            </label>
-          </div>
-          <button class="btn-ghost modal-submit" type="button" id="modal-submit">
-            {copy.subscribeModal.submitLabel}
-          </button>
-          <p class="modal-status" id="modal-status" aria-live="polite"></p>
-        </div>
-        <div class="modal-success" id="modal-success-view">
-          <div class="modal-check">{copy.subscribeModal.success.title}</div>
-          <h3 id="modal-success-title">{copy.subscribeModal.success.subtitle}</h3>
-          <p id="modal-success-body">{copy.subscribeModal.success.body}</p>
         </div>
       </div>
     </div>
 
+    <script id="public-firebase-config" type="application/json" set:html={publicFirebaseConfigJson}></script>
     <script type="module">
-      import { firestoreReady } from "../lib/firebaseClient";
+      import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
       import {
-        completeSubscriberSignInFromLink,
-        fallbackNameFromEmail,
-        getSubscriberRecord,
-        normalizeEmail,
-        onSubscriberAuthChange,
-        sendSubscriberSignInLink,
-        upsertSubscriberRecord,
-      } from "../lib/subscriberClient";
+        browserLocalPersistence,
+        getAuth,
+        isSignInWithEmailLink,
+        onAuthStateChanged,
+        sendSignInLinkToEmail,
+        setPersistence,
+        signInWithEmailLink,
+      } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+      import { doc, getDoc, getFirestore, serverTimestamp, setDoc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
 
       const nav = document.getElementById("site-nav");
       if (nav) {
@@ -180,8 +197,120 @@ const pageTitle = title ? `${title} | ${copy.siteTitle}` : copy.siteTitle;
       const prefPhoto = document.getElementById("pref-photo");
       const prefFaces = document.getElementById("pref-faces");
       const prefTravel = document.getElementById("pref-travel");
+      const configEl = document.getElementById("public-firebase-config");
+
+      let firebaseConfig = {};
+      try {
+        firebaseConfig = JSON.parse(configEl?.textContent || "{}");
+      } catch (error) {
+        firebaseConfig = {};
+      }
+
+      const firebaseReady = Boolean(firebaseConfig.apiKey && firebaseConfig.authDomain && firebaseConfig.projectId && firebaseConfig.appId);
+      const firebaseApp = firebaseReady ? (getApps().length ? getApp() : initializeApp(firebaseConfig)) : null;
+      const auth = firebaseApp ? getAuth(firebaseApp) : null;
+      const db = firebaseApp ? getFirestore(firebaseApp) : null;
+      const pendingKey = "sfa-pending-subscriber-v2";
 
       let authUser = null;
+
+      if (auth) {
+        setPersistence(auth, browserLocalPersistence).catch(() => undefined);
+      }
+
+      function normalizeString(value) {
+        return String(value ?? "").trim();
+      }
+
+      function normalizeEmail(value) {
+        return normalizeString(value).toLowerCase();
+      }
+
+      function fallbackNameFromEmail(email) {
+        const local = normalizeEmail(email).split("@")[0] || "";
+        if (!local) return "Subscriber";
+        return local.replace(/[._-]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 80);
+      }
+
+      function collectPreferences() {
+        const out = [];
+        if (prefAll?.checked) out.push("all");
+        if (prefArticles?.checked) out.push("articles");
+        if (prefPhoto?.checked) out.push("photography");
+        if (prefFaces?.checked) out.push("faces");
+        if (prefTravel?.checked) out.push("travel");
+        return out;
+      }
+
+      function flagsFromPreferences(preferences) {
+        const set = new Set(Array.isArray(preferences) ? preferences : []);
+        return {
+          wantsAllUpdates: set.has("all"),
+          wantsPapers: set.has("articles") || set.has("papers"),
+          wantsPhotography: set.has("photography"),
+          wantsFaces: set.has("faces") || set.has("stories"),
+          wantsTravel: set.has("travel"),
+        };
+      }
+
+      function writePendingSubscriber(next) {
+        try {
+          window.localStorage.setItem(pendingKey, JSON.stringify(next));
+        } catch (error) {}
+      }
+
+      function readPendingSubscriber() {
+        try {
+          return JSON.parse(window.localStorage.getItem(pendingKey) || "null");
+        } catch (error) {
+          return null;
+        }
+      }
+
+      function clearPendingSubscriber() {
+        try {
+          window.localStorage.removeItem(pendingKey);
+        } catch (error) {}
+      }
+
+      async function getSubscriberRecord(uid) {
+        if (!db || !uid) return null;
+        try {
+          const snap = await getDoc(doc(db, "subscribers", uid));
+          return snap.exists() ? snap.data() : null;
+        } catch (error) {
+          return null;
+        }
+      }
+
+      async function upsertSubscriberRecord(user, options = {}) {
+        if (!db || !user?.uid || !user?.email) return null;
+        const existing = await getSubscriberRecord(user.uid);
+        const preferences = Array.isArray(options.preferences) && options.preferences.length
+          ? options.preferences
+          : Array.isArray(existing?.preferences)
+            ? existing.preferences
+            : [];
+        const flags = flagsFromPreferences(preferences);
+        const payload = {
+          email: user.email,
+          emailLower: normalizeEmail(user.email),
+          name: normalizeString(options.name) || normalizeString(existing?.name) || fallbackNameFromEmail(user.email),
+          verified: true,
+          status: "active",
+          preferences,
+          wantsAllUpdates: flags.wantsAllUpdates,
+          wantsPapers: flags.wantsPapers,
+          wantsPhotography: flags.wantsPhotography,
+          wantsFaces: flags.wantsFaces,
+          wantsTravel: flags.wantsTravel,
+          source: normalizeString(options.source) || normalizeString(existing?.source) || "global_modal",
+          updatedAt: serverTimestamp(),
+        };
+        if (!existing) payload.createdAt = serverTimestamp();
+        await setDoc(doc(db, "subscribers", user.uid), payload, { merge: true });
+        return payload;
+      }
 
       function setStatus(message, tone = "muted") {
         if (!statusEl) return;
@@ -193,16 +322,6 @@ const pageTitle = title ? `${title} | ${copy.siteTitle}` : copy.siteTitle;
         } else {
           statusEl.style.color = "var(--text-muted)";
         }
-      }
-
-      function collectPreferences() {
-        const out = [];
-        if (prefAll?.checked) out.push("all");
-        if (prefArticles?.checked) out.push("articles");
-        if (prefPhoto?.checked) out.push("photography");
-        if (prefFaces?.checked) out.push("faces");
-        if (prefTravel?.checked) out.push("travel");
-        return out;
       }
 
       function showSuccess(title, body) {
@@ -286,26 +405,43 @@ const pageTitle = title ? `${title} | ${copy.siteTitle}` : copy.siteTitle;
         nameInput.value = fallbackNameFromEmail(authUser.email);
       }
 
-      onSubscriberAuthChange(async (user) => {
-        authUser = user;
-        if (!user?.uid || !nameInput) return;
-        const profile = await getSubscriberRecord(user.uid);
-        const preferredName = profile?.name || fallbackNameFromEmail(user.email || "");
-        if (preferredName && !nameInput.value.trim()) {
-          nameInput.value = preferredName;
-        }
-      });
-
-      completeSubscriberSignInFromLink()
-        .then(async ({ completed, user }) => {
-          if (!completed || !user?.uid) return;
+      if (auth) {
+        onAuthStateChanged(auth, async (user) => {
+          authUser = user;
+          if (!user?.uid || !(nameInput instanceof HTMLInputElement)) return;
           const profile = await getSubscriberRecord(user.uid);
-          const title = profile?.name ? "Subscription received" : "Subscription confirmed";
-          showSuccess(title, "Your subscriber account is active and ready for comments.");
-        })
-        .catch(() => {
-          // Ignore silent auth-completion errors in global layout.
+          const preferredName = profile?.name || fallbackNameFromEmail(user.email || "");
+          if (preferredName && !nameInput.value.trim()) nameInput.value = preferredName;
         });
+      }
+
+      async function completeSubscriberSignInFromLink() {
+        if (!auth || !window || !isSignInWithEmailLink(auth, window.location.href)) return { completed: false };
+        const pending = readPendingSubscriber();
+        const email = normalizeEmail(pending?.email || window.localStorage.getItem("sfa-last-email-link") || window.prompt("Confirm your email to finish sign-in:") || "");
+        if (!email) return { completed: false, error: "missing_email" };
+        const credential = await signInWithEmailLink(auth, email, window.location.href);
+        window.localStorage.setItem("sfa-last-email-link", email);
+        await upsertSubscriberRecord(credential.user, {
+          name: pending?.name,
+          preferences: Array.isArray(pending?.preferences) ? pending.preferences : [],
+          source: pending?.source || "global_modal",
+        });
+        clearPendingSubscriber();
+        try {
+          const clean = new URL(window.location.href);
+          clean.search = "";
+          window.history.replaceState({}, document.title, clean.pathname + clean.hash);
+        } catch (error) {}
+        return { completed: true, user: credential.user };
+      }
+
+      completeSubscriberSignInFromLink().then(async ({ completed, user }) => {
+        if (!completed || !user?.uid) return;
+        const profile = await getSubscriberRecord(user.uid);
+        const title = profile?.name ? "Subscription received" : "Subscription confirmed";
+        showSuccess(title, "Your subscriber account is active and ready for comments.");
+      }).catch(() => {});
 
       if (modalSubmit) {
         modalSubmit.addEventListener("click", async () => {
@@ -321,7 +457,7 @@ const pageTitle = title ? `${title} | ${copy.siteTitle}` : copy.siteTitle;
           emailInput.classList.remove("input-error");
           setStatus("");
 
-          if (!firestoreReady) {
+          if (!firebaseReady || !auth || !db) {
             setStatus("Subscriber services are not configured yet.", "error");
             return;
           }
@@ -344,24 +480,16 @@ const pageTitle = title ? `${title} | ${copy.siteTitle}` : copy.siteTitle;
               return;
             }
 
-            const result = await sendSubscriberSignInLink({
+            await sendSignInLinkToEmail(auth, normalizedEmail, {
+              url: window.location.href,
+              handleCodeInApp: true,
+            });
+            writePendingSubscriber({
               email: normalizedEmail,
-              name,
+              name: normalizeString(name).slice(0, 80),
               preferences,
               source: "global_modal",
-              redirectUrl: window.location.href,
             });
-
-            if (!result.ok) {
-              setStatus("Unable to send sign-in link. Please try again.", "error");
-              return;
-            }
-
-            if (result.linked) {
-              showSuccess("Subscription confirmed", "Your subscriber account is active.");
-              return;
-            }
-
             showSuccess("Check your inbox", "Use the sign-in link to confirm your subscription.");
           } catch (error) {
             setStatus("Subscription failed. Please retry in a moment.", "error");

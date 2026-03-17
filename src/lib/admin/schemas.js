@@ -48,6 +48,8 @@ export function createMediaValue() {
     storagePath: "",
     contentType: "",
     fileName: "",
+    focusX: 50,
+    focusY: 50,
   };
 }
 

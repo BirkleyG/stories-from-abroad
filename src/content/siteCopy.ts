@@ -35,7 +35,7 @@ export const siteCopy = {
       preferenceLabel: "I am interested in",
       checkboxes: [
         "All updates",
-        "Articles and Op-Eds",
+        "Articles & Op-Eds",
         "Photography",
         "Faces of the World",
         "Travel",
@@ -144,7 +144,7 @@ export const siteCopy = {
     ],
     featured: {
       label: "Featured Writing",
-      button: "Read Paper ->",
+      button: "Read Paper",
       counterTemplate: "{current} of {total}",
       metaReadSuffix: " read",
     },
