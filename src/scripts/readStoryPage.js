@@ -1,6 +1,6 @@
 import { loadSectionMediaConfig } from "../lib/siteSectionMedia";
 
-async function initReadStoryPage() {
+export default async function initReadStoryPage() {
   const portrait = document.getElementById("read-story-portrait");
   if (!portrait) return;
 
@@ -15,5 +15,3 @@ async function initReadStoryPage() {
   image.loading = "lazy";
   portrait.appendChild(image);
 }
-
-initReadStoryPage();

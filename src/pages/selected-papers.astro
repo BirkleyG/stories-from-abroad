@@ -1,11 +1,13 @@
 ---
 import { siteCopy } from "../content/siteCopy";
-import selectedPapersPageUrl from "../scripts/selectedPapersPage.js?url";
-
 const base = import.meta.env.BASE_URL ?? "/";
 const basePath = base.endsWith("/") ? base : `${base}/`;
 const copy = siteCopy.papers;
 const copyJson = JSON.stringify({ ...copy, fallbackPapers: [] });
+const publicFirestoreConfigJson = JSON.stringify({
+  projectId: import.meta.env.PUBLIC_FIREBASE_PROJECT_ID ?? "",
+  apiKey: import.meta.env.PUBLIC_FIREBASE_API_KEY ?? "",
+});
 const initialFeatCounter = copy.featured.counterTemplate
   .replace("{current}", "01")
   .replace("{total}", "03");
@@ -1730,6 +1732,427 @@ const initialFeatCounter = copy.featured.counterTemplate
     </div>
 
     <script id="papers-copy" type="application/json" set:html={copyJson}></script>
-    <script type="module" src={selectedPapersPageUrl}></script>
+    <script id="public-firestore-config" type="application/json" set:html={publicFirestoreConfigJson}></script>
+    <script src={`${basePath}scripts/public-firestore.js`}></script>
+    <script is:inline>
+      (function () {
+        function esc(value) {
+          return String(value ?? "").replace(/[&<>"']/g, function (char) {
+            return char === "&" ? "&amp;"
+              : char === "<" ? "&lt;"
+                : char === ">" ? "&gt;"
+                  : char === "\"" ? "&quot;"
+                    : "&#39;";
+          });
+        }
+
+        function readJson(id) {
+          const el = document.getElementById(id);
+          if (!el) return null;
+          try {
+            return JSON.parse(el.textContent || "{}");
+          } catch (error) {
+            console.warn(id + " JSON could not be parsed.", error);
+            return null;
+          }
+        }
+
+        function sortPapers(list) {
+          return list.slice().sort(function (a, b) {
+            const featuredDelta = Number(Boolean(b.featured)) - Number(Boolean(a.featured));
+            if (featuredDelta) return featuredDelta;
+            const aDate = Date.parse(a.date || String(a.year || 0)) || 0;
+            const bDate = Date.parse(b.date || String(b.year || 0)) || 0;
+            if (bDate !== aDate) return bDate - aDate;
+            return String(a.title || "").localeCompare(String(b.title || ""));
+          });
+        }
+
+        function normalizePaper(copy, paper, index) {
+          const keywords = Array.isArray(paper.keywords)
+            ? paper.keywords
+            : Array.isArray(paper.kw)
+              ? paper.kw
+              : [];
+          const bodyText = typeof paper.bodyText === "string"
+            ? paper.bodyText
+            : typeof paper.fullText === "string"
+              ? paper.fullText
+              : "";
+
+          return {
+            id: paper.id || ("paper-" + index),
+            title: paper.title || copy.defaults.title,
+            subtitle: paper.subtitle || "",
+            cat: paper.category || paper.cat || copy.defaults.category,
+            year: Number(paper.year) || new Date().getFullYear(),
+            date: paper.date || "",
+            kw: keywords,
+            time: paper.readTime || paper.time || copy.defaults.time,
+            type: paper.type || copy.defaults.type,
+            featured: Boolean(paper.featured),
+            featuredRank: String(paper.featuredRank ?? "").trim() !== "" && Number.isFinite(Number(paper.featuredRank))
+              ? Number(paper.featuredRank)
+              : Number.MAX_SAFE_INTEGER,
+            summary: paper.summary || "",
+            bodyText: bodyText,
+            publicationName: paper.publicationName || "",
+            publicationLink: paper.publicationLink || "",
+            badgeStyle: paper.badgeStyle || paper.category || paper.cat || copy.defaults.category,
+            documentUrl: paper.documentUrl || "",
+            documentName: paper.documentName || "",
+            externalPublication: Boolean(paper.externalPublication),
+          };
+        }
+
+        function applySectionMedia(config) {
+          const hero = document.getElementById("papers-hero-media");
+          const authorPortrait = document.getElementById("papers-author-portrait");
+          if (hero && config && config.papersHeroImage && config.papersHeroImage.url) {
+            hero.classList.remove("is-empty");
+            hero.innerHTML = '<img src="' + esc(config.papersHeroImage.url) + '" alt="' + esc(config.papersHeroImage.alt || "Selected Papers hero image") + '" loading="lazy">';
+          }
+          if (authorPortrait && config && config.papersAuthorPortrait && config.papersAuthorPortrait.url) {
+            authorPortrait.outerHTML = '<img id="papers-author-portrait" src="' + esc(config.papersAuthorPortrait.url) + '" alt="' + esc(config.papersAuthorPortrait.alt || "Author portrait") + '" loading="lazy">';
+          }
+        }
+
+        function initTypewriter(copy) {
+          const twEl = document.getElementById("tw-el");
+          const lines = copy.typewriterLines || [];
+          if (!twEl || !lines.length) return;
+          let li = 0;
+          let ci = 0;
+          let deleting = false;
+          function tick() {
+            const line = lines[li] || "";
+            if (!deleting) {
+              twEl.textContent = line.slice(0, ++ci);
+              if (ci >= line.length) {
+                deleting = true;
+                setTimeout(tick, 2400);
+                return;
+              }
+            } else {
+              twEl.textContent = line.slice(0, --ci);
+              if (ci <= 0) {
+                deleting = false;
+                li = (li + 1) % lines.length;
+              }
+            }
+            setTimeout(tick, deleting ? 14 : 46);
+          }
+          setTimeout(tick, 1200);
+        }
+
+        const copy = readJson("papers-copy");
+        const publicConfig = readJson("public-firestore-config");
+        if (!copy || !window.SFAPublicFirestore) return;
+        initTypewriter(copy);
+
+        const state = {
+          papers: [],
+          featured: [],
+          featIdx: 0,
+          autoTimer: null,
+        };
+
+        const counterTemplate = copy.featured.counterTemplate;
+        const citationStyles = copy.overlay.citationStyles || [];
+
+        function formatCounter(current, total) {
+          return counterTemplate.replace("{current}", current).replace("{total}", total);
+        }
+
+        function setFeaturedEmpty() {
+          document.getElementById("feat-kicker").textContent = "Published Writing";
+          document.getElementById("feat-title").textContent = "No published papers yet";
+          document.getElementById("feat-summary").textContent = "Published papers will appear here as soon as they are live in Firestore.";
+          document.getElementById("feat-kws").innerHTML = "";
+          document.getElementById("feat-meta").innerHTML = "";
+          document.getElementById("feat-ghost").textContent = "00";
+          document.getElementById("feat-dots").innerHTML = "";
+          document.getElementById("feat-ctr-sd").textContent = formatCounter("00", "00");
+          const button = document.getElementById("feat-btn");
+          button.textContent = "Awaiting Publication";
+          button.disabled = true;
+          button.onclick = null;
+        }
+
+        function triggerFeatAnim() {
+          const els = document.querySelectorAll(".feat-kicker,.feat-title,.feat-summary,.feat-kws,.feat-meta,.btn-read");
+          els.forEach(function (el) { el.style.animation = "none"; });
+          void document.getElementById("feat-content").offsetWidth;
+          els.forEach(function (el) { el.style.animation = ""; });
+        }
+
+        function updateFeat(idx) {
+          const paper = state.featured[idx];
+          if (!paper) {
+            setFeaturedEmpty();
+            return;
+          }
+          document.getElementById("feat-kicker").textContent = paper.cat;
+          document.getElementById("feat-title").textContent = paper.title;
+          document.getElementById("feat-summary").textContent = paper.summary;
+          document.getElementById("feat-kws").innerHTML = paper.kw.map(function (keyword) {
+            return '<span class="feat-kw">' + esc(keyword) + "</span>";
+          }).join("");
+          document.getElementById("feat-meta").innerHTML =
+            "<span>" + esc(paper.date || paper.year) + "</span>" +
+            '<span class="feat-meta-dot"></span>' +
+            "<span>" + esc(paper.time) + esc(copy.featured.metaReadSuffix) + "</span>" +
+            '<span class="feat-meta-dot"></span>' +
+            "<span>" + esc(paper.type) + "</span>";
+          document.getElementById("feat-ghost").textContent = String(idx + 1).padStart(2, "0");
+          document.getElementById("feat-ctr-sd").textContent = formatCounter(
+            String(idx + 1).padStart(2, "0"),
+            String(state.featured.length).padStart(2, "0")
+          );
+          document.querySelectorAll(".feat-dot").forEach(function (dot, dotIndex) {
+            dot.classList.toggle("active", dotIndex === idx);
+          });
+          const button = document.getElementById("feat-btn");
+          button.textContent = copy.featured.button;
+          button.disabled = false;
+          button.onclick = function () { openPaper(paper.id); };
+          triggerFeatAnim();
+        }
+
+        function buildFeatDots() {
+          document.getElementById("feat-dots").innerHTML = state.featured.map(function (_, index) {
+            return '<div class="feat-dot' + (index === 0 ? " active" : "") + '" data-feat-index="' + index + '"></div>';
+          }).join("");
+          document.querySelectorAll("[data-feat-index]").forEach(function (dot) {
+            dot.addEventListener("click", function () {
+              goFeat(Number(dot.getAttribute("data-feat-index") || 0));
+            });
+          });
+        }
+
+        function goFeat(nextIndex) {
+          const max = state.featured.length;
+          if (!max) return;
+          nextIndex = ((nextIndex % max) + max) % max;
+          state.featIdx = nextIndex;
+          updateFeat(state.featIdx);
+          resetAutoTimer();
+        }
+
+        function moveFeat(dir) {
+          goFeat(state.featIdx + dir);
+        }
+
+        function resetAutoTimer() {
+          clearInterval(state.autoTimer);
+          if (state.featured.length < 2) return;
+          state.autoTimer = setInterval(function () {
+            goFeat(state.featIdx + 1);
+          }, 8000);
+        }
+
+        function buildList(list) {
+          const listEl = document.getElementById("papers-list");
+          document.getElementById("paper-count").textContent = list.length + " " + (list.length !== 1 ? copy.archive.countPlural : copy.archive.countSingular);
+          listEl.innerHTML = "";
+          if (!list.length) {
+            listEl.innerHTML = '<div class="no-results">' + esc(copy.archive.emptyState) + "</div>";
+            return;
+          }
+          list.forEach(function (paper, index) {
+            const row = document.createElement("div");
+            row.className = "paper-row";
+            row.onclick = function () { openPaper(paper.id); };
+            row.innerHTML =
+              '<div class="row-n">' + String(index + 1).padStart(2, "0") + "</div>" +
+              '<div class="row-body">' +
+                '<div class="row-cat">' + esc(paper.cat) + "</div>" +
+                '<div class="row-title">' + esc(paper.title) + "</div>" +
+                '<div class="row-kws">' + paper.kw.map(function (keyword) { return '<span class="row-kw">' + esc(keyword) + "</span>"; }).join("") + "</div>" +
+                '<div class="row-preview">' + esc(paper.summary) + "</div>" +
+              "</div>" +
+              '<div class="row-aside">' +
+                '<div class="row-date">' + esc(paper.date || paper.year) + "</div>" +
+                '<div class="row-time">' + esc(paper.time) + esc(copy.archive.readSuffix) + "</div>" +
+                '<div class="row-arrow">&rarr;</div>' +
+              "</div>";
+            listEl.appendChild(row);
+          });
+        }
+
+        function fillSelect(id, label, items) {
+          const select = document.getElementById(id);
+          select.innerHTML = '<option value="">' + esc(label) + "</option>" + items.map(function (item) {
+            return "<option>" + esc(item) + "</option>";
+          }).join("");
+        }
+
+        function populateFilters(list) {
+          fillSelect("f-cat", copy.archive.filters.categories, Array.from(new Set(list.map(function (paper) { return paper.cat; }).filter(Boolean))).sort());
+          fillSelect("f-yr", copy.archive.filters.years, Array.from(new Set(list.map(function (paper) { return paper.year; }).filter(Boolean))).sort(function (a, b) { return b - a; }));
+          fillSelect("f-tp", copy.archive.filters.type, Array.from(new Set(list.map(function (paper) { return paper.type; }).filter(Boolean))).sort());
+        }
+
+        function doFilter() {
+          const query = String(document.getElementById("s-in").value || "").toLowerCase();
+          const cat = document.getElementById("f-cat").value;
+          const year = document.getElementById("f-yr").value;
+          const type = document.getElementById("f-tp").value;
+          buildList(state.papers.filter(function (paper) {
+            const textMatch = !query || [paper.title, paper.summary].concat(paper.kw || [], [paper.cat]).some(function (value) {
+              return String(value || "").toLowerCase().includes(query);
+            });
+            return textMatch && (!cat || paper.cat === cat) && (!year || paper.year === Number(year)) && (!type || paper.type === type);
+          }));
+        }
+
+        function cite(paper, style) {
+          const title = esc(paper.title);
+          const year = esc(paper.year);
+          const date = esc(paper.date || String(paper.year));
+          const source = esc(paper.publicationName || copy.overlay.citeSource);
+          const authorShort = esc(copy.overlay.citationAuthorShort);
+          const authorFull = esc(copy.overlay.citationAuthorFull);
+          const authorBib = esc(copy.overlay.citationAuthorBib);
+          const key = esc(copy.overlay.citationKey);
+          if (style === "APA") return authorShort + " (" + year + "). <em>" + title + "</em>. <em>" + source + "</em>.";
+          if (style === "MLA") return authorFull + '. "' + title + '." <em>' + source + "</em>, " + date + ".";
+          if (style === "Chicago") return authorFull + '. "' + title + '." <em>' + source + "</em>. " + date + ".";
+          if (style === "Harvard") return authorShort + " (" + year + ") '" + title + "', <em>" + source + "</em>.";
+          if (style === "BibTeX") return "@article{" + key + year + ",\n  author={" + authorBib + "},\n  title={" + title + "},\n  year={" + year + "},\n  journal={" + source + "}\n}";
+          return "";
+        }
+
+        function setCit(paperId, style) {
+          const paper = state.papers.find(function (item) { return item.id === paperId; });
+          if (!paper) return;
+          document.getElementById("cit-out").innerHTML = cite(paper, style);
+          document.querySelectorAll(".cs-btn").forEach(function (button) {
+            button.classList.toggle("active", button.dataset.s === style);
+          });
+        }
+
+        function openPaper(id) {
+          const paper = state.papers.find(function (item) { return item.id === id; });
+          if (!paper) return;
+          const dateLabel = paper.date || String(paper.year);
+          const timeLabel = paper.time ? paper.time + copy.overlay.timeSuffix : "";
+          const kwLabel = paper.kw.length ? paper.kw.join(copy.overlay.kwSeparator) : copy.overlay.keywordsEmpty;
+          const bodyParagraphs = String(paper.bodyText || "").split(/\n{2,}/).map(function (paragraph) {
+            return paragraph.trim();
+          }).filter(Boolean);
+          const abstractParagraphs = [
+            esc(paper.summary),
+            bodyParagraphs[0] ? esc(bodyParagraphs[0]) : esc(copy.overlay.placeholder.abstractParagraphs[0]),
+            bodyParagraphs[1] ? esc(bodyParagraphs[1]) : esc(copy.overlay.placeholder.abstractParagraphs[1]),
+          ].filter(Boolean);
+          const bodyMarkup = bodyParagraphs.length
+            ? bodyParagraphs.slice(2, 7).map(function (paragraph) { return "<p>" + esc(paragraph) + "</p>"; }).join("")
+            : '<span class="sec-mark">' + esc(copy.overlay.placeholder.sectionMarks[0]) + '</span>' +
+              "<p>" + esc(copy.overlay.placeholder.bodyParagraphs[0]) + "</p>" +
+              "<h2>" + esc(copy.overlay.placeholder.headings[0]) + "</h2>" +
+              "<p>" + esc(copy.overlay.placeholder.bodyParagraphs[1]) + "</p>" +
+              "<blockquote>" + esc(copy.overlay.placeholder.blockquote) + "</blockquote>" +
+              "<p>" + esc(copy.overlay.placeholder.bodyParagraphs[2]) + "</p>" +
+              "<h2>" + esc(copy.overlay.placeholder.headings[1]) + "</h2>" +
+              '<span class="sec-mark">' + esc(copy.overlay.placeholder.sectionMarks[1]) + '</span>' +
+              "<p>" + esc(copy.overlay.placeholder.bodyParagraphs[3]) + "</p>" +
+              "<p>" + esc(copy.overlay.placeholder.bodyParagraphs[4]) + "</p>";
+          const downloadMarkup = [
+            paper.documentUrl
+              ? '<a class="btn-dl dl-pdf" href="' + esc(paper.documentUrl) + '" target="_blank" rel="noreferrer">' + esc(paper.documentName || copy.overlay.downloadButtons[0]) + "</a>"
+              : '<button class="btn-dl dl-pdf" disabled>' + esc(copy.overlay.downloadButtons[0]) + "</button>",
+            paper.publicationLink
+              ? '<a class="btn-dl dl-txt" href="' + esc(paper.publicationLink) + '" target="_blank" rel="noreferrer">' + esc(paper.publicationName || copy.overlay.downloadButtons[1]) + "</a>"
+              : '<button class="btn-dl dl-txt" disabled>' + esc(copy.overlay.downloadButtons[1]) + "</button>",
+            '<button class="btn-dl dl-cit" disabled>' + esc(copy.overlay.downloadButtons[2]) + "</button>",
+          ].join("");
+
+          document.getElementById("ov-label").textContent = dateLabel + " - " + timeLabel;
+          document.getElementById("ov-body").innerHTML =
+            '<div class="ov-kicker">' + esc(paper.cat) + "</div>" +
+            '<h1 class="ov-title">' + esc(paper.title) + "</h1>" +
+            (paper.subtitle ? '<p class="ov-subtitle">' + esc(paper.subtitle) + "</p>" : "") +
+            '<div class="ov-meta">' +
+              '<div class="ov-mc"><div class="ov-ml">' + esc(copy.overlay.metaLabels.author) + '</div><div class="ov-mv">' + esc(copy.hero.byName) + "</div></div>" +
+              '<div class="ov-mc"><div class="ov-ml">' + esc(copy.overlay.metaLabels.date) + '</div><div class="ov-mv">' + esc(dateLabel) + "</div></div>" +
+              '<div class="ov-mc"><div class="ov-ml">' + esc(copy.overlay.metaLabels.readingTime) + '</div><div class="ov-mv">' + esc(paper.time) + "</div></div>" +
+              '<div class="ov-mc"><div class="ov-ml">' + esc(copy.overlay.metaLabels.keywords) + '</div><div class="ov-mv">' + esc(kwLabel) + "</div></div>" +
+            "</div>" +
+            '<div class="ov-cite"><div class="ov-cite-body"><div class="ov-cite-lbl">' + esc(copy.overlay.citeLabel) + '</div><div class="ov-cite-txt" id="cit-out">' + cite(paper, "APA") + '</div></div><div class="ov-cite-styles">' +
+              citationStyles.map(function (style) {
+                return '<button class="cs-btn' + (style === "APA" ? " active" : "") + '" data-s="' + esc(style) + '" data-pid="' + encodeURIComponent(String(paper.id)) + '">' + esc(style) + "</button>";
+              }).join("") +
+            "</div></div>" +
+            '<div class="ov-abstract"><div class="ov-abs-lbl">' + esc(copy.overlay.abstractLabel) + "</div>" +
+              abstractParagraphs.map(function (paragraph) { return "<p>" + paragraph + "</p>"; }).join("") +
+            "</div>" +
+            '<div class="ov-text">' + bodyMarkup + "</div>" +
+            '<div class="ov-dls">' + downloadMarkup + "</div>";
+
+          document.querySelectorAll(".cs-btn").forEach(function (button) {
+            button.addEventListener("click", function () {
+              setCit(decodeURIComponent(button.dataset.pid || ""), button.dataset.s || "APA");
+            });
+          });
+          document.getElementById("overlay").classList.add("open");
+          document.getElementById("overlay").scrollTop = 0;
+          document.body.style.overflow = "hidden";
+        }
+
+        function closeOverlay() {
+          document.getElementById("overlay").classList.remove("open");
+          document.body.style.overflow = "";
+        }
+
+        async function boot() {
+          try {
+            const results = await Promise.all([
+              window.SFAPublicFirestore.getDocument(publicConfig, "site_config/section_media"),
+              window.SFAPublicFirestore.listCollection(publicConfig, "papers"),
+            ]);
+            applySectionMedia(results[0] || {});
+            state.papers = sortPapers((results[1] || []).map(function (paper, index) {
+              return normalizePaper(copy, paper, index);
+            }));
+            state.featured = state.papers.filter(function (paper) { return paper.featured; }).sort(function (a, b) {
+              return a.featuredRank - b.featuredRank || String(a.title).localeCompare(String(b.title));
+            });
+            if (!state.featured.length && state.papers.length) {
+              state.featured = state.papers.slice(0, 3);
+            }
+            populateFilters(state.papers);
+            buildFeatDots();
+            updateFeat(0);
+            resetAutoTimer();
+            buildList(state.papers);
+          } catch (error) {
+            console.warn("Selected Papers public load failed.", error);
+            setFeaturedEmpty();
+            buildList([]);
+          }
+        }
+
+        window.closeOverlay = closeOverlay;
+        window.openPaper = openPaper;
+        window.doFilter = doFilter;
+        window.moveFeat = moveFeat;
+        window.goFeat = goFeat;
+
+        document.addEventListener("keydown", function (event) {
+          if (event.key === "Escape") closeOverlay();
+          if (document.getElementById("overlay").classList.contains("open")) return;
+          if (event.key === "ArrowRight") moveFeat(1);
+          if (event.key === "ArrowLeft") moveFeat(-1);
+        });
+
+        document.getElementById("s-in").addEventListener("input", doFilter);
+        document.getElementById("f-cat").addEventListener("change", doFilter);
+        document.getElementById("f-yr").addEventListener("change", doFilter);
+        document.getElementById("f-tp").addEventListener("change", doFilter);
+
+        boot();
+      })();
+    </script>
   </body>
 </html>

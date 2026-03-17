@@ -1,11 +1,14 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
 import { siteCopy } from "../content/siteCopy";
-import readStoryPageUrl from "../scripts/readStoryPage.js?url";
 
 const base = import.meta.env.BASE_URL ?? "/";
 const basePath = base.endsWith("/") ? base : `${base}/`;
 const copy = siteCopy.readStory;
+const publicFirestoreConfigJson = JSON.stringify({
+  projectId: import.meta.env.PUBLIC_FIREBASE_PROJECT_ID ?? "",
+  apiKey: import.meta.env.PUBLIC_FIREBASE_API_KEY ?? "",
+});
 ---
 
 <BaseLayout
@@ -138,5 +141,29 @@ const copy = siteCopy.readStory;
       }
     }
   </style>
-  <script type="module" src={readStoryPageUrl}></script>
+  <script id="public-firestore-config" type="application/json" set:html={publicFirestoreConfigJson}></script>
+  <script src={`${basePath}scripts/public-firestore.js`}></script>
+  <script is:inline>
+    (async function () {
+      const portrait = document.getElementById("read-story-portrait");
+      const configEl = document.getElementById("public-firestore-config");
+      if (!portrait || !configEl || !window.SFAPublicFirestore) return;
+      let publicConfig = {};
+      try {
+        publicConfig = JSON.parse(configEl.textContent || "{}");
+      } catch (error) {
+        console.warn("Public Firestore config could not be parsed.", error);
+        return;
+      }
+      const sectionMedia = await window.SFAPublicFirestore.getDocument(publicConfig, "site_config/section_media");
+      const asset = sectionMedia && sectionMedia.readStoryPortrait;
+      if (!asset || !asset.url) return;
+      portrait.innerHTML = "";
+      const image = document.createElement("img");
+      image.src = asset.url;
+      image.alt = asset.alt || "Stories From Abroad portrait";
+      image.loading = "lazy";
+      portrait.appendChild(image);
+    })();
+  </script>
 </BaseLayout>

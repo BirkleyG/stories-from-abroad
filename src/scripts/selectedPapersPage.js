@@ -126,7 +126,7 @@ function initTypewriter(copy) {
   setTimeout(tick, 1400);
 }
 
-function initSelectedPapersPage() {
+export default function initSelectedPapersPage() {
   const copy = readCopy();
   if (!copy) return;
 
@@ -423,5 +423,3 @@ function initSelectedPapersPage() {
     buildList(state.papers);
   });
 }
-
-initSelectedPapersPage();
