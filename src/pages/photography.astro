@@ -1,775 +1,124 @@
 ---
 const base = import.meta.env.BASE_URL ?? "/";
 const basePath = base.endsWith("/") ? base : `${base}/`;
-const publicFirestoreConfigJson = JSON.stringify({
-  projectId: import.meta.env.PUBLIC_FIREBASE_PROJECT_ID ?? "",
-  apiKey: import.meta.env.PUBLIC_FIREBASE_API_KEY ?? "",
-});
-const copyJson = JSON.stringify({
-  loading: "Loading photography archive...",
-});
-const basePathJson = JSON.stringify(basePath);
 ---
 <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Photography | Stories From Abroad</title>
-    <meta name="description" content="Published photography shoots from Stories From Abroad." />
+    <title>Photography | Coming Soon</title>
+    <meta name="description" content="Photography is coming soon to Stories From Abroad." />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@300;400;500;600&family=Bebas+Neue&family=Cormorant+Garamond:wght@300;400;500;600;700&family=DM+Serif+Display:ital@0;1&family=Libre+Baskerville:ital,wght@0,400;1,400&family=Raleway:wght@300;400;500&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
     <style>
       :root {
-        --photo-bg: #0b0907;
-        --photo-paper: #f4efe5;
-        --photo-text: #f4efe5;
-        --photo-dim: rgba(244, 239, 229, 0.56);
-        --photo-line: rgba(244, 239, 229, 0.14);
-        --photo-accent: #ff6a00;
-        --photo-accent-2: #ff2d78;
-        --photo-accent-3: #1478ff;
+        --bg: #060606;
+        --text: #f4efe5;
+        --line: rgba(244, 239, 229, 0.16);
+        --accent: #ff5a00;
+        --accent2: #ff2d78;
       }
 
       * { box-sizing: border-box; }
       html, body { margin: 0; min-height: 100%; }
       body {
-        background: var(--photo-bg);
-        color: var(--photo-text);
-        font-family: "Barlow Condensed", sans-serif;
+        background:
+          radial-gradient(circle at 16% 14%, rgba(255, 45, 120, 0.14), transparent 35rem),
+          radial-gradient(circle at 86% 84%, rgba(255, 90, 0, 0.14), transparent 34rem),
+          var(--bg);
+        color: var(--text);
+        font-family: "Space Mono", monospace;
       }
-      body.is-lightbox-open { overflow: hidden; }
-      a { color: inherit; }
-      button { font: inherit; }
 
-      .photo-topbar,
-      .shoot-title-bar {
+      .topbar {
         position: fixed;
         top: 0;
         left: 0;
         right: 0;
-        z-index: 40;
+        z-index: 10;
         display: flex;
         justify-content: space-between;
         align-items: center;
         padding: 1rem 1.4rem;
-        background: linear-gradient(to bottom, rgba(11, 9, 7, 0.92), rgba(11, 9, 7, 0.58), transparent);
+        border-bottom: 1px solid var(--line);
+        background: rgba(6, 6, 6, 0.9);
+        backdrop-filter: blur(10px);
       }
-      .photo-topbar::after,
-      .shoot-title-bar::after {
-        content: "";
-        position: absolute;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        height: 1px;
-        background: linear-gradient(90deg, var(--photo-accent-2), var(--photo-accent), var(--photo-accent-3));
-        opacity: 0.72;
-      }
-      .shoot-title-bar {
-        opacity: 0;
-        pointer-events: none;
-        border-bottom: 1px solid var(--photo-line);
-        background:
-          linear-gradient(90deg, var(--shoot-accent-soft, #1b1b1b), transparent 48%),
-          rgba(11, 9, 7, 0.94);
-        transition: opacity 0.24s ease;
-      }
-      .shoot-title-bar.visible {
-        opacity: 1;
-        pointer-events: auto;
-      }
-      .photo-topbar a,
-      .shoot-title-bar a {
+
+      .topbar a {
+        color: inherit;
         text-decoration: none;
-        letter-spacing: 0.24em;
         text-transform: uppercase;
+        letter-spacing: 0.18em;
         font-size: 0.72rem;
       }
-      .photo-topbar strong,
-      .shoot-title-bar strong {
+
+      .topbar strong {
         font-family: "Bebas Neue", sans-serif;
         font-size: 1.3rem;
-        letter-spacing: 0.22em;
-      }
-      .shoot-title-bar span {
-        color: var(--photo-dim);
-        font-size: 0.78rem;
-        letter-spacing: 0.12em;
-      }
-
-      .photo-archive {
-        min-height: 100vh;
-      }
-      .photo-hero {
-        min-height: 100vh;
-        padding: 5.75rem 1.4rem 3rem;
-        display: grid;
-        align-content: start;
-        border-bottom: 1px solid var(--photo-line);
-        background:
-          radial-gradient(circle at top right, rgba(255, 46, 126, 0.16), transparent 18rem),
-          linear-gradient(180deg, rgba(255,255,255,0.03), transparent 60%),
-          #050505;
-      }
-      .photo-hero-header {
-        display: inline-flex;
-        align-items: center;
-        gap: 1rem;
-        margin-top: 1.1rem;
-      }
-      .photo-hero-line {
-        width: 2.1rem;
-        height: 1px;
-        background: #ff2d78;
-      }
-      .photo-kicker {
-        margin: 0;
-        color: #ff2d78;
-        text-transform: uppercase;
-        letter-spacing: 0.52em;
-        font-size: 0.72rem;
-      }
-      .photo-hero h1 {
-        margin: 1.55rem 0 0;
-        font-family: "Bebas Neue", sans-serif;
-        font-size: clamp(3.6rem, 12vw, 7.2rem);
-        line-height: 0.84;
-        letter-spacing: 0.04em;
-      }
-      .photo-hero h1 .outline {
-        color: transparent;
-        -webkit-text-stroke: 1.4px #f4efe5;
-      }
-      .photo-hero h1 .accent {
-        color: #ff2d78;
-      }
-      .photo-hero p {
-        max-width: 34rem;
-        margin: 1.55rem 0 0;
-        font-family: "Cormorant Garamond", serif;
-        font-size: clamp(1.15rem, 3.6vw, 1.45rem);
-        font-style: italic;
-        line-height: 1.55;
-        color: rgba(244, 239, 229, 0.66);
-      }
-      .photo-count {
-        margin-top: 2.6rem;
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 10rem));
-        gap: 1rem;
-      }
-      .photo-stat {
-        display: grid;
-        gap: 0.15rem;
-      }
-      .photo-stat strong {
-        font-family: "Bebas Neue", sans-serif;
-        font-size: clamp(2.6rem, 6vw, 4rem);
-        letter-spacing: 0.06em;
-      }
-      .photo-stat span {
-        font-size: 0.72rem;
-        letter-spacing: 0.36em;
-        text-transform: uppercase;
-        color: var(--photo-dim);
-      }
-
-      .photo-section {
-        padding: 2rem 1.4rem 3rem;
-      }
-      .photo-section-head {
-        display: flex;
-        justify-content: space-between;
-        align-items: end;
-        gap: 1rem;
-        margin-bottom: 1.25rem;
-      }
-      .photo-section-head h2 {
-        margin: 0;
-        font-family: "Bebas Neue", sans-serif;
-        font-size: clamp(2rem, 6vw, 3.2rem);
-        font-weight: 400;
-        letter-spacing: 0.05em;
-      }
-      .photo-section-head span {
-        color: var(--photo-dim);
-        text-transform: uppercase;
-        letter-spacing: 0.22em;
-        font-size: 0.72rem;
-      }
-      .photo-feature-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
-        gap: 1rem;
-      }
-      .photo-feature-card,
-      .photo-shoot-card {
-        display: block;
-        text-decoration: none;
-        border: 1px solid var(--photo-line);
-        background: rgba(255, 255, 255, 0.02);
-        overflow: hidden;
-        transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
-      }
-      .photo-feature-card:hover,
-      .photo-shoot-card:hover {
-        transform: translateY(-3px);
-        border-color: var(--shoot-accent, var(--photo-accent));
-        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
-      }
-      .photo-feature-card img,
-      .photo-shoot-cover img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        display: block;
-      }
-      .photo-feature-card {
-        min-height: 18rem;
-        position: relative;
-      }
-      .photo-feature-card img {
-        position: absolute;
-        inset: 0;
-      }
-      .photo-feature-card::after {
-        content: "";
-        position: absolute;
-        inset: 0;
-        background: linear-gradient(to top, rgba(0,0,0,0.86), rgba(0,0,0,0.14) 50%);
-      }
-      .photo-feature-meta {
-        position: absolute;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        z-index: 1;
-        padding: 1rem;
-        border-top: 2px solid var(--shoot-accent, var(--photo-accent));
-      }
-      .photo-feature-meta span {
-        display: block;
-        font-size: 0.72rem;
-        letter-spacing: 0.26em;
-        text-transform: uppercase;
-        color: var(--shoot-accent, #d7b57f);
-        margin-bottom: 0.4rem;
-      }
-      .photo-feature-meta strong {
-        display: block;
-        font-family: "Bebas Neue", sans-serif;
-        font-size: 1.8rem;
-        letter-spacing: 0.04em;
-        margin-bottom: 0.35rem;
-      }
-      .photo-feature-meta p,
-      .photo-shoot-body p { margin: 0; color: var(--photo-dim); line-height: 1.6; }
-
-      .photo-shoot-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
-        gap: 1rem;
-      }
-      .photo-shoot-cover {
-        aspect-ratio: 5 / 4;
-        background: rgba(255, 255, 255, 0.04);
-      }
-      .photo-shoot-cover.is-empty { min-height: 18rem; }
-      .photo-shoot-body { padding: 1rem; }
-      .photo-shoot-top {
-        display: flex;
-        justify-content: space-between;
-        gap: 0.5rem;
-        font-size: 0.72rem;
-        letter-spacing: 0.18em;
-        text-transform: uppercase;
-        color: var(--photo-dim);
-        margin-bottom: 0.7rem;
-      }
-      .photo-shoot-body h3 {
-        margin: 0 0 0.55rem;
-        font-family: "Bebas Neue", sans-serif;
-        font-size: 1.9rem;
-        font-weight: 400;
-        letter-spacing: 0.04em;
-      }
-      .photo-chip-row {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.4rem;
-        margin-top: 0.9rem;
-      }
-      .photo-chip {
-        border: 1px solid var(--photo-line);
-        padding: 0.24rem 0.5rem;
-        font-size: 0.68rem;
-        text-transform: uppercase;
-        letter-spacing: 0.18em;
-        color: var(--shoot-accent, #d7b57f);
-      }
-      .photo-empty { color: var(--photo-dim); }
-
-      .photo-shoot-view[hidden] { display: none; }
-      .shoot-overlay {
-        position: fixed;
-        inset: 0;
-        z-index: 10;
-        display: grid;
-        align-items: end;
-        padding: 0 1.4rem 3rem;
-        pointer-events: none;
-        background:
-          radial-gradient(circle at 12% 82%, color-mix(in srgb, var(--shoot-accent, var(--photo-accent)) 28%, transparent), transparent 34rem),
-          linear-gradient(to top, rgba(11,9,7,0.9), rgba(11,9,7,0.12) 36%, transparent 72%);
-      }
-      .shoot-overlay-body { max-width: 44rem; }
-      .shoot-overlay-body span {
-        display: block;
-        margin-bottom: 0.7rem;
-        text-transform: uppercase;
-        letter-spacing: 0.28em;
-        font-size: 0.72rem;
-        color: var(--shoot-accent, #d7b57f);
-      }
-      .shoot-overlay-body h2 {
-        margin: 0;
-        font-family: "Bebas Neue", sans-serif;
-        font-size: clamp(2.8rem, 9vw, 5rem);
-        font-weight: 400;
-        line-height: 0.88;
-        letter-spacing: 0.05em;
-      }
-      .shoot-overlay-body p {
-        font-family: "Cormorant Garamond", serif;
-        line-height: 1.7;
-        max-width: 34rem;
-        font-size: 1.15rem;
-        color: var(--photo-dim);
-      }
-      .shoot-overlay-body small {
-        display: block;
-        margin-top: 1rem;
-        color: var(--photo-dim);
-        letter-spacing: 0.18em;
-        text-transform: uppercase;
-      }
-      .shoot-hero {
-        min-height: 62vh;
-        border-bottom: 1px solid var(--photo-line);
-        background: #000;
-      }
-      .shoot-hero img {
-        width: 100%;
-        height: min(72vh, 42rem);
-        object-fit: cover;
-        display: block;
-      }
-      .shoot-blocks {
-        position: relative;
-        z-index: 1;
-      }
-      .shoot-note,
-      .shoot-section-title,
-      .shoot-footer {
-        padding: 2rem 1.4rem;
-        border-top: 1px solid var(--photo-line);
-      }
-      .shoot-note span,
-      .shoot-section-title span {
-        display: block;
-        text-transform: uppercase;
-        letter-spacing: 0.28em;
-        font-size: 0.72rem;
-        color: var(--shoot-accent, #d7b57f);
-        margin-bottom: 0.45rem;
-      }
-      .shoot-note h3,
-      .shoot-section-title h3 {
-        margin: 0 0 0.55rem;
-        font-family: "Bebas Neue", sans-serif;
-        font-size: 1.55rem;
-        font-weight: 400;
-        letter-spacing: 0.03em;
-      }
-      .shoot-note p,
-      .shoot-section-title p {
-        margin: 0;
-        max-width: 42rem;
-        line-height: 1.7;
-        color: var(--photo-dim);
-      }
-      .shoot-single-frame,
-      .shoot-row-frame {
-        position: relative;
-        margin: 0;
-        background: #000;
-        overflow: hidden;
-        cursor: pointer;
-      }
-      .shoot-single-frame {
-        height: min(68vh, var(--frame-height, 620px));
-        min-height: 18rem;
-      }
-      .shoot-single-frame img,
-      .shoot-row-frame img {
-        width: 100%;
-        height: 100%;
-        display: block;
-        object-fit: contain;
-        background: #000;
-      }
-      .shoot-single-frame figcaption,
-      .shoot-row-frame figcaption {
-        position: absolute;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        padding: 3rem 1rem 1rem;
-        background: linear-gradient(to top, rgba(0,0,0,0.84), rgba(0,0,0,0.18) 56%, transparent 100%);
-        display: flex;
-        flex-direction: column;
-        gap: 0.25rem;
-      }
-      .shoot-single-frame figcaption strong,
-      .shoot-row-frame figcaption strong {
-        font-family: "DM Serif Display", serif;
-        font-size: 1rem;
-        font-weight: 400;
-      }
-      .shoot-single-frame figcaption span,
-      .shoot-row-frame figcaption span {
-        font-size: 0.7rem;
         letter-spacing: 0.2em;
-        text-transform: uppercase;
-        color: var(--photo-dim);
-      }
-      .shoot-photo-row {
-        position: relative;
-        display: flex;
-        gap: 2px;
-        height: min(56vh, var(--row-height, 440px));
-        background: #000;
-      }
-      .shoot-photo-row.ghost { overflow: hidden; }
-      .shoot-ghost-text {
-        position: absolute;
-        z-index: 0;
-        color: rgba(244, 239, 229, 0.06);
-        font-family: "Bebas Neue", sans-serif;
-        font-size: clamp(5rem, 16vw, 12rem);
-        letter-spacing: 0.06em;
-        line-height: 0.9;
-        pointer-events: none;
-      }
-      .shoot-ghost-text.center { top: 50%; left: 50%; transform: translate(-50%, -50%); }
-      .shoot-ghost-text.top-left { top: 1rem; left: 1rem; }
-      .shoot-ghost-text.bottom-left { left: 1rem; bottom: 1rem; }
-      .shoot-ghost-text.bottom-right { right: 1rem; bottom: 1rem; }
-      .shoot-row-frame {
-        z-index: 1;
-        flex: var(--photo-ratio, 1);
-        min-width: 0;
-      }
-      .shoot-row-frame::after,
-      .shoot-single-frame::after {
-        content: "";
-        position: absolute;
-        inset: auto 0 0 0;
-        height: 2px;
-        background: linear-gradient(90deg, transparent, var(--shoot-accent, var(--photo-accent)), transparent);
-        opacity: 0;
-        transition: opacity 0.24s ease;
-      }
-      .shoot-row-frame:hover::after,
-      .shoot-single-frame:hover::after {
-        opacity: 0.92;
       }
 
-      .photo-shoot-view[data-template="desert-bloom"] {
-        --photo-accent: #c96b28;
-        font-family: "Raleway", sans-serif;
-      }
-      .photo-shoot-view[data-template="desert-bloom"] .shoot-overlay-body h2,
-      .photo-shoot-view[data-template="desert-bloom"] .shoot-note h3,
-      .photo-shoot-view[data-template="desert-bloom"] .shoot-section-title h3,
-      .photo-shoot-view[data-template="desert-bloom"] .shoot-footer h3 { font-family: "Libre Baskerville", serif; font-style: italic; }
-
-      .photo-shoot-view[data-template="desert-fill"] {
-        --photo-accent: #c8a870;
-        font-family: "Raleway", sans-serif;
-      }
-      .photo-shoot-view[data-template="desert-fill"] .shoot-note,
-      .photo-shoot-view[data-template="desert-fill"] .shoot-section-title { display: none; }
-      .photo-shoot-view[data-template="desert-fill"] .shoot-photo-row,
-      .photo-shoot-view[data-template="desert-fill"] .shoot-single-frame { gap: 0; }
-
-      .photo-shoot-view[data-template="kyoto-bold"] {
-        --photo-accent: #e8c547;
-        --photo-accent-2: #8f7b26;
-        font-family: "Space Mono", monospace;
-      }
-      .photo-shoot-view[data-template="kyoto-bold"] .shoot-overlay-body h2,
-      .photo-shoot-view[data-template="kyoto-bold"] .shoot-section-title h3 { font-family: "Bebas Neue", sans-serif; letter-spacing: 0.06em; }
-      .photo-shoot-view[data-template="kyoto-bold"] .shoot-note h3,
-      .photo-shoot-view[data-template="kyoto-bold"] .shoot-single-frame figcaption strong,
-      .photo-shoot-view[data-template="kyoto-bold"] .shoot-row-frame figcaption strong { font-family: "DM Serif Display", serif; }
-
-      .photo-shoot-view[data-template="tokyo-fragments"] {
-        --photo-accent: #c8321f;
-        --photo-accent-2: #62160f;
-        font-family: "Barlow Condensed", sans-serif;
-      }
-      .photo-shoot-view[data-template="tokyo-fragments"] .shoot-overlay-body h2,
-      .photo-shoot-view[data-template="tokyo-fragments"] .shoot-footer h3 { font-family: "Cormorant Garamond", serif; font-style: italic; }
-      .photo-shoot-view[data-template="tokyo-fragments"] .shoot-photo-row { grid-template-columns: 1.2fr 0.8fr; }
-
-      .shoot-footer {
-        display: flex;
-        justify-content: space-between;
-        gap: 1rem;
-        align-items: end;
-      }
-      .shoot-footer h3 {
-        margin: 0;
-        font-family: "Bebas Neue", sans-serif;
-        font-size: clamp(2.1rem, 6vw, 4.1rem);
-        font-weight: 400;
-        letter-spacing: 0.04em;
-      }
-
-      .shoot-section-title {
-        display: grid;
-        grid-template-columns: auto 1fr;
-        align-items: baseline;
-        gap: 1rem;
-      }
-      .shoot-section-index {
-        font-family: "Bebas Neue", sans-serif;
-        font-size: clamp(2.4rem, 8vw, 4rem);
-        line-height: 1;
-        letter-spacing: 0.04em;
-        color: rgba(244, 239, 229, 0.12);
-      }
-      .shoot-footer div:last-child { text-align: right; }
-      .shoot-footer p { margin: 0 0 0.8rem; color: var(--photo-dim); }
-      .shoot-footer a { text-decoration: none; text-transform: uppercase; letter-spacing: 0.24em; font-size: 0.72rem; }
-      .shoot-footer a {
-        border-bottom: 1px solid var(--shoot-accent, var(--photo-accent));
-        padding-bottom: 0.15rem;
-      }
-
-      .photo-lightbox {
-        position: fixed;
-        inset: 0;
-        z-index: 90;
-        display: none;
-        background: rgba(0, 0, 0, 0.96);
-      }
-      .photo-lightbox.open { display: grid; grid-template-columns: minmax(0, 1fr) 20rem; }
-      .photo-lightbox-main {
-        position: relative;
+      .shell {
+        min-height: 100vh;
         display: grid;
         place-items: center;
-        padding: 4.8rem 1rem 2rem;
+        padding: 6rem 1.4rem 2rem;
       }
-      .photo-lightbox-main img {
-        max-width: 100%;
-        max-height: calc(100vh - 7rem);
-        object-fit: contain;
+
+      .card {
+        width: min(40rem, 100%);
+        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.02);
+        padding: 1.4rem;
       }
-      .photo-lightbox-side {
-        border-left: 1px solid var(--photo-line);
-        padding: 5rem 1.2rem 1.4rem;
-        display: flex;
-        flex-direction: column;
-        gap: 1rem;
-      }
-      .photo-lightbox-side p { margin: 0; }
-      .photo-lightbox-side strong { font-family: "DM Serif Display", serif; font-size: 1.5rem; font-weight: 400; }
-      .photo-lightbox-side span { color: var(--photo-dim); text-transform: uppercase; letter-spacing: 0.2em; font-size: 0.72rem; }
-      .photo-lightbox-side dl {
-        display: grid;
-        gap: 0.8rem;
+
+      .kicker {
         margin: 0;
-      }
-      .photo-lightbox-side dl div { display: grid; gap: 0.18rem; }
-      .photo-lightbox-side dt { color: var(--photo-dim); text-transform: uppercase; letter-spacing: 0.18em; font-size: 0.68rem; }
-      .photo-lightbox-side dd { margin: 0; }
-      .photo-lightbox-close,
-      .photo-lightbox-nav {
-        position: absolute;
-        border: 1px solid var(--photo-line);
-        background: rgba(11, 9, 7, 0.86);
-        color: var(--photo-text);
-        cursor: pointer;
-      }
-      .photo-lightbox-close { top: 1rem; right: 1rem; padding: 0.5rem 0.8rem; text-transform: uppercase; letter-spacing: 0.2em; font-size: 0.7rem; }
-      .photo-lightbox-nav { top: 50%; transform: translateY(-50%); width: 2.7rem; height: 2.7rem; }
-      .photo-lightbox-nav.prev { left: 1rem; }
-      .photo-lightbox-nav.next { right: 1rem; }
-      .photo-lightbox-counter { position: absolute; left: 1rem; bottom: 1rem; color: var(--photo-dim); letter-spacing: 0.2em; text-transform: uppercase; font-size: 0.72rem; }
-
-      @media (max-width: 900px) {
-        .photo-lightbox.open { grid-template-columns: 1fr; }
-        .photo-lightbox-side { border-left: 0; border-top: 1px solid var(--photo-line); max-height: 40vh; overflow-y: auto; }
-        .shoot-overlay { padding-bottom: 1.6rem; }
-        .shoot-overlay-body h2 { font-size: clamp(3rem, 16vw, 5.2rem); }
+        color: var(--accent2);
+        text-transform: uppercase;
+        letter-spacing: 0.28em;
+        font-size: 0.7rem;
       }
 
-      @media (max-width: 640px) {
-        .photo-hero { padding-top: 4.9rem; }
-        .photo-hero-header { margin-top: 0.35rem; }
-        .photo-count { grid-template-columns: 1fr; gap: 0.7rem; }
-        .photo-feature-grid,
-        .photo-shoot-grid,
-        .shoot-photo-row,
-        .photo-shoot-view[data-template="tokyo-fragments"] .shoot-photo-row { grid-template-columns: 1fr; }
-        .shoot-photo-row { display: grid; height: auto; min-height: 0; }
-        .shoot-row-frame { min-height: 14rem; }
-        .shoot-single-frame { height: auto; min-height: 14rem; }
-        .shoot-footer { flex-direction: column; align-items: start; }
-        .shoot-footer div:last-child { text-align: left; }
-        .photo-lightbox-main { padding-inline: 0.6rem; }
-        .shoot-section-title { grid-template-columns: 1fr; gap: 0.5rem; }
+      h1 {
+        margin: 0.75rem 0 0;
+        font-family: "Bebas Neue", sans-serif;
+        font-size: clamp(2.4rem, 10vw, 5.3rem);
+        letter-spacing: 0.05em;
+        line-height: 0.92;
       }
 
-      @media (prefers-reduced-motion: no-preference) {
-        .photo-feature-card,
-        .photo-shoot-card { animation: fadeup 0.5s ease both; }
-        .photo-feature-card:nth-child(2),
-        .photo-shoot-card:nth-child(2) { animation-delay: 0.06s; }
-        .photo-feature-card:nth-child(3),
-        .photo-shoot-card:nth-child(3) { animation-delay: 0.12s; }
-        .photo-feature-card:nth-child(4),
-        .photo-shoot-card:nth-child(4) { animation-delay: 0.18s; }
-        .photo-feature-card:nth-child(5),
-        .photo-shoot-card:nth-child(5) { animation-delay: 0.24s; }
+      p {
+        margin: 0.8rem 0 0;
+        color: rgba(244, 239, 229, 0.74);
+        line-height: 1.7;
       }
 
-      @keyframes fadeup {
-        from { opacity: 0; transform: translateY(14px); }
-        to { opacity: 1; transform: translateY(0); }
+      .bar {
+        margin-top: 1.1rem;
+        height: 2px;
+        background: linear-gradient(90deg, var(--accent2), var(--accent));
       }
     </style>
   </head>
   <body>
-    <header class="photo-topbar">
+    <header class="topbar">
       <a href={`${basePath}`}>Back Home</a>
       <strong>SFA</strong>
     </header>
 
-    <main id="photography-archive-view" class="photo-archive">
-      <section class="photo-hero">
-        <div class="photo-hero-header">
-          <span class="photo-hero-line"></span>
-          <p class="photo-kicker">Photography</p>
-        </div>
-        <h1>
-          SEEN<br />
-          <span class="outline">FELT</span><br />
-          <span class="accent">KEPT</span>
-        </h1>
-        <p>Documenting light, texture, and the spaces between moments.</p>
-        <div class="photo-count">
-          <div class="photo-stat">
-            <strong id="photography-count">0</strong>
-            <span>Shoots</span>
-          </div>
-          <div class="photo-stat">
-            <strong id="photography-frame-count">0</strong>
-            <span>Photos</span>
-          </div>
-          <div class="photo-stat">
-            <strong id="photography-location-count">0</strong>
-            <span>Locations</span>
-          </div>
-        </div>
-        <p id="photography-status" class="photo-count"></p>
-      </section>
-
-      <section class="photo-section">
-        <div class="photo-section-head">
-          <div>
-            <span>Featured</span>
-            <h2>Selected frames</h2>
-          </div>
-        </div>
-        <div class="photo-feature-grid" id="photography-featured-list"></div>
-      </section>
-
-      <section class="photo-section">
-        <div class="photo-section-head">
-          <div>
-            <span>Archive</span>
-            <h2>Published shoots</h2>
-          </div>
-        </div>
-        <div class="photo-shoot-grid" id="photography-shoot-grid"></div>
+    <main class="shell">
+      <section class="card">
+        <p class="kicker">Photography</p>
+        <h1>Coming Soon</h1>
+        <p>
+          The new photography experience is in progress. Check back soon for the full launch.
+        </p>
+        <div class="bar"></div>
       </section>
     </main>
-
-    <main id="photography-shoot-view" class="photo-shoot-view" hidden>
-      <header class="shoot-title-bar" id="shoot-title-bar">
-        <a href={`${basePath}photography/`} data-shoot-back>All shoots</a>
-        <strong id="shoot-bar-name">Shoot</strong>
-        <span id="shoot-bar-meta"></span>
-      </header>
-      <section class="shoot-overlay">
-        <div class="shoot-overlay-body">
-          <span id="shoot-overlay-eyebrow"></span>
-          <h2 id="shoot-overlay-title"></h2>
-          <p id="shoot-overlay-subtitle"></p>
-          <small id="shoot-overlay-meta"></small>
-        </div>
-      </section>
-      <section class="shoot-hero" id="shoot-hero-media"></section>
-      <section class="shoot-blocks" id="shoot-blocks"></section>
-      <footer class="shoot-footer">
-        <div><h3 id="shoot-footer-title"></h3></div>
-        <div>
-          <p id="shoot-footer-meta"></p>
-          <a href={`${basePath}photography/`} data-shoot-back>Back to archive</a>
-        </div>
-      </footer>
-    </main>
-
-    <div class="photo-lightbox" id="photo-lightbox">
-      <div class="photo-lightbox-main">
-        <button class="photo-lightbox-close" type="button" data-photo-lightbox-close>Close</button>
-        <button class="photo-lightbox-nav prev" id="lightbox-prev" type="button">&#8592;</button>
-        <button class="photo-lightbox-nav next" id="lightbox-next" type="button">&#8594;</button>
-        <div class="photo-lightbox-counter" id="lightbox-counter"></div>
-        <img id="lightbox-image" src="" alt="" />
-      </div>
-      <aside class="photo-lightbox-side">
-        <span id="lightbox-location"></span>
-        <strong id="lightbox-caption"></strong>
-        <dl id="lightbox-meta"></dl>
-      </aside>
-    </div>
-
-    <script id="public-firestore-config" type="application/json" set:html={publicFirestoreConfigJson}></script>
-    <script id="photography-copy" type="application/json" set:html={copyJson}></script>
-    <script id="photography-base-path" type="application/json" set:html={basePathJson}></script>
-    <script src={`${basePath}scripts/public-firestore.js`}></script>
-    <script src={`${basePath}scripts/photography-public.js`}></script>
-    <script is:inline>
-      (function () {
-        if (!window.SFAPublicFirestore || !window.SFAPhotographyPublic) return;
-        var firestoreConfig = {};
-        var copy = {};
-        var basePath = "/";
-        try { firestoreConfig = JSON.parse(document.getElementById("public-firestore-config").textContent || "{}"); } catch (error) {}
-        try { copy = JSON.parse(document.getElementById("photography-copy").textContent || "{}"); } catch (error) {}
-        try { basePath = JSON.parse(document.getElementById("photography-base-path").textContent || "\"/\""); } catch (error) {}
-        window.SFAPhotographyPublic.boot({
-          basePath: basePath,
-          firestoreConfig: firestoreConfig,
-          copy: copy,
-        });
-      })();
-    </script>
   </body>
 </html>
