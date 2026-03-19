@@ -15,7 +15,7 @@ const publicFirestoreConfigJson = JSON.stringify({
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet"/>
-<style>
+<style is:global>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
   --k:#080808;--w:#F0EFEB;
@@ -160,8 +160,8 @@ img{display:block}
 .shoots-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:2px}
 .sc{display:block;background:var(--g1);overflow:hidden;transition:transform .35s cubic-bezier(.25,.46,.45,.94);cursor:pointer}
 .sc:hover{transform:translateY(-6px)}
-.sc-img-w{overflow:hidden;aspect-ratio:3/4;background:var(--g1)}
-.sc-img{width:100%;height:100%;object-fit:cover;filter:brightness(.85);transition:transform .55s cubic-bezier(.25,.46,.45,.94),filter .35s}
+.sc-img-w{overflow:hidden}
+.sc-img{width:100%;aspect-ratio:3/4;object-fit:cover;filter:brightness(.85);transition:transform .55s cubic-bezier(.25,.46,.45,.94),filter .35s}
 .sc:hover .sc-img{transform:scale(1.05);filter:brightness(1)}
 .sc-body{padding:18px 20px 8px}
 .sc-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
