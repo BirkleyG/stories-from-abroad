@@ -39,7 +39,7 @@ img{display:block}
 /* ── NAV ── */
 .nav{position:fixed;top:0;left:0;right:0;z-index:600;height:var(--nav-h);display:flex;align-items:center;justify-content:space-between;padding:0 40px;background:rgba(8,8,8,.93);backdrop-filter:blur(16px);border-bottom:1px solid var(--g2)}
 .nav::after{content:"";position:absolute;bottom:0;left:0;right:0;height:1px;background:linear-gradient(90deg,var(--pk),var(--bl),var(--or));opacity:.55}
-.nav-logo{font-family:var(--font-d);font-size:17px;letter-spacing:5px;cursor:pointer;user-select:none}
+.nav-logo{font-family:var(--font-d);font-size:17px;letter-spacing:5px;cursor:pointer;user-select:none;text-decoration:none;color:var(--w)}
 .nav-right{display:flex;gap:28px;align-items:center}
 .nav-link{font-family:var(--font-m);font-size:9px;letter-spacing:2.5px;text-transform:uppercase;color:var(--g4);cursor:pointer;transition:color .2s;user-select:none}
 .nav-link:hover,.nav-link.cur{color:var(--w)}
@@ -340,7 +340,7 @@ img{display:block}
 <body>
 
 <nav class="nav">
-  <div class="nav-logo" onclick="showPage('index')">BIRKLEY</div>
+  <a class="nav-logo" href={basePath} aria-label="Back to main site">←</a>
   <div class="nav-right">
     <span class="nav-link cur" id="nav-photo" onclick="showPage('index')">Photography</span>
     <span class="nav-link" id="nav-about" onclick="showPage('about')">About</span>

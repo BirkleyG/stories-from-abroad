@@ -61,6 +61,15 @@ function firstNonEmpty(...values) {
   return "";
 }
 
+function normalizePhotographyTheme(value) {
+  const raw = cleanString(value).toLowerCase();
+  if (raw === "editorial") return "tokyo-fragments";
+  if (raw === "documentary") return "desert-fill";
+  if (raw === "cinematic") return "desert-bloom";
+  if (["desert-bloom", "desert-fill", "kyoto-bold", "tokyo-fragments"].includes(raw)) return raw;
+  return "desert-bloom";
+}
+
 function normalizeMedia(media = {}) {
   return {
     assetId: cleanString(media.assetId),
@@ -351,9 +360,24 @@ function flattenPhotographyPhotos(blocks = []) {
   return all;
 }
 
-function derivePhotographyCamera(blocks = [], explicit = "") {
+function cleanPhotographyPhotos(photos = [], blocks = []) {
+  const direct = (Array.isArray(photos) ? photos : [])
+    .map((photo) => normalizeMedia(photo))
+    .filter((photo) => photo.url);
+  if (direct.length) {
+    return direct.map((photo, index) => ({
+      id: cleanString(photo.id) || `p${index + 1}`,
+      ...photo,
+    }));
+  }
+  return flattenPhotographyPhotos(cleanPhotographyBlocks(blocks));
+}
+
+function derivePhotographyCamera(photos = [], blocks = [], explicit = "") {
   const override = cleanString(explicit);
   if (override) return override;
+  const direct = (Array.isArray(photos) ? photos : []).find((photo) => cleanString(photo?.cameraModel));
+  if (direct) return cleanString(direct.cameraModel);
   for (const block of blocks || []) {
     if (block?.photo?.cameraModel) return cleanString(block.photo.cameraModel);
     const media = (block?.photos || []).find((photo) => cleanString(photo?.cameraModel));
@@ -362,7 +386,10 @@ function derivePhotographyCamera(blocks = [], explicit = "") {
   return "";
 }
 
-function countPhotographyFrames(blocks = []) {
+function countPhotographyFrames(photos = [], blocks = []) {
+  if (Array.isArray(photos) && photos.length) {
+    return photos.filter((photo) => photo?.url).length;
+  }
   return (blocks || []).reduce((total, block) => {
     if (block?.type === "hero-photo" || block?.type === "full-photo") return total + (block.photo?.url ? 1 : 0);
     if (block?.type === "photo-row" || block?.type === "ghost-text-row") return total + ((block.photos || []).filter((photo) => photo?.url).length);
@@ -372,12 +399,12 @@ function countPhotographyFrames(blocks = []) {
 
 function buildPhotographyPublic(draft, slug) {
   const blocks = cleanPhotographyBlocks(draft.blocks);
-  const allPhotos = flattenPhotographyPhotos(blocks);
+  const allPhotos = cleanPhotographyPhotos(draft.photos, blocks);
   if (!allPhotos.length) {
     throw new Error("Photography shoots require at least one attached image before publishing.");
   }
-  const heroBlock = blocks.find((block) => block.type === "hero-photo");
-  const coverPhoto = heroBlock?.photo?.url ? heroBlock.photo : allPhotos[0];
+  const coverPhoto = allPhotos[0];
+  const theme = normalizePhotographyTheme(firstNonEmpty(cleanString(draft.theme), cleanString(draft.template), "desert-bloom"));
   const tags = [
     cleanString(draft.tagWord1),
     cleanString(draft.tagWord2),
@@ -388,22 +415,21 @@ function buildPhotographyPublic(draft, slug) {
     slug,
     title: cleanString(draft.title),
     description: firstNonEmpty(cleanString(draft.description), cleanString(draft.notes)),
-    subtitle: cleanString(draft.subtitle),
     shootDate: ensureIsoDate(draft.shootDate),
     locationLabel: firstNonEmpty(draft.locationLabel, [cleanString(draft.city), cleanString(draft.country)].filter(Boolean).join(", ")),
     city: cleanString(draft.city),
     country: cleanString(draft.country),
     tags,
-    theme: firstNonEmpty(cleanString(draft.theme), "editorial"),
-    descriptor: cleanString(draft.descriptor),
+    theme,
     accentColor: cleanString(draft.accentColor) || "#c96b28",
-    template: cleanString(draft.template) || "desert-bloom",
-    cameraModel: derivePhotographyCamera(blocks, draft.cameraModel),
-    frameCount: countPhotographyFrames(blocks),
+    template: theme,
+    cameraModel: derivePhotographyCamera(allPhotos, blocks, draft.cameraModel),
+    frameCount: countPhotographyFrames(allPhotos, blocks),
     notes: cleanString(draft.notes),
+    adminNotes: cleanString(draft.adminNotes),
     coverPhoto,
     allPhotos,
-    blocks,
+    photos: allPhotos,
   };
 }
 
@@ -460,7 +486,8 @@ export async function publishDraft(kind, id, actor = "system") {
     slug,
     publishedAt: new Date().toISOString(),
     ...(kind === "photography" ? {
-      blocks: publicData.blocks,
+      allPhotos: publicData.allPhotos,
+      photos: publicData.photos,
       coverPhoto: publicData.coverPhoto,
       frameCount: publicData.frameCount,
       cameraModel: publicData.cameraModel,

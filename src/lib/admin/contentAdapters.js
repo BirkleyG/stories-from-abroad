@@ -82,30 +82,18 @@ export function collectSearchText(kind, draftInput) {
   return [
     draft.title,
     draft.description,
-    draft.subtitle,
     draft.locationLabel,
-    draft.city,
-    draft.country,
-    draft.descriptor,
     draft.theme,
+    draft.template,
     draft.tagWord1,
     draft.tagWord2,
     draft.tagWord3,
     draft.notes,
-    draft.template,
+    draft.adminNotes,
+    ...(draft.photos || []).flatMap((photo) => [photo?.title, photo?.caption, photo?.locationLabel, photo?.shortQuote, photo?.cameraModel]),
     ...(draft.blocks || []).flatMap((block) => {
       if (block.type === "text-note") return [block.noteLabel, block.title, block.text];
       if (block.type === "section-title") return [block.tag, block.title, block.rightNote];
-      if (block.type === "ghost-text-row") {
-        return [block.ghostText, ...((block.photos || []).flatMap((photo) => [photo?.title, photo?.caption, photo?.locationLabel, photo?.shortQuote]))];
-      }
-      if (block.type === "hero-photo" || block.type === "full-photo") {
-        const photo = block.photo || {};
-        return [photo.title, photo.caption, photo.locationLabel, photo.shortQuote];
-      }
-      if (block.type === "photo-row") {
-        return (block.photos || []).flatMap((photo) => [photo?.title, photo?.caption, photo?.locationLabel, photo?.shortQuote]);
-      }
       return [];
     }),
   ].join(" ").toLowerCase();
@@ -148,6 +136,15 @@ function firstNonEmpty(items) {
     if (normalized) return normalized;
   }
   return "";
+}
+
+function normalizePhotographyTheme(value) {
+  const raw = String(value || "").trim().toLowerCase();
+  if (raw === "editorial") return "tokyo-fragments";
+  if (raw === "documentary") return "desert-fill";
+  if (raw === "cinematic") return "desert-bloom";
+  if (["desert-bloom", "desert-fill", "kyoto-bold", "tokyo-fragments"].includes(raw)) return raw;
+  return "desert-bloom";
 }
 
 function cleanFaceBlocks(blocks = []) {
@@ -240,25 +237,6 @@ function cleanPhotoBlocks(blocks = []) {
     .filter(Boolean);
 }
 
-function countPhotographyFrames(blocks = []) {
-  return (blocks || []).reduce((total, block) => {
-    if (block?.type === "hero-photo" || block?.type === "full-photo") return total + (block.photo?.url ? 1 : 0);
-    if (block?.type === "photo-row" || block?.type === "ghost-text-row") return total + ((block.photos || []).filter((photo) => photo?.url).length);
-    return total;
-  }, 0);
-}
-
-function derivePhotographyCamera(blocks = [], explicit = "") {
-  const override = String(explicit || "").trim();
-  if (override) return override;
-  for (const block of blocks || []) {
-    if (block?.photo?.cameraModel) return block.photo.cameraModel;
-    const mediaWithCamera = (block?.photos || []).find((photo) => photo?.cameraModel);
-    if (mediaWithCamera?.cameraModel) return mediaWithCamera.cameraModel;
-  }
-  return "";
-}
-
 function flattenPhotographyPhotos(blocks = []) {
   const all = [];
   (blocks || []).forEach((block, blockIndex) => {
@@ -292,6 +270,43 @@ function flattenPhotographyPhotos(blocks = []) {
     }
   });
   return all;
+}
+
+function cleanPhotographyPhotos(photos = [], blocks = []) {
+  const direct = (Array.isArray(photos) ? photos : [])
+    .map((photo) => cleanMedia(photo))
+    .filter((photo) => photo.url);
+  if (direct.length) {
+    return direct.map((photo, index) => ({
+      id: String(photo.id || `p${index + 1}`),
+      ...photo,
+    }));
+  }
+  return flattenPhotographyPhotos(cleanPhotoBlocks(blocks));
+}
+
+function countPhotographyFrames(photos = [], blocks = []) {
+  if (Array.isArray(photos) && photos.length) {
+    return photos.filter((photo) => photo?.url).length;
+  }
+  return (blocks || []).reduce((total, block) => {
+    if (block?.type === "hero-photo" || block?.type === "full-photo") return total + (block.photo?.url ? 1 : 0);
+    if (block?.type === "photo-row" || block?.type === "ghost-text-row") return total + ((block.photos || []).filter((photo) => photo?.url).length);
+    return total;
+  }, 0);
+}
+
+function derivePhotographyCamera(photos = [], blocks = [], explicit = "") {
+  const override = String(explicit || "").trim();
+  if (override) return override;
+  const direct = (Array.isArray(photos) ? photos : []).find((photo) => photo?.cameraModel);
+  if (direct?.cameraModel) return direct.cameraModel;
+  for (const block of blocks || []) {
+    if (block?.photo?.cameraModel) return block.photo.cameraModel;
+    const mediaWithCamera = (block?.photos || []).find((photo) => photo?.cameraModel);
+    if (mediaWithCamera?.cameraModel) return mediaWithCamera.cameraModel;
+  }
+  return "";
 }
 
 export function prepareDraftForSave(kind, draftInput) {
@@ -378,8 +393,10 @@ export function prepareDraftForSave(kind, draftInput) {
   }
 
   const cleanedBlocks = cleanPhotoBlocks(draft.blocks);
-  const frameCount = countPhotographyFrames(cleanedBlocks);
-  const cameraModel = derivePhotographyCamera(cleanedBlocks, draft.cameraModel);
+  const cleanedPhotos = cleanPhotographyPhotos(draft.photos, cleanedBlocks);
+  const frameCount = countPhotographyFrames(cleanedPhotos, cleanedBlocks);
+  const cameraModel = derivePhotographyCamera(cleanedPhotos, cleanedBlocks, draft.cameraModel);
+  const theme = normalizePhotographyTheme(draft.theme || draft.template);
   const tags = [
     draft.tagWord1,
     draft.tagWord2,
@@ -394,22 +411,24 @@ export function prepareDraftForSave(kind, draftInput) {
     searchText: collectSearchText(kind, draft),
     title: String(draft.title || "").trim(),
     description: String(draft.description || draft.notes || "").trim(),
-    subtitle: String(draft.subtitle || "").trim(),
     shootDate: ensureIsoDate(draft.shootDate) || "",
-    locationLabel: String(draft.locationLabel || "").trim(),
+    locationLabel: String(draft.locationLabel || [draft.city, draft.country].filter(Boolean).join(", ")).trim(),
     city: String(draft.city || "").trim(),
     country: String(draft.country || "").trim(),
     tagWord1: String(draft.tagWord1 || "").trim(),
     tagWord2: String(draft.tagWord2 || "").trim(),
     tagWord3: String(draft.tagWord3 || "").trim(),
     tags,
-    theme: String(draft.theme || "").trim() || "editorial",
-    descriptor: String(draft.descriptor || "").trim(),
+    theme,
     accentColor: String(draft.accentColor || "#c96b28").trim() || "#c96b28",
-    template: String(draft.template || "desert-bloom").trim() || "desert-bloom",
+    template: theme,
     cameraModel,
     frameCount,
     notes: String(draft.notes || "").trim(),
+    adminNotes: String(draft.adminNotes || "").trim(),
+    photos: cleanedPhotos,
+    allPhotos: cleanedPhotos,
+    coverPhoto: cleanedPhotos[0] || null,
     blocks: cleanedBlocks,
   };
 }
@@ -544,10 +563,8 @@ export function dispatchDraftToPublic(draftInput, slugOverride = "") {
 export function photographyDraftToPublic(draftInput, slugOverride = "") {
   const draft = prepareDraftForSave("photography", draftInput);
   const slug = slugOverride || draft.slug || slugify(`${draft.title}-${draft.locationLabel}`);
-  const allPhotos = flattenPhotographyPhotos(draft.blocks);
-  const coverPhoto = draft.blocks.find((block) => block.type === "hero-photo")?.photo?.url
-    ? draft.blocks.find((block) => block.type === "hero-photo")?.photo
-    : allPhotos[0] || null;
+  const allPhotos = cleanPhotographyPhotos(draft.photos, draft.blocks);
+  const coverPhoto = allPhotos[0] || null;
   const tags = [
     draft.tagWord1,
     draft.tagWord2,
@@ -558,21 +575,18 @@ export function photographyDraftToPublic(draftInput, slugOverride = "") {
     slug,
     title: draft.title,
     description: draft.description || draft.notes || "",
-    subtitle: draft.subtitle,
     shootDate: draft.shootDate || ensureIsoDate(new Date().toISOString()),
-    locationLabel: draft.locationLabel || firstNonEmpty([draft.city, draft.country]),
+    locationLabel: draft.locationLabel || [draft.city, draft.country].filter(Boolean).join(", "),
     city: draft.city,
     country: draft.country,
     tags,
-    theme: draft.theme || "editorial",
-    descriptor: draft.descriptor,
+    theme: normalizePhotographyTheme(draft.theme || draft.template),
     accentColor: draft.accentColor,
-    template: draft.template,
-    cameraModel: draft.cameraModel || derivePhotographyCamera(draft.blocks),
-    frameCount: draft.frameCount || countPhotographyFrames(draft.blocks),
-    notes: draft.notes,
+    template: normalizePhotographyTheme(draft.theme || draft.template),
+    cameraModel: draft.cameraModel || derivePhotographyCamera(allPhotos, draft.blocks),
+    frameCount: draft.frameCount || countPhotographyFrames(allPhotos, draft.blocks),
     coverPhoto,
     allPhotos,
-    blocks: draft.blocks,
+    photos: allPhotos,
   };
 }

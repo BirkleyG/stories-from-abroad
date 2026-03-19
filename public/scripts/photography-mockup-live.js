@@ -1,5 +1,6 @@
 ﻿(function () {
   var LIVE_SHOOTS = {};
+  var ADMIN_PREVIEW_STORAGE_KEY = "sfa-admin-preview-v1";
   function esc(value) {
     return String(value || "")
       .replace(/&/g, "&amp;")
@@ -27,6 +28,24 @@
     }
   }
 
+  
+  function readAdminPreviewShoot() {
+    if (typeof window === "undefined") return null;
+    try {
+      var url = new URL(window.location.href);
+      if (url.searchParams.get("adminPreview") !== "1") return null;
+      var raw = window.sessionStorage ? window.sessionStorage.getItem(ADMIN_PREVIEW_STORAGE_KEY) : "";
+      if (!raw) return null;
+      var payload = JSON.parse(raw);
+      if (!payload || payload.kind !== "photography" || !payload.data || typeof payload.data !== "object") return null;
+      return {
+        id: String(payload.draftId || payload.data.id || payload.data.slug || "preview-shoot"),
+        ...payload.data,
+      };
+    } catch {
+      return null;
+    }
+  }
   function toDate(value) {
     if (!value) return null;
     var parsed = new Date(value);
@@ -147,18 +166,22 @@
     shoots.forEach(function (shoot, index) {
       LIVE_SHOOTS[shoot.slug] = { ...shoot, order: index + 1 };
     });
-    if (typeof SHOOTS === "undefined" || !SHOOTS || typeof SHOOTS !== "object") return;
-    Object.keys(SHOOTS).forEach(function (key) {
-      delete SHOOTS[key];
-    });
-    Object.keys(LIVE_SHOOTS).forEach(function (slug) {
-      SHOOTS[slug] = LIVE_SHOOTS[slug];
-    });
   }
 
   function patchArchiveGrid(shoots) {
     var grid = document.querySelector(".shoots-grid");
     if (!grid) return;
+    if (!shoots.length) {
+      grid.innerHTML = '' +
+        '<article class="sc" style="grid-column:1 / -1;cursor:default;pointer-events:none;transform:none">' +
+          '<div class="sc-body">' +
+            '<div class="sc-title">No published shoots yet</div>' +
+            '<div class="sc-desc" style="display:block;margin-bottom:0">Publish a photography shoot from Admin to fill the archive.</div>' +
+          "</div>" +
+          '<div class="sc-bar" style="height:3px;background:#282828"></div>' +
+        "</article>";
+      return;
+    }
     grid.innerHTML = shoots.map(function (shoot) {
       var tags = (shoot.tags || []).map(function (tag) { return '<span class="sc-tag">' + esc(tag) + "</span>"; }).join("");
       return '' +
@@ -179,6 +202,13 @@
   function patchAboutRecent(shoots) {
     var grid = document.getElementById("ab-photos-grid");
     if (!grid) return;
+    if (!shoots.length) {
+      grid.innerHTML = '' +
+        '<article class="ab-shoot-card" style="grid-column:1 / -1;aspect-ratio:auto;min-height:180px;display:grid;place-items:center;padding:1.2rem;cursor:default">' +
+          '<div class="ab-shoot-card-title" style="font-size:30px">No recent shoots</div>' +
+        "</article>";
+      return;
+    }
     grid.innerHTML = shoots.slice(0, 3).map(function (shoot) {
       return '' +
         '<div class="ab-shoot-card" onclick="showShoot(\'' + esc(shoot.slug) + '\')">' +
@@ -190,6 +220,17 @@
           '<div class="ab-shoot-card-bar" style="background:' + esc(shoot.accent) + '"></div>' +
         '</div>';
     }).join("");
+  }
+
+  function applyEmptyState(message) {
+    replaceShootsRegistry([]);
+    patchFeaturedSlides([]);
+    patchArchiveGrid([]);
+    patchAboutRecent([]);
+    var note = document.querySelector(".ab-photos-note");
+    if (note) {
+      note.textContent = String(message || "No photography shoots have been published yet.");
+    }
   }
 
   function setCurrentField(label, value) {
@@ -268,7 +309,33 @@
   }
 
   function patchFeaturedSlides(items) {
-    if (!items.length) return;
+    var track = document.getElementById("feat-track");
+    if (!track) return;
+    var controls = document.querySelector(".feat-controls");
+    var progress = document.querySelector(".feat-prog");
+    var mantra = document.getElementById("feat-mantra");
+
+    if (!items.length) {
+      if (controls) controls.style.display = "none";
+      if (progress) progress.style.display = "none";
+      if (mantra) mantra.style.display = "none";
+      track.innerHTML = '' +
+        '<div class="fslide active r" style="opacity:1;pointer-events:none">' +
+          '<div class="fs-title-block" style="margin-left:0;box-shadow:none;width:min(680px,100%)">' +
+            '<div class="fs-eyebrow">Photography</div>' +
+            '<h2 class="fs-title">No published shoots yet</h2>' +
+            '<span class="fs-cta" style="cursor:default;border-bottom-color:#282828;color:#888">Publish from Admin to populate this page</span>' +
+          "</div>" +
+        "</div>";
+      if (typeof setDotColor === "function") {
+        setDotColor("#FF2D78");
+      }
+      return;
+    }
+
+    if (controls) controls.style.display = "";
+    if (progress) progress.style.display = "";
+    if (mantra) mantra.style.display = "";
     var slides = Array.from(document.querySelectorAll("#feat-track .fslide"));
     if (!slides.length) return;
 
@@ -350,7 +417,7 @@
     }
 
     window.showShoot = function showShoot(slug) {
-      var shoot = LIVE_SHOOTS[slug] || (typeof SHOOTS === "object" ? SHOOTS[slug] : null);
+      var shoot = LIVE_SHOOTS[slug];
       if (!shoot) return;
       if (typeof cleanup === "function") {
         cleanup();
@@ -609,7 +676,10 @@
   async function boot() {
     installShootOverride();
     var config = readJsonScript("photography-public-firestore-config", {});
-    if (!window.SFAPublicFirestore || !config.projectId || !config.apiKey) return;
+    if (!window.SFAPublicFirestore || !config.projectId || !config.apiKey) {
+      applyEmptyState("Photography content is unavailable right now.");
+      return;
+    }
 
     try {
       var results = await Promise.all([
@@ -621,6 +691,13 @@
       var featuredDoc = results[0] || { items: [] };
       var rawShoots = Array.isArray(results[1]) ? results[1] : [];
       var sectionMedia = results[2] || {};
+      var previewShoot = readAdminPreviewShoot();
+      if (previewShoot) {
+        rawShoots = [previewShoot].concat(rawShoots.filter(function (shoot) {
+          return String(shoot?.slug || "") !== String(previewShoot.slug || "")
+            && String(shoot?.id || "") !== String(previewShoot.id || "");
+        }));
+      }
 
       var sortedRaw = rawShoots.slice().sort(function (left, right) {
         return (toDate(right?.shootDate)?.getTime() || 0) - (toDate(left?.shootDate)?.getTime() || 0);
@@ -630,7 +707,11 @@
         .map(function (rawShoot, index) { return normalizeShoot(rawShoot, index + 1); })
         .filter(Boolean);
 
-      if (!shoots.length) return;
+      patchAboutAdminInfo(sectionMedia);
+      if (!shoots.length) {
+        applyEmptyState("No photography shoots have been published yet.");
+        return;
+      }
 
       var bySlug = Object.fromEntries(shoots.map(function (shoot) { return [shoot.slug, shoot]; }));
       var byId = Object.fromEntries(shoots.map(function (shoot) { return [shoot.id, shoot]; }));
@@ -638,7 +719,6 @@
       replaceShootsRegistry(shoots);
       patchArchiveGrid(shoots);
       patchAboutRecent(shoots);
-      patchAboutAdminInfo(sectionMedia);
 
       var featured = buildFeaturedItems(featuredDoc, shoots, bySlug, byId);
       patchFeaturedSlides(featured);
@@ -653,6 +733,7 @@
         window.showShoot(requestedShoot);
       }
     } catch (error) {
+      applyEmptyState("Photography content could not be loaded right now.");
       console.warn("Photography live integration failed.", error);
     }
   }
@@ -663,5 +744,7 @@
     boot();
   }
 })();
+
+
 
 

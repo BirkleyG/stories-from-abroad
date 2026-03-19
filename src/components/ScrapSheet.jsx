@@ -97,6 +97,7 @@ const COLLECTIONS = {
   posts: "scrap_sheet_posts",
   quotes: "scrap_sheet_quotes",
 };
+const ADMIN_PREVIEW_STORAGE_KEY = "sfa-admin-preview-v1";
 
 function formatDate(d) {
   try {
@@ -134,6 +135,7 @@ function normalizePost(p) {
   var lngLat = normalizeLngLatPair(p.lngLat);
   return {
     id: String(p.id || ""),
+    slug: String(p.slug || ""),
     category: p.category || "travel",
     location: p.location || "",
     dateStr: dateStr,
@@ -195,6 +197,36 @@ function normalizeQuote(q) {
     text: q.text || "",
     postId: String(q.postId || ""),
   };
+}
+
+function readAdminPreviewDispatch() {
+  if (typeof window === "undefined") return null;
+  try {
+    var url = new URL(window.location.href);
+    if (url.searchParams.get("adminPreview") !== "1") return null;
+    var raw = window.sessionStorage ? window.sessionStorage.getItem(ADMIN_PREVIEW_STORAGE_KEY) : "";
+    if (!raw) return null;
+    var payload = JSON.parse(raw);
+    if (!payload || payload.kind !== "travel" || !payload.data || typeof payload.data !== "object") return null;
+    var postData = payload.data.post && typeof payload.data.post === "object" ? payload.data.post : null;
+    if (!postData) return null;
+    var post = normalizePost({
+      id: String(postData.id || payload.draftId || postData.slug || "preview-dispatch"),
+      ...postData,
+    });
+    var quotes = (Array.isArray(payload.data.quotes) ? payload.data.quotes : [])
+      .map(function(quote, index) {
+        return normalizeQuote({
+          id: "preview-quote-" + String(index + 1),
+          text: quote?.text || "",
+          postId: post.id,
+        });
+      })
+      .filter(function(quote) { return quote.text; });
+    return { post: post, quotes: quotes };
+  } catch (error) {
+    return null;
+  }
 }
 
 function reactionsFromPosts(list) {
@@ -1124,38 +1156,71 @@ export default function ScrapSheet({ backHref = "/" }) {
 
   useEffect(function(){
     var active = true;
+    var previewData = readAdminPreviewDispatch();
     (async function(){
       if (!firestoreReady || !db) {
         if (active) {
-          setPosts([]);
-          setQuotes([]);
-          setReactions({});
+          var fallbackPosts = previewData?.post ? [previewData.post] : [];
+          setPosts(fallbackPosts);
+          setQuotes(previewData?.quotes || []);
+          setReactions(reactionsFromPosts(fallbackPosts));
         }
         return;
       }
       try {
         var postSnap = await getDocs(query(collection(db, COLLECTIONS.posts), orderBy("date", "desc")));
         var loadedPosts = postSnap.docs.map(function(doc){ return normalizePost(Object.assign({ id: doc.id }, doc.data())); });
+        if (previewData?.post) {
+          loadedPosts = [previewData.post].concat(loadedPosts.filter(function(post) {
+            if (post.id === previewData.post.id) return false;
+            if (post.slug && previewData.post.slug && post.slug === previewData.post.slug) return false;
+            return true;
+          }));
+        }
         if (active) {
           setPosts(loadedPosts);
           setReactions(reactionsFromPosts(loadedPosts));
         }
       } catch (e) {
         if (active) {
-          setPosts([]);
-          setReactions({});
+          var fallbackPosts = previewData?.post ? [previewData.post] : [];
+          setPosts(fallbackPosts);
+          setReactions(reactionsFromPosts(fallbackPosts));
         }
       }
       try {
         var quoteSnap = await getDocs(collection(db, COLLECTIONS.quotes));
         var loadedQuotes = quoteSnap.docs.map(function(doc){ return normalizeQuote(Object.assign({ id: doc.id }, doc.data())); }).filter(function(q){return q.text;});
+        if (previewData?.quotes?.length) {
+          loadedQuotes = previewData.quotes.concat(loadedQuotes.filter(function(quote) {
+            return quote.postId !== previewData.post?.id;
+          }));
+        }
         if (active) setQuotes(loadedQuotes);
       } catch (e) {
-        if (active) setQuotes([]);
+        if (active) setQuotes(previewData?.quotes || []);
       }
     })();
     return function(){active=false;};
   }, [firestoreReady, db]);
+
+  useEffect(function() {
+    if (typeof window === "undefined" || !posts.length) return;
+    var target = "";
+    try {
+      target = String(new URL(window.location.href).searchParams.get("post") || "").trim();
+    } catch (error) {
+      target = "";
+    }
+    if (!target) return;
+    var match = posts.find(function(post) {
+      return String(post.id || "") === target || String(post.slug || "") === target;
+    });
+    if (!match) return;
+    setExpandedId(match.id);
+    var card = document.getElementById("dispatch-" + match.id);
+    if (card) card.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [posts]);
 
   useEffect(function(){
     if (!firestoreReady || !db || !anonId || !posts.length) return;

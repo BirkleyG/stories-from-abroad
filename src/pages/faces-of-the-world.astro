@@ -332,6 +332,7 @@ const CACHE_KEYS = {
   interviews: 'faces-world-interviews-v2',
   worldAtlas: 'faces-world-atlas-v1',
 };
+const ADMIN_PREVIEW_STORAGE_KEY = 'sfa-admin-preview-v1';
 const CACHE_TTL_MS = {
   interviews: 12 * 60 * 60 * 1000,
   worldAtlas: 30 * 24 * 60 * 60 * 1000,
@@ -622,6 +623,46 @@ function loadInterviewsFromCache() {
   }
   interviews = [];
   return false;
+}
+
+function readAdminPreviewInterview() {
+  if (typeof window === 'undefined') return null;
+  try {
+    const url = new URL(window.location.href);
+    if (url.searchParams.get('adminPreview') !== '1') return null;
+    const raw = window.sessionStorage ? window.sessionStorage.getItem(ADMIN_PREVIEW_STORAGE_KEY) : '';
+    if (!raw) return null;
+    const payload = JSON.parse(raw);
+    if (!payload || payload.kind !== 'faces' || !payload.data || typeof payload.data !== 'object') return null;
+    const data = payload.data;
+    const source = {
+      id: payload.draftId || data.id || data.slug,
+      ...data,
+      slug: String(data.slug || ''),
+      name: String(data.name || data.storyTitle || '').trim(),
+      city: String(data.city || '').trim(),
+      country: String(data.country || '').trim(),
+      date: ensureIsoDate(data.date || data.publishDate || '', '2026-01-01'),
+      lngLat: Array.isArray(data.lngLat) && data.lngLat.length === 2 ? data.lngLat : [0, 0],
+      pic: String(data.portraitUrl || data.pic || data.slug || ''),
+      portraitUrl: String(data.portraitUrl || ''),
+      heroUrl: String(data.heroUrl || ''),
+      descriptor: String(data.descriptor || data.subtitle || '').trim(),
+      excerpt: String(data.excerpt || data.subtitle || '').trim(),
+      article: Array.isArray(data.article) ? data.article : [],
+      articlePhotos: data.articlePhotos && typeof data.articlePhotos === 'object' ? data.articlePhotos : {},
+    };
+    return normalizeInterviewDoc(source, null, 0, new Set());
+  } catch (error) {
+    return null;
+  }
+}
+
+function applyAdminPreviewInterview() {
+  const preview = readAdminPreviewInterview();
+  if (!preview) return false;
+  interviews = [preview, ...interviews.filter((iv) => iv.slug !== preview.slug)];
+  return true;
 }
 
 async function hydrateInterviews() {
@@ -1639,6 +1680,7 @@ function applyInterviewRefresh() {
 
 document.addEventListener('DOMContentLoaded', () => {
   loadInterviewsFromCache();
+  applyAdminPreviewInterview();
   refreshDerivedData();
   buildMap();
   initScroll();
@@ -1651,7 +1693,8 @@ document.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('hashchange', handleRoute);
 
   hydrateInterviews().then((changed) => {
-    if (!changed) return;
+    const previewApplied = applyAdminPreviewInterview();
+    if (!changed && !previewApplied) return;
     applyInterviewRefresh();
   });
 });

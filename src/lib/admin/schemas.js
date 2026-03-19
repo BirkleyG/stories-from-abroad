@@ -13,10 +13,10 @@ export const AUDIENCE_LEVELS = [
 ];
 export const QUOTE_STYLES = ["pull", "inline", "hero"];
 export const PHOTO_TEMPLATES = [
-  { value: "desert-bloom", label: "Desert Bloom" },
-  { value: "desert-fill", label: "Desert Fill" },
-  { value: "kyoto-bold", label: "Kyoto Bold" },
-  { value: "tokyo-fragments", label: "Tokyo Fragments" },
+  { value: "desert-bloom", label: "Cinematic Narrative (Desert Bloom)" },
+  { value: "desert-fill", label: "Photo-First Grid (Desert Fill)" },
+  { value: "kyoto-bold", label: "Bold Sections (Kyoto Bold)" },
+  { value: "tokyo-fragments", label: "Editorial Fragments (Tokyo Fragments)" },
 ];
 
 export const PHOTO_TEMPLATE_OPTIONS = {
@@ -286,7 +286,6 @@ export function createEmptyPhotographyDraft() {
     slug: "",
     title: "",
     description: "",
-    subtitle: "",
     shootDate: "",
     scheduledPublishAt: "",
     locationLabel: "",
@@ -295,14 +294,14 @@ export function createEmptyPhotographyDraft() {
     tagWord1: "",
     tagWord2: "",
     tagWord3: "",
-    theme: "editorial",
-    descriptor: "",
+    theme: "desert-bloom",
     accentColor: "#c96b28",
     template: "desert-bloom",
     cameraModel: "",
     frameCount: 0,
+    photos: [createMediaValue()],
     notes: "",
-    blocks: [createPhotoBlock("hero-photo"), createPhotoBlock("photo-row")],
+    adminNotes: "",
     publishedRecord: null,
   };
 }
@@ -435,6 +434,40 @@ function normalizePhotoBlocks(blocks) {
   return normalized.length ? normalized : [createPhotoBlock("hero-photo"), createPhotoBlock("photo-row")];
 }
 
+function flattenPhotoBlocksToMedia(blocks) {
+  const photos = [];
+  (normalizePhotoBlocks(blocks) || []).forEach((block) => {
+    if (!block || typeof block !== "object") return;
+    if ((block.type === "hero-photo" || block.type === "full-photo") && block.photo?.url) {
+      photos.push(normalizeMediaValue(block.photo));
+      return;
+    }
+    if ((block.type === "photo-row" || block.type === "ghost-text-row") && Array.isArray(block.photos)) {
+      block.photos.forEach((photo) => {
+        if (!photo?.url) return;
+        photos.push(normalizeMediaValue(photo));
+      });
+    }
+  });
+  return photos;
+}
+
+function normalizePhotographyPhotos(photos, blocks) {
+  const sourcePhotos = (Array.isArray(photos) ? photos : []).map(normalizeMediaValue).filter((photo) => photo.url);
+  if (sourcePhotos.length) return sourcePhotos;
+  const legacyPhotos = flattenPhotoBlocksToMedia(blocks);
+  return legacyPhotos.length ? legacyPhotos : [createMediaValue()];
+}
+
+function normalizePhotographyTheme(value) {
+  const raw = String(value || "").trim().toLowerCase();
+  if (raw === "editorial") return "tokyo-fragments";
+  if (raw === "documentary") return "desert-fill";
+  if (raw === "cinematic") return "desert-bloom";
+  if (PHOTO_TEMPLATES.some((option) => option.value === raw)) return raw;
+  return "desert-bloom";
+}
+
 export function hydrateDraft(kind, raw = {}) {
   const base = createEmptyDraft(kind);
   const merged = { ...clone(base), ...(raw || {}) };
@@ -474,15 +507,17 @@ export function hydrateDraft(kind, raw = {}) {
       })),
     };
   }
+  const theme = normalizePhotographyTheme(merged.theme || merged.template);
   return {
     ...merged,
     description: String(merged.description ?? merged.notes ?? ""),
     tagWord1: String(merged.tagWord1 ?? ""),
     tagWord2: String(merged.tagWord2 ?? ""),
     tagWord3: String(merged.tagWord3 ?? ""),
-    theme: ["editorial", "documentary", "cinematic"].includes(String(merged.theme || "").toLowerCase())
-      ? String(merged.theme).toLowerCase()
-      : "editorial",
-    blocks: normalizePhotoBlocks(merged.blocks),
+    locationLabel: String(merged.locationLabel || [merged.city, merged.country].filter(Boolean).join(", ")),
+    theme,
+    template: theme,
+    photos: normalizePhotographyPhotos(merged.photos, merged.blocks),
+    adminNotes: String(merged.adminNotes || ""),
   };
 }

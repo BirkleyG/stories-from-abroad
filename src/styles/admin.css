@@ -725,6 +725,94 @@ body {
   align-content: start;
 }
 
+.admin-media-upload-actions {
+  align-items: center;
+}
+
+.admin-bulk-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  background: rgba(10, 8, 7, 0.88);
+  backdrop-filter: blur(8px);
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+}
+
+.admin-bulk-dialog {
+  width: min(1120px, 100%);
+  height: min(92vh, 860px);
+  border: 1px solid var(--admin-line-strong);
+  background: #f6f2ea;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+}
+
+.admin-bulk-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--admin-line);
+}
+
+.admin-bulk-head h3 {
+  margin: 0;
+  font-family: "Cormorant Garamond", "Georgia", serif;
+  font-size: 1.35rem;
+}
+
+.admin-bulk-head p {
+  margin: 0.35rem 0 0;
+  color: var(--admin-soft);
+}
+
+.admin-bulk-progress {
+  font-family: "IBM Plex Mono", "Menlo", monospace;
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--admin-soft);
+  white-space: nowrap;
+}
+
+.admin-bulk-body {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  border-bottom: 1px solid var(--admin-line);
+}
+
+.admin-bulk-preview {
+  min-height: 0;
+  background: rgba(24, 18, 15, 0.08);
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+}
+
+.admin-bulk-preview img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.admin-bulk-form {
+  min-height: 0;
+  overflow: auto;
+  padding: 1rem 1.25rem 1.25rem;
+}
+
+.admin-bulk-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  align-items: center;
+  padding: 0.9rem 1.25rem;
+}
+
 .admin-meta-list {
   display: grid;
   gap: 0.75rem;
@@ -782,5 +870,22 @@ body {
   .admin-preview-hero,
   .admin-inline-row {
     grid-template-columns: 1fr;
+  }
+
+  .admin-bulk-dialog {
+    height: 100%;
+  }
+
+  .admin-bulk-body {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-bulk-preview {
+    min-height: 260px;
+  }
+
+  .admin-bulk-actions {
+    flex-wrap: wrap;
+    justify-content: stretch;
   }
 }

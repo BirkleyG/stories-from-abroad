@@ -1,88 +1,58 @@
-import { PHOTO_TEMPLATE_OPTIONS, createPhotoBlock } from "./schemas";
-
-export const GHOST_POSITIONS = [
-  { value: "top-left", label: "Top left" },
-  { value: "center", label: "Center" },
-  { value: "bottom-left", label: "Bottom left" },
-  { value: "bottom-right", label: "Bottom right" },
-];
-
-export function getTemplateDefinition(template) {
-  return PHOTO_TEMPLATE_OPTIONS[template] || PHOTO_TEMPLATE_OPTIONS["desert-bloom"];
-}
-
-export function createPhotographyBlockFromTemplate(template, type) {
-  const definition = getTemplateDefinition(template);
-  if (!definition.allowedBlocks.includes(type)) {
-    throw new Error(`Block ${type} is not allowed for ${template}.`);
-  }
-  return createPhotoBlock(type);
-}
-
-export function mediaSummaryFromBlocks(blocks = []) {
+function flattenLegacyBlocks(blocks = []) {
   const photos = [];
-  (blocks || []).forEach((block) => {
+  (Array.isArray(blocks) ? blocks : []).forEach((block) => {
     if (!block || typeof block !== "object") return;
     if ((block.type === "hero-photo" || block.type === "full-photo") && block.photo?.url) {
-      photos.push(block.photo);
+      photos.push({ id: `${block.id || "legacy"}-0`, ...block.photo });
+      return;
     }
     if ((block.type === "photo-row" || block.type === "ghost-text-row") && Array.isArray(block.photos)) {
-      block.photos.filter((photo) => photo?.url).forEach((photo) => photos.push(photo));
+      block.photos.forEach((photo, index) => {
+        if (!photo?.url) return;
+        photos.push({ id: `${block.id || "legacy"}-${index}`, ...photo });
+      });
     }
   });
-  const cameraModel = photos.find((photo) => photo?.cameraModel)?.cameraModel || "";
+  return photos;
+}
+
+function normalizeShootPhotos(shoot) {
+  if (Array.isArray(shoot?.allPhotos) && shoot.allPhotos.length) return shoot.allPhotos.filter((photo) => photo?.url);
+  if (Array.isArray(shoot?.photos) && shoot.photos.length) return shoot.photos.filter((photo) => photo?.url);
+  if (Array.isArray(shoot?.publishedRecord?.allPhotos) && shoot.publishedRecord.allPhotos.length) {
+    return shoot.publishedRecord.allPhotos.filter((photo) => photo?.url);
+  }
+  const publishedBlocks = Array.isArray(shoot?.publishedRecord?.blocks) ? shoot.publishedRecord.blocks : [];
+  const blocks = Array.isArray(shoot?.blocks) ? shoot.blocks : publishedBlocks;
+  return flattenLegacyBlocks(blocks);
+}
+
+export function mediaSummaryFromPhotos(photos = []) {
+  const cleaned = (Array.isArray(photos) ? photos : []).filter((photo) => photo?.url);
+  const cameraModel = cleaned.find((photo) => photo?.cameraModel)?.cameraModel || "";
   return {
-    frames: photos.length,
+    frames: cleaned.length,
     cameraModel,
-    photos,
+    photos: cleaned,
   };
 }
 
 export function collectFeaturedPhotoOptions(shoots = []) {
   return (Array.isArray(shoots) ? shoots : []).flatMap((shoot) => {
-    const blocks = Array.isArray(shoot?.blocks)
-      ? shoot.blocks
-      : Array.isArray(shoot?.publishedRecord?.blocks)
-        ? shoot.publishedRecord.blocks
-        : [];
-    const photos = [];
-    blocks.forEach((block) => {
-      if ((block?.type === "hero-photo" || block?.type === "full-photo") && block.photo?.url) {
-        photos.push({
-          shootId: shoot.id,
-          shootSlug: shoot.publishedRecord?.slug || shoot.slug || "",
-          shootTitle: shoot.title || "Untitled shoot",
-          photoId: `${block.id}-0`,
-          photoUrl: block.photo.url,
-          photoAlt: block.photo.alt || block.photo.caption || shoot.title || "Photograph",
-          locationLabel: block.photo.locationLabel || shoot.locationLabel || "",
-          accentColor: shoot.accentColor || shoot.publishedRecord?.accentColor || "#c96b28",
-          caption: block.photo.caption || "",
-          photoTitle: block.photo.title || "",
-          width: Number.isFinite(Number(block.photo.width)) ? Number(block.photo.width) : null,
-          height: Number.isFinite(Number(block.photo.height)) ? Number(block.photo.height) : null,
-        });
-      }
-      if ((block?.type === "photo-row" || block?.type === "ghost-text-row") && Array.isArray(block.photos)) {
-        block.photos.forEach((photo, index) => {
-          if (!photo?.url) return;
-          photos.push({
-            shootId: shoot.id,
-            shootSlug: shoot.publishedRecord?.slug || shoot.slug || "",
-            shootTitle: shoot.title || "Untitled shoot",
-            photoId: `${block.id}-${index}`,
-            photoUrl: photo.url,
-            photoAlt: photo.alt || photo.caption || shoot.title || "Photograph",
-            locationLabel: photo.locationLabel || shoot.locationLabel || "",
-            accentColor: shoot.accentColor || shoot.publishedRecord?.accentColor || "#c96b28",
-            caption: photo.caption || "",
-            photoTitle: photo.title || "",
-            width: Number.isFinite(Number(photo.width)) ? Number(photo.width) : null,
-            height: Number.isFinite(Number(photo.height)) ? Number(photo.height) : null,
-          });
-        });
-      }
-    });
-    return photos;
+    const photos = normalizeShootPhotos(shoot);
+    return photos.map((photo, index) => ({
+      shootId: shoot.id,
+      shootSlug: shoot.publishedRecord?.slug || shoot.slug || "",
+      shootTitle: shoot.title || "Untitled shoot",
+      photoId: String(photo.id || `${shoot.id || "shoot"}-${index}`),
+      photoUrl: photo.url,
+      photoAlt: photo.alt || photo.caption || shoot.title || "Photograph",
+      locationLabel: photo.locationLabel || shoot.locationLabel || "",
+      accentColor: shoot.accentColor || shoot.publishedRecord?.accentColor || "#c96b28",
+      caption: photo.caption || "",
+      photoTitle: photo.title || "",
+      width: Number.isFinite(Number(photo.width)) ? Number(photo.width) : null,
+      height: Number.isFinite(Number(photo.height)) ? Number(photo.height) : null,
+    })).filter((photo) => photo.photoUrl);
   });
 }
