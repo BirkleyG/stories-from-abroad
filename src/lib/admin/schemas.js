@@ -321,6 +321,19 @@ function clone(value) {
 function normalizeMediaValue(value) {
   const base = createMediaValue();
   const merged = { ...base, ...(value || {}) };
+  const normalizedUrl = String(
+    merged.url
+    || merged.downloadURL
+    || merged.downloadUrl
+    || merged.src
+    || merged.imageUrl
+    || merged.photoUrl
+    || merged.secure_url
+    || ""
+  ).trim();
+  merged.url = normalizedUrl;
+  merged.assetId = String(merged.assetId || merged.id || "").trim();
+  merged.fileName = String(merged.fileName || merged.originalName || merged.name || "").trim();
   merged.metadataEnabled = merged.metadataEnabled !== false && String(merged.metadataEnabled) !== "false";
   merged.shortQuote = String(merged.shortQuote || "");
   merged.shutter = String(merged.shutter || "");
@@ -508,6 +521,10 @@ export function hydrateDraft(kind, raw = {}) {
     };
   }
   const theme = normalizePhotographyTheme(merged.theme || merged.template);
+  const incoming = raw && typeof raw === "object" ? raw : {};
+  const sourcePhotos = Object.prototype.hasOwnProperty.call(incoming, "photos")
+    ? incoming.photos
+    : (incoming.allPhotos ?? merged.photos);
   return {
     ...merged,
     description: String(merged.description ?? merged.notes ?? ""),
@@ -517,7 +534,7 @@ export function hydrateDraft(kind, raw = {}) {
     locationLabel: String(merged.locationLabel || [merged.city, merged.country].filter(Boolean).join(", ")),
     theme,
     template: theme,
-    photos: normalizePhotographyPhotos(merged.photos, merged.blocks),
+    photos: normalizePhotographyPhotos(sourcePhotos, merged.blocks),
     adminNotes: String(merged.adminNotes || ""),
   };
 }

@@ -124,9 +124,10 @@ function stampDraftLocally(draft, user) {
 
 function stripMediaAsset(asset) {
   if (!asset) return createMediaValue();
+  const resolvedUrl = String(asset.url || asset.downloadURL || asset.downloadUrl || asset.src || asset.photoUrl || "").trim();
   return {
     assetId: String(asset.id || asset.assetId || ""),
-    url: String(asset.url || ""),
+    url: resolvedUrl,
     alt: String(asset.alt || ""),
     title: String(asset.title || asset.fileName || asset.originalName || ""),
     caption: String(asset.caption || ""),
@@ -1924,8 +1925,10 @@ export default function AdminApp() {
           ? `Draft saved. ${photoSync.failed.length} linked media item${photoSync.failed.length === 1 ? "" : "s"} could not sync metadata.`
           : "Draft saved.",
       });
+      return true;
     } catch (error) {
       setNotice({ tone: "error", message: error.message || "Draft save failed." });
+      throw error;
     } finally {
       setWorking(false);
     }

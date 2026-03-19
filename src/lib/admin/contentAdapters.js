@@ -105,9 +105,19 @@ function numberOrNull(value) {
 }
 
 function cleanMedia(media = {}) {
+  const resolvedUrl = String(
+    media.url
+    || media.downloadURL
+    || media.downloadUrl
+    || media.src
+    || media.imageUrl
+    || media.photoUrl
+    || media.secure_url
+    || ""
+  ).trim();
   return {
-    assetId: String(media.assetId || ""),
-    url: String(media.url || "").trim(),
+    assetId: String(media.assetId || media.id || "").trim(),
+    url: resolvedUrl,
     alt: String(media.alt || "").trim(),
     title: String(media.title || "").trim(),
     caption: String(media.caption || "").trim(),
@@ -120,7 +130,7 @@ function cleanMedia(media = {}) {
     shortQuote: String(media.shortQuote || "").trim(),
     storagePath: String(media.storagePath || "").trim(),
     contentType: String(media.contentType || "").trim(),
-    fileName: String(media.fileName || "").trim(),
+    fileName: String(media.fileName || media.originalName || media.name || "").trim(),
     focusX: numberOrNull(media.focusX) ?? 50,
     focusY: numberOrNull(media.focusY) ?? 50,
     width: numberOrNull(media.width),
@@ -393,7 +403,10 @@ export function prepareDraftForSave(kind, draftInput) {
   }
 
   const cleanedBlocks = cleanPhotoBlocks(draft.blocks);
-  const cleanedPhotos = cleanPhotographyPhotos(draft.photos, cleanedBlocks);
+  const sourcePhotos = (Array.isArray(draft.photos) && draft.photos.length)
+    ? draft.photos
+    : draft.allPhotos;
+  const cleanedPhotos = cleanPhotographyPhotos(sourcePhotos, cleanedBlocks);
   const frameCount = countPhotographyFrames(cleanedPhotos, cleanedBlocks);
   const cameraModel = derivePhotographyCamera(cleanedPhotos, cleanedBlocks, draft.cameraModel);
   const theme = normalizePhotographyTheme(draft.theme || draft.template);
@@ -563,7 +576,10 @@ export function dispatchDraftToPublic(draftInput, slugOverride = "") {
 export function photographyDraftToPublic(draftInput, slugOverride = "") {
   const draft = prepareDraftForSave("photography", draftInput);
   const slug = slugOverride || draft.slug || slugify(`${draft.title}-${draft.locationLabel}`);
-  const allPhotos = cleanPhotographyPhotos(draft.photos, draft.blocks);
+  const sourcePhotos = (Array.isArray(draft.photos) && draft.photos.length)
+    ? draft.photos
+    : draft.allPhotos;
+  const allPhotos = cleanPhotographyPhotos(sourcePhotos, draft.blocks);
   const coverPhoto = allPhotos[0] || null;
   const tags = [
     draft.tagWord1,

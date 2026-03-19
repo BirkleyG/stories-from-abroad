@@ -25,6 +25,7 @@ export const PUBLIC_COLLECTIONS = {
   travelQuotes: "scrap_sheet_quotes",
   photography: "photo_shoots",
 };
+const MEDIA_ASSETS_COLLECTION = "media_assets";
 
 function cleanString(value) {
   return String(value || "").trim();
@@ -71,9 +72,18 @@ function normalizePhotographyTheme(value) {
 }
 
 function normalizeMedia(media = {}) {
+  const normalizedUrl = cleanString(
+    media.url
+    || media.downloadURL
+    || media.downloadUrl
+    || media.src
+    || media.imageUrl
+    || media.photoUrl
+    || media.secure_url
+  );
   return {
-    assetId: cleanString(media.assetId),
-    url: cleanString(media.url),
+    assetId: cleanString(media.assetId || media.id),
+    url: normalizedUrl,
     alt: cleanString(media.alt),
     title: cleanString(media.title),
     caption: cleanString(media.caption),
@@ -86,7 +96,7 @@ function normalizeMedia(media = {}) {
     shortQuote: cleanString(media.shortQuote),
     storagePath: cleanString(media.storagePath),
     contentType: cleanString(media.contentType),
-    fileName: cleanString(media.fileName),
+    fileName: cleanString(media.fileName || media.originalName || media.name),
     focusX: Number.isFinite(Number(media.focusX)) ? Number(media.focusX) : 50,
     focusY: Number.isFinite(Number(media.focusY)) ? Number(media.focusY) : 50,
     width: Number.isFinite(Number(media.width)) ? Number(media.width) : null,
@@ -373,6 +383,52 @@ function cleanPhotographyPhotos(photos = [], blocks = []) {
   return flattenPhotographyPhotos(cleanPhotographyBlocks(blocks));
 }
 
+async function resolveMissingPhotographyPhotoUrls(photos = []) {
+  const normalized = (Array.isArray(photos) ? photos : []).map((photo) => normalizeMedia(photo));
+  const missingAssetIds = [...new Set(
+    normalized
+      .filter((photo) => !photo.url && photo.assetId)
+      .map((photo) => photo.assetId)
+  )];
+  if (!missingAssetIds.length) return normalized;
+
+  const db = getDb();
+  const resolvedAssets = new Map();
+  await Promise.all(missingAssetIds.map(async (assetId) => {
+    const snap = await db.collection(MEDIA_ASSETS_COLLECTION).doc(assetId).get();
+    if (!snap.exists) return;
+    const media = normalizeMedia({ assetId, ...(snap.data() || {}) });
+    if (media.url) {
+      resolvedAssets.set(assetId, media);
+    }
+  }));
+
+  return normalized.map((photo) => {
+    if (photo.url || !photo.assetId) return photo;
+    const resolved = resolvedAssets.get(photo.assetId);
+    if (!resolved) return photo;
+    return {
+      ...resolved,
+      ...photo,
+      url: firstNonEmpty(photo.url, resolved.url),
+      alt: firstNonEmpty(photo.alt, resolved.alt),
+      title: firstNonEmpty(photo.title, resolved.title),
+      caption: firstNonEmpty(photo.caption, resolved.caption),
+      locationLabel: firstNonEmpty(photo.locationLabel, resolved.locationLabel),
+      cameraModel: firstNonEmpty(photo.cameraModel, resolved.cameraModel),
+      exifDate: firstNonEmpty(photo.exifDate, resolved.exifDate),
+      shutter: firstNonEmpty(photo.shutter, resolved.shutter),
+      aperture: firstNonEmpty(photo.aperture, resolved.aperture),
+      iso: firstNonEmpty(photo.iso, resolved.iso),
+      lens: firstNonEmpty(photo.lens, resolved.lens),
+      shortQuote: firstNonEmpty(photo.shortQuote, resolved.shortQuote),
+      fileName: firstNonEmpty(photo.fileName, resolved.fileName),
+      storagePath: firstNonEmpty(photo.storagePath, resolved.storagePath),
+      contentType: firstNonEmpty(photo.contentType, resolved.contentType),
+    };
+  });
+}
+
 function derivePhotographyCamera(photos = [], blocks = [], explicit = "") {
   const override = cleanString(explicit);
   if (override) return override;
@@ -397,9 +453,16 @@ function countPhotographyFrames(photos = [], blocks = []) {
   }, 0);
 }
 
-function buildPhotographyPublic(draft, slug) {
+async function buildPhotographyPublic(draft, slug) {
   const blocks = cleanPhotographyBlocks(draft.blocks);
-  const allPhotos = cleanPhotographyPhotos(draft.photos, blocks);
+  const sourcePhotos = (Array.isArray(draft.photos) && draft.photos.length)
+    ? draft.photos
+    : draft.allPhotos;
+  let allPhotos = cleanPhotographyPhotos(sourcePhotos, blocks);
+  if (!allPhotos.length && Array.isArray(sourcePhotos) && sourcePhotos.length) {
+    const resolvedPhotos = await resolveMissingPhotographyPhotoUrls(sourcePhotos);
+    allPhotos = cleanPhotographyPhotos(resolvedPhotos, blocks);
+  }
   if (!allPhotos.length) {
     throw new Error("Photography shoots require at least one attached image before publishing.");
   }
@@ -474,7 +537,7 @@ export async function publishDraft(kind, id, actor = "system") {
       });
     });
   } else if (kind === "photography") {
-    publicData = buildPhotographyPublic(draft, slug);
+    publicData = await buildPhotographyPublic(draft, slug);
     batch.set(db.collection(PUBLIC_COLLECTIONS.photography).doc(id), publicData);
   } else {
     throw new Error(`Unsupported content kind: ${kind}`);
