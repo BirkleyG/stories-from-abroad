@@ -28,6 +28,61 @@
     }
   }
 
+  function installRuntimeGlobals() {
+    if (typeof window.setDotColor !== "function") {
+      window.setDotColor = function setDotColorFallback(color) {
+        document.documentElement.style.setProperty("--dot-color", String(color || "#FF2D78"));
+      };
+    }
+    if (typeof window.playShutter !== "function") {
+      window.playShutter = function playShutterFallback() {};
+    }
+  }
+
+  function installPageRouter() {
+    window.showPage = function showPage(id) {
+      var pageId = "page-" + String(id || "index");
+      Array.from(document.querySelectorAll(".page")).forEach(function (page) {
+        var isTarget = page.id === pageId;
+        page.classList.toggle("active", isTarget);
+        page.style.display = isTarget ? "block" : "none";
+      });
+
+      document.querySelectorAll(".nav-link").forEach(function (link) {
+        link.classList.remove("cur");
+      });
+      if (id === "about") {
+        var aboutLink = document.getElementById("nav-about");
+        if (aboutLink) aboutLink.classList.add("cur");
+      } else {
+        var photoLink = document.getElementById("nav-photo");
+        if (photoLink) photoLink.classList.add("cur");
+      }
+
+      if (id !== "shoot") {
+        window.scrollTo(0, 0);
+        var mobileBar = document.getElementById("mob-bar");
+        if (mobileBar) mobileBar.style.display = "none";
+        if (typeof window.setDotColor === "function") {
+          window.setDotColor("#FF2D78");
+        }
+      }
+    };
+
+    var photoNav = document.getElementById("nav-photo");
+    if (photoNav) photoNav.addEventListener("click", function () { window.showPage("index"); });
+
+    var aboutNav = document.getElementById("nav-about");
+    if (aboutNav) aboutNav.addEventListener("click", function () { window.showPage("about"); });
+
+    Array.from(document.querySelectorAll(".ab-photos-link")).forEach(function (link) {
+      link.addEventListener("click", function () { window.showPage("index"); });
+    });
+
+    var activeId = String(document.querySelector(".page.active")?.id || "page-index").replace("page-", "");
+    window.showPage(activeId || "index");
+  }
+
   
   function readAdminPreviewShoot() {
     if (typeof window === "undefined") return null;
@@ -185,7 +240,7 @@
     grid.innerHTML = shoots.map(function (shoot) {
       var tags = (shoot.tags || []).map(function (tag) { return '<span class="sc-tag">' + esc(tag) + "</span>"; }).join("");
       return '' +
-        '<div class="sc" style="--accent:' + esc(shoot.accent) + '" onclick="showShoot(\'' + esc(shoot.slug) + '\')">' +
+        '<article class="sc" data-shoot-slug="' + esc(shoot.slug) + '" style="--accent:' + esc(shoot.accent) + '">' +
           '<div class="sc-img-w"><img class="sc-img" src="' + esc(shoot.cover || "") + '" alt="' + esc(shoot.title) + '" loading="lazy"/></div>' +
           '<div class="sc-body">' +
             '<div class="sc-top"><span class="sc-date">' + esc(shoot.date || "") + '</span><span class="sc-ct">' + esc(String(shoot.photoCount || 0)) + ' frames</span></div>' +
@@ -195,8 +250,15 @@
             '<div class="sc-loc">' + esc(shoot.location || "") + '</div>' +
           '</div>' +
           '<div class="sc-bar"></div>' +
-        '</div>';
+        "</article>";
     }).join("");
+    Array.from(grid.querySelectorAll("[data-shoot-slug]")).forEach(function (card) {
+      card.addEventListener("click", function () {
+        if (typeof window.showShoot !== "function") return;
+        var slug = String(card.getAttribute("data-shoot-slug") || "").trim();
+        if (slug) window.showShoot(slug);
+      });
+    });
   }
 
   function patchAboutRecent(shoots) {
@@ -211,15 +273,22 @@
     }
     grid.innerHTML = shoots.slice(0, 3).map(function (shoot) {
       return '' +
-        '<div class="ab-shoot-card" onclick="showShoot(\'' + esc(shoot.slug) + '\')">' +
+        '<article class="ab-shoot-card" data-shoot-slug="' + esc(shoot.slug) + '">' +
           '<img src="' + esc(shoot.cover || "") + '" alt="' + esc(shoot.title) + '" loading="lazy"/>' +
           '<div class="ab-shoot-card-over">' +
             '<div class="ab-shoot-card-title">' + esc(shoot.title) + '</div>' +
             '<div class="ab-shoot-card-loc">' + esc(shoot.location || "") + '</div>' +
           '</div>' +
           '<div class="ab-shoot-card-bar" style="background:' + esc(shoot.accent) + '"></div>' +
-        '</div>';
+        "</article>";
     }).join("");
+    Array.from(grid.querySelectorAll("[data-shoot-slug]")).forEach(function (card) {
+      card.addEventListener("click", function () {
+        if (typeof window.showShoot !== "function") return;
+        var slug = String(card.getAttribute("data-shoot-slug") || "").trim();
+        if (slug) window.showShoot(slug);
+      });
+    });
   }
 
   function applyEmptyState(message) {
@@ -327,8 +396,8 @@
             '<span class="fs-cta" style="cursor:default;border-bottom-color:#282828;color:#888">Publish from Admin to populate this page</span>' +
           "</div>" +
         "</div>";
-      if (typeof setDotColor === "function") {
-        setDotColor("#FF2D78");
+      if (typeof window.setDotColor === "function") {
+        window.setDotColor("#FF2D78");
       }
       return;
     }
@@ -350,7 +419,12 @@
       slide.style.setProperty("--accent", item.accent || "#FF2D78");
 
       var wrap = slide.querySelector(".fs-img-wrap");
-      if (wrap) wrap.setAttribute("onclick", "showShoot('" + item.shootSlug + "')");
+      if (wrap) {
+        wrap.setAttribute("data-shoot-slug", item.shootSlug);
+        wrap.onclick = function () {
+          if (typeof window.showShoot === "function") window.showShoot(item.shootSlug);
+        };
+      }
 
       var image = slide.querySelector(".fs-img");
       if (image) {
@@ -365,7 +439,12 @@
       var title = slide.querySelector(".fs-title");
       if (title) title.textContent = item.title || "Untitled shoot";
       var cta = slide.querySelector(".fs-cta");
-      if (cta) cta.setAttribute("onclick", "showShoot('" + item.shootSlug + "')");
+      if (cta) {
+        cta.setAttribute("data-shoot-slug", item.shootSlug);
+        cta.onclick = function () {
+          if (typeof window.showShoot === "function") window.showShoot(item.shootSlug);
+        };
+      }
     });
 
     var dots = Array.from(document.querySelectorAll(".feat-dot"));
@@ -375,8 +454,8 @@
     slides.forEach(function (slide, index) {
       slide.classList.toggle("active", index === 0);
     });
-    if (typeof setDotColor === "function") {
-      setDotColor(items[0].accent || "#FF2D78");
+    if (typeof window.setDotColor === "function") {
+      window.setDotColor(items[0].accent || "#FF2D78");
     }
   }
 
@@ -424,7 +503,7 @@
         cleanup = null;
       }
 
-      if (typeof setDotColor === "function") setDotColor(shoot.accent);
+      if (typeof window.setDotColor === "function") window.setDotColor(shoot.accent);
       document.getElementById("page-shoot").style.setProperty("--a", shoot.accent || "#FF2D78");
 
       var photos = (Array.isArray(shoot.photos) ? shoot.photos : [])
@@ -482,7 +561,7 @@
         '<div class="sg-tile sg-title-tile" data-is-title="1" style="position:relative;overflow:hidden">' +
           '<div style="position:absolute;right:28px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;align-items:flex-end;gap:0;pointer-events:none;z-index:0;line-height:.82">' + mantraHtml + "</div>" +
           '<div style="position:relative;z-index:1;max-width:680px">' +
-            '<span style="font-family:\'IBM Plex Mono\',monospace;font-size:8.5px;letter-spacing:3px;text-transform:uppercase;color:var(--g4);cursor:pointer;margin-bottom:44px;display:inline-block;transition:color .2s" onmouseenter="this.style.color=\'#F0EFEB\'" onmouseleave="this.style.color=\'#505050\'" onclick="showPage(\'index\')">? Photography</span>' +
+            '<span data-page-target="index" style="font-family:\'IBM Plex Mono\',monospace;font-size:8.5px;letter-spacing:3px;text-transform:uppercase;color:var(--g4);cursor:pointer;margin-bottom:44px;display:inline-block;transition:color .2s" onmouseenter="this.style.color=\'#F0EFEB\'" onmouseleave="this.style.color=\'#505050\'">? Photography</span>' +
             '<div style="font-family:\'IBM Plex Mono\',monospace;font-size:9px;letter-spacing:5px;text-transform:uppercase;color:' + esc(shoot.accent) + ';margin-bottom:20px">' + esc(shoot.location || "") + " · " + esc(shoot.date || "") + "</div>" +
             '<h1 style="font-family:' + tFam + ';font-size:' + tFS + ';' + tExt + ';color:#F0EFEB;margin-bottom:28px">' + esc(shoot.title || "") + "</h1>" +
             '<p style="font-family:' + iFam + ';font-size:' + iSz + ';' + iIt + ';color:#505050;line-height:1.65;max-width:560px;margin-bottom:28px">' + esc(shoot.intro || "") + "</p>" +
@@ -518,13 +597,20 @@
             '<div style="font-family:\'Bebas Neue\',sans-serif;font-size:clamp(40px,6vw,80px);color:#F0EFEB;line-height:1;margin-bottom:8px">' + esc(shoot.title || "") + "</div>" +
             '<div style="font-family:\'Cormorant Garamond\',serif;font-size:15px;font-style:italic;color:#505050;margin-bottom:44px">' + esc(String(photos.length)) + " frames · " + esc(shoot.location || "") + "</div>" +
             '<div style="display:flex;gap:12px;justify-content:center">' +
-              '<button onclick="showPage(\'index\')" style="font-family:\'IBM Plex Mono\',monospace;font-size:9px;letter-spacing:3px;text-transform:uppercase;padding:12px 22px;background:' + esc(shoot.accent) + ';color:#080808;border:none;cursor:pointer">? All shoots</button>' +
+              '<button data-page-target="index" style="font-family:\'IBM Plex Mono\',monospace;font-size:9px;letter-spacing:3px;text-transform:uppercase;padding:12px 22px;background:' + esc(shoot.accent) + ';color:#080808;border:none;cursor:pointer">? All shoots</button>' +
               '<button id="sg-restart" style="font-family:\'IBM Plex Mono\',monospace;font-size:9px;letter-spacing:3px;text-transform:uppercase;padding:12px 22px;background:transparent;border:1px solid #282828;color:#505050;cursor:pointer">? Back to start</button>' +
             "</div>" +
           "</div>" +
         "</div>";
 
       photosEl.innerHTML = '<div class="sg-scrollbar"><div class="sg-scrollbar-fill" id="sg-scrollbar-fill" style="height:0%"></div></div>' + titleHtml + photoHtml + endHtml;
+      Array.from(photosEl.querySelectorAll("[data-page-target]")).forEach(function (node) {
+        node.addEventListener("click", function () {
+          if (typeof window.showPage !== "function") return;
+          var target = String(node.getAttribute("data-page-target") || "").trim();
+          if (target) window.showPage(target);
+        });
+      });
 
       var panel = document.getElementById("sg-panel");
       panel.style.borderLeft = tmpl === "documentary" ? "2px solid " + shoot.accent : "1px solid #1A1A1A";
@@ -609,8 +695,8 @@
           snapping = false;
           return;
         }
-        if (!allTiles[next].dataset.isTitle && !allTiles[next].dataset.isEnd && typeof playShutter === "function") {
-          playShutter();
+        if (!allTiles[next].dataset.isTitle && !allTiles[next].dataset.isEnd && typeof window.playShutter === "function") {
+          window.playShutter();
         }
         snapping = true;
         current = next;
@@ -652,7 +738,7 @@
         if (!shootPage || !shootPage.classList.contains("active")) return;
         if (event.key === "ArrowDown" || event.key === "ArrowRight") snapTo(current + 1, true);
         if (event.key === "ArrowUp" || event.key === "ArrowLeft") snapTo(current - 1, true);
-        if (event.key === "Escape" && typeof showPage === "function") showPage("index");
+        if (event.key === "Escape" && typeof window.showPage === "function") window.showPage("index");
       }
 
       photosEl.addEventListener("wheel", onWheel, { passive: false });
@@ -669,11 +755,13 @@
         window.removeEventListener("keydown", onKey);
       };
 
-      if (typeof showPage === "function") showPage("shoot");
+      if (typeof window.showPage === "function") window.showPage("shoot");
     };
   }
 
   async function boot() {
+    installRuntimeGlobals();
+    installPageRouter();
     installShootOverride();
     var config = readJsonScript("photography-public-firestore-config", {});
     if (!window.SFAPublicFirestore || !config.projectId || !config.apiKey) {

@@ -160,8 +160,8 @@ img{display:block}
 .shoots-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:2px}
 .sc{display:block;background:var(--g1);overflow:hidden;transition:transform .35s cubic-bezier(.25,.46,.45,.94);cursor:pointer}
 .sc:hover{transform:translateY(-6px)}
-.sc-img-w{overflow:hidden}
-.sc-img{width:100%;aspect-ratio:3/4;object-fit:cover;filter:brightness(.85);transition:transform .55s cubic-bezier(.25,.46,.45,.94),filter .35s}
+.sc-img-w{overflow:hidden;aspect-ratio:3/4;background:var(--g1)}
+.sc-img{width:100%;height:100%;object-fit:cover;filter:brightness(.85);transition:transform .55s cubic-bezier(.25,.46,.45,.94),filter .35s}
 .sc:hover .sc-img{transform:scale(1.05);filter:brightness(1)}
 .sc-body{padding:18px 20px 8px}
 .sc-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
@@ -544,7 +544,7 @@ img{display:block}
   <footer class="footer"><div class="foot-l">BIRKLEY</div><div class="foot-r">storiesfromabroad.com — © 2025</div></footer>
 </div>
 
-<script>
+<script is:inline>
 /* ─────────────────────────────────────────────────────
    DATA
    order: 1=most recent. FIX 3: (order-1)%3 → 0=SEEN, 1=FELT, 2=KEPT
