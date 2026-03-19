@@ -453,7 +453,7 @@ function flattenPhotoBlocksToMedia(blocks) {
 }
 
 function normalizePhotographyPhotos(photos, blocks) {
-  const sourcePhotos = (Array.isArray(photos) ? photos : []).map(normalizeMediaValue).filter((photo) => photo.url);
+  const sourcePhotos = (Array.isArray(photos) ? photos : []).map(normalizeMediaValue);
   if (sourcePhotos.length) return sourcePhotos;
   const legacyPhotos = flattenPhotoBlocksToMedia(blocks);
   return legacyPhotos.length ? legacyPhotos : [createMediaValue()];

@@ -630,7 +630,10 @@ function readAdminPreviewInterview() {
   try {
     const url = new URL(window.location.href);
     if (url.searchParams.get('adminPreview') !== '1') return null;
-    const raw = window.sessionStorage ? window.sessionStorage.getItem(ADMIN_PREVIEW_STORAGE_KEY) : '';
+    let raw = window.sessionStorage ? window.sessionStorage.getItem(ADMIN_PREVIEW_STORAGE_KEY) : '';
+    if (!raw && window.localStorage) {
+      raw = window.localStorage.getItem(ADMIN_PREVIEW_STORAGE_KEY) || '';
+    }
     if (!raw) return null;
     const payload = JSON.parse(raw);
     if (!payload || payload.kind !== 'faces' || !payload.data || typeof payload.data !== 'object') return null;

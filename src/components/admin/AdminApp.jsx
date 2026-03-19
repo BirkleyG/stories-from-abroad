@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import "../../styles/admin.css";
 import { firebaseReady } from "../../lib/firebaseClient";
-import { completeAdminSignIn, getAdminSession, onAdminAuthChange, sendAdminSignInLink, signOutAdmin } from "../../lib/admin/adminAuth";
+import { completeAdminSignIn, ensureAdminPersistence, getAdminSession, onAdminAuthChange, sendAdminSignInLink, signOutAdmin } from "../../lib/admin/adminAuth";
 import { assignAdminClaim, publishDraft, repairCoordinates, scheduleDraft, unpublishDraft } from "../../lib/admin/functions";
 import { dispatchDraftToPublic, faceDraftToPublic, photographyDraftToPublic, slugify } from "../../lib/admin/contentAdapters";
 import { collectFeaturedPhotoOptions, mediaSummaryFromPhotos } from "../../lib/admin/photographyTemplates";
@@ -166,6 +166,34 @@ function createMediaMetadataState(asset) {
     kind: String(asset?.kind || ""),
     field: String(asset?.field || ""),
   };
+}
+
+function mediaLibraryMetadataFromPhoto(photo) {
+  return {
+    title: String(photo?.title || ""),
+    caption: String(photo?.caption || ""),
+    alt: String(photo?.alt || ""),
+    locationLabel: String(photo?.locationLabel || ""),
+    exifDate: String(photo?.exifDate || ""),
+    metadataEnabled: photo?.metadataEnabled !== false,
+    shortQuote: String(photo?.shortQuote || ""),
+    cameraModel: String(photo?.cameraModel || ""),
+    lens: String(photo?.lens || ""),
+    shutter: String(photo?.shutter || ""),
+    aperture: String(photo?.aperture || ""),
+    iso: String(photo?.iso || ""),
+  };
+}
+
+function writeAdminPreviewPayload(payload) {
+  if (typeof window === "undefined") return;
+  const serialized = JSON.stringify(payload || {});
+  if (window.sessionStorage) {
+    window.sessionStorage.setItem(ADMIN_PREVIEW_STORAGE_KEY, serialized);
+  }
+  if (window.localStorage) {
+    window.localStorage.setItem(ADMIN_PREVIEW_STORAGE_KEY, serialized);
+  }
 }
 
 function clampPercent(value, fallback = 50) {
@@ -1620,11 +1648,44 @@ export default function AdminApp() {
   const [saveState, setSaveState] = useState("Idle");
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
   const baselineRef = useRef("");
+  const photoMetadataSyncRef = useRef({});
   const isContentSection = activeSection === "faces" || activeSection === "papers" || activeSection === "travel" || activeSection === "photography";
   const activeItems = isContentSection ? (lists[activeSection] || []) : [];
   const draftId = isContentSection ? selectedIds[activeSection] : "";
   const canEdit = authState.isAdmin && isContentSection && draftId;
   const canBuildPreview = canEdit && (activeSection === "faces" || activeSection === "travel" || activeSection === "photography");
+
+  async function syncPhotographyMediaMetadata(sourceDraft, options = {}) {
+    if (activeSection !== "photography" || !authState.user || !sourceDraft) {
+      return { synced: 0, failed: [] };
+    }
+    const latestByAsset = new Map();
+    (Array.isArray(sourceDraft.photos) ? sourceDraft.photos : []).forEach((photo) => {
+      const assetId = String(photo?.assetId || "").trim();
+      if (!assetId) return;
+      latestByAsset.set(assetId, mediaLibraryMetadataFromPhoto(photo));
+    });
+    if (!latestByAsset.size) return { synced: 0, failed: [] };
+
+    let synced = 0;
+    const failed = [];
+    for (const [assetId, updates] of latestByAsset.entries()) {
+      const nextHash = JSON.stringify(updates);
+      if (photoMetadataSyncRef.current[assetId] === nextHash) continue;
+      try {
+        await updateMediaAsset(assetId, updates, authState.user);
+        photoMetadataSyncRef.current[assetId] = nextHash;
+        synced += 1;
+      } catch (error) {
+        failed.push({ assetId, message: error?.message || "Metadata sync failed." });
+      }
+    }
+
+    if (failed.length && options.raiseOnFailure) {
+      throw new Error(failed[0].message);
+    }
+    return { synced, failed };
+  }
 
   useEffect(() => {
     let active = true;
@@ -1636,6 +1697,7 @@ export default function AdminApp() {
         return;
       }
       try {
+        await ensureAdminPersistence();
         await completeAdminSignIn(typeof window !== "undefined" ? window.location.href : "");
       } catch (error) {
         if (active) {
@@ -1753,6 +1815,9 @@ export default function AdminApp() {
     const timeout = window.setTimeout(async () => {
       try {
         setSaveState("Autosaving...");
+        if (activeSection === "photography") {
+          await syncPhotographyMediaMetadata(draft);
+        }
         await saveDraft(activeSection, draftId, draft, authState.user, { captureVersion: false, reason: "autosave" });
         baselineRef.current = currentFingerprint;
         setSaveState(`Autosaved ${new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`);
@@ -1846,13 +1911,19 @@ export default function AdminApp() {
     if (!canEdit || !draft) return;
     try {
       setWorking(true);
+      const photoSync = activeSection === "photography" ? await syncPhotographyMediaMetadata(draft) : { failed: [] };
       await saveDraft(activeSection, draftId, draft, authState.user, { captureVersion: true, reason });
       const hydrated = hydrateDraft(activeSection, stampDraftLocally(draft, authState.user));
       setDraft(hydrated);
       baselineRef.current = fingerprint(hydrated);
       setSaveState(`Saved ${new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`);
       setVersions(await listVersions(activeSection, draftId));
-      setNotice({ tone: "success", message: "Draft saved." });
+      setNotice({
+        tone: photoSync.failed?.length ? "warning" : "success",
+        message: photoSync.failed?.length
+          ? `Draft saved. ${photoSync.failed.length} linked media item${photoSync.failed.length === 1 ? "" : "s"} could not sync metadata.`
+          : "Draft saved.",
+      });
     } catch (error) {
       setNotice({ tone: "error", message: error.message || "Draft save failed." });
     } finally {
@@ -1959,6 +2030,9 @@ export default function AdminApp() {
     try {
       setWorking(true);
       const asset = await updateMediaAsset(assetId, updates, authState.user);
+      if (asset?.id) {
+        photoMetadataSyncRef.current[asset.id] = JSON.stringify(mediaLibraryMetadataFromPhoto(asset));
+      }
       setNotice({ tone: "success", message: "Media metadata saved." });
       return asset;
     } catch (error) {
@@ -2068,8 +2142,8 @@ export default function AdminApp() {
             lngLat: Array.isArray(preview.lngLat) && preview.lngLat.length === 2 ? preview.lngLat : [0, 0],
           },
         };
-        window.sessionStorage.setItem(ADMIN_PREVIEW_STORAGE_KEY, JSON.stringify(payload));
-        window.open(`${basePath}faces-of-the-world/?adminPreview=1#/profile/${encodeURIComponent(preview.slug)}`, "_blank", "noopener,noreferrer");
+        writeAdminPreviewPayload(payload);
+        window.open(`${basePath}faces-of-the-world/?adminPreview=1#/profile/${encodeURIComponent(preview.slug)}`, "_blank", "noopener");
       }
 
       if (activeSection === "travel") {
@@ -2087,8 +2161,8 @@ export default function AdminApp() {
             quotes: Array.isArray(preview.quotes) ? preview.quotes : [],
           },
         };
-        window.sessionStorage.setItem(ADMIN_PREVIEW_STORAGE_KEY, JSON.stringify(payload));
-        window.open(`${basePath}travel-stories?adminPreview=1&post=${encodeURIComponent(post.slug || post.id)}`, "_blank", "noopener,noreferrer");
+        writeAdminPreviewPayload(payload);
+        window.open(`${basePath}travel-stories?adminPreview=1&post=${encodeURIComponent(post.slug || post.id)}`, "_blank", "noopener");
       }
 
       if (activeSection === "photography") {
@@ -2102,8 +2176,8 @@ export default function AdminApp() {
             ...preview,
           },
         };
-        window.sessionStorage.setItem(ADMIN_PREVIEW_STORAGE_KEY, JSON.stringify(payload));
-        window.open(`${basePath}photography?adminPreview=1&shoot=${encodeURIComponent(preview.slug)}`, "_blank", "noopener,noreferrer");
+        writeAdminPreviewPayload(payload);
+        window.open(`${basePath}photography?adminPreview=1&shoot=${encodeURIComponent(preview.slug)}`, "_blank", "noopener");
       }
     } catch (error) {
       setNotice({ tone: "error", message: error.message || "Preview build failed." });

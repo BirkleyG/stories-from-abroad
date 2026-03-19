@@ -205,6 +205,9 @@ function readAdminPreviewDispatch() {
     var url = new URL(window.location.href);
     if (url.searchParams.get("adminPreview") !== "1") return null;
     var raw = window.sessionStorage ? window.sessionStorage.getItem(ADMIN_PREVIEW_STORAGE_KEY) : "";
+    if (!raw && window.localStorage) {
+      raw = window.localStorage.getItem(ADMIN_PREVIEW_STORAGE_KEY) || "";
+    }
     if (!raw) return null;
     var payload = JSON.parse(raw);
     if (!payload || payload.kind !== "travel" || !payload.data || typeof payload.data !== "object") return null;

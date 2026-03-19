@@ -1,7 +1,11 @@
 import {
+  browserLocalPersistence,
+  browserSessionPersistence,
   getIdTokenResult,
+  inMemoryPersistence,
   isSignInWithEmailLink,
   onAuthStateChanged,
+  setPersistence,
   sendSignInLinkToEmail,
   signInWithEmailLink,
   signOut,
@@ -9,6 +13,7 @@ import {
 import { auth, firebaseReady } from "../firebaseClient";
 
 const STORAGE_KEY = "stories-from-abroad-admin-email";
+let persistenceReady = null;
 
 function cleanActionUrl(targetUrl = "") {
   if (typeof window === "undefined") return;
@@ -26,6 +31,29 @@ function assertAuthReady() {
   }
 }
 
+export async function ensureAdminPersistence() {
+  assertAuthReady();
+  if (typeof window === "undefined") return;
+  if (!persistenceReady) {
+    persistenceReady = (async () => {
+      try {
+        await setPersistence(auth, browserLocalPersistence);
+      } catch {
+        try {
+          await setPersistence(auth, browserSessionPersistence);
+        } catch {
+          try {
+            await setPersistence(auth, inMemoryPersistence);
+          } catch {
+            // Leave the default persistence if explicit persistence cannot be set.
+          }
+        }
+      }
+    })();
+  }
+  await persistenceReady;
+}
+
 export function getStoredAdminEmail() {
   if (typeof window === "undefined") return "";
   return window.localStorage.getItem(STORAGE_KEY) || "";
@@ -33,6 +61,7 @@ export function getStoredAdminEmail() {
 
 export async function sendAdminSignInLink(email) {
   assertAuthReady();
+  await ensureAdminPersistence();
   const normalized = String(email || "").trim().toLowerCase();
   if (!normalized.includes("@")) {
     throw new Error("Enter a valid email address.");
@@ -52,6 +81,7 @@ export async function sendAdminSignInLink(email) {
 
 export async function completeAdminSignIn(currentUrl, fallbackEmail = "") {
   assertAuthReady();
+  await ensureAdminPersistence();
   const targetUrl = currentUrl || (typeof window !== "undefined" ? window.location.href : "");
   if (!isSignInWithEmailLink(auth, targetUrl)) return null;
   const storedEmail = getStoredAdminEmail();
@@ -77,6 +107,7 @@ export async function completeAdminSignIn(currentUrl, fallbackEmail = "") {
 
 export function onAdminAuthChange(callback) {
   assertAuthReady();
+  void ensureAdminPersistence();
   return onAuthStateChanged(auth, callback);
 }
 
