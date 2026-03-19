@@ -106,13 +106,180 @@ async function readImageDimensions(file) {
   }
 }
 
+function readAscii(view, offset, length) {
+  const chars = [];
+  const max = Math.max(0, Math.min(length, view.byteLength - offset));
+  for (let index = 0; index < max; index += 1) {
+    chars.push(String.fromCharCode(view.getUint8(offset + index)));
+  }
+  return chars.join("");
+}
+
+function exifTypeWidth(type) {
+  if (type === 1 || type === 2 || type === 7) return 1;
+  if (type === 3) return 2;
+  if (type === 4 || type === 9) return 4;
+  if (type === 5 || type === 10) return 8;
+  return 0;
+}
+
+function readExifValue(view, tiffStart, entryOffset, littleEndian) {
+  const type = view.getUint16(entryOffset + 2, littleEndian);
+  const count = view.getUint32(entryOffset + 4, littleEndian);
+  const width = exifTypeWidth(type);
+  if (!width || !count) return null;
+  const valueBytes = width * count;
+  const inlineOffset = entryOffset + 8;
+  const pointer = view.getUint32(entryOffset + 8, littleEndian);
+  const dataOffset = valueBytes <= 4 ? inlineOffset : tiffStart + pointer;
+  if (dataOffset < 0 || dataOffset + valueBytes > view.byteLength) return null;
+
+  const readSingle = (offset) => {
+    if (type === 1 || type === 7) return view.getUint8(offset);
+    if (type === 2) return String.fromCharCode(view.getUint8(offset));
+    if (type === 3) return view.getUint16(offset, littleEndian);
+    if (type === 4) return view.getUint32(offset, littleEndian);
+    if (type === 5) {
+      const numerator = view.getUint32(offset, littleEndian);
+      const denominator = view.getUint32(offset + 4, littleEndian);
+      return denominator ? numerator / denominator : null;
+    }
+    if (type === 9) return view.getInt32(offset, littleEndian);
+    if (type === 10) {
+      const numerator = view.getInt32(offset, littleEndian);
+      const denominator = view.getInt32(offset + 4, littleEndian);
+      return denominator ? numerator / denominator : null;
+    }
+    return null;
+  };
+
+  if (type === 2) {
+    return readAscii(view, dataOffset, count).replace(/\0/g, "").trim();
+  }
+
+  if (count === 1) {
+    return readSingle(dataOffset);
+  }
+
+  const values = [];
+  for (let index = 0; index < count; index += 1) {
+    values.push(readSingle(dataOffset + index * width));
+  }
+  return values;
+}
+
+function parseExifDate(raw) {
+  const text = String(raw || "").trim();
+  if (!text) return "";
+  const match = text.match(/^(\d{4}):(\d{2}):(\d{2})\s+(\d{2}):(\d{2}):(\d{2})$/);
+  if (match) {
+    const [, year, month, day, hour, minute, second] = match;
+    return `${year}-${month}-${day}T${hour}:${minute}:${second}Z`;
+  }
+  const parsed = new Date(text);
+  return Number.isNaN(parsed.getTime()) ? "" : parsed.toISOString();
+}
+
+function formatExposure(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number) || number <= 0) return "";
+  if (number >= 1) {
+    return `${number.toFixed(number % 1 ? 1 : 0)}s`;
+  }
+  const reciprocal = Math.round(1 / number);
+  return reciprocal > 0 ? `1/${reciprocal}s` : "";
+}
+
+function formatAperture(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number) || number <= 0) return "";
+  const fixed = number >= 10 ? number.toFixed(0) : number.toFixed(1);
+  return `f/${fixed}`;
+}
+
+async function readExifMetadata(file) {
+  const contentType = String(file?.type || "").toLowerCase();
+  const name = String(file?.name || "").toLowerCase();
+  const looksLikeJpeg = contentType.includes("jpeg") || contentType.includes("jpg") || /\.jpe?g$/i.test(name);
+  if (typeof window === "undefined" || !looksLikeJpeg) {
+    return {};
+  }
+  try {
+    const buffer = await file.arrayBuffer();
+    const view = new DataView(buffer);
+    if (view.byteLength < 4 || view.getUint16(0, false) !== 0xFFD8) {
+      return {};
+    }
+
+    let offset = 2;
+    while (offset + 4 < view.byteLength) {
+      if (view.getUint8(offset) !== 0xFF) break;
+      const marker = view.getUint8(offset + 1);
+      offset += 2;
+      if (marker === 0xD9 || marker === 0xDA) break;
+      if (offset + 2 > view.byteLength) break;
+      const size = view.getUint16(offset, false);
+      if (size < 2 || offset + size > view.byteLength) break;
+
+      if (marker === 0xE1 && readAscii(view, offset + 2, 6) === "Exif\0\0") {
+        const tiffStart = offset + 8;
+        if (tiffStart + 8 > view.byteLength) return {};
+        const byteOrder = readAscii(view, tiffStart, 2);
+        const littleEndian = byteOrder === "II";
+        if (!littleEndian && byteOrder !== "MM") return {};
+        const ifd0Offset = view.getUint32(tiffStart + 4, littleEndian);
+        const ifd0Pointer = tiffStart + ifd0Offset;
+        if (ifd0Pointer + 2 > view.byteLength) return {};
+
+        const tags = {};
+        const readIfd = (ifdPointer) => {
+          if (ifdPointer + 2 > view.byteLength) return;
+          const count = view.getUint16(ifdPointer, littleEndian);
+          for (let entryIndex = 0; entryIndex < count; entryIndex += 1) {
+            const entryOffset = ifdPointer + 2 + entryIndex * 12;
+            if (entryOffset + 12 > view.byteLength) break;
+            const tag = view.getUint16(entryOffset, littleEndian);
+            tags[tag] = readExifValue(view, tiffStart, entryOffset, littleEndian);
+          }
+        };
+
+        readIfd(ifd0Pointer);
+        const exifPointer = Number(tags[0x8769] || 0);
+        if (Number.isFinite(exifPointer) && exifPointer > 0) {
+          readIfd(tiffStart + exifPointer);
+        }
+
+        return sanitize({
+          cameraModel: cleanText(tags[0x0110]),
+          exifDate: parseExifDate(tags[0x9003] || tags[0x0132]),
+          shutter: formatExposure(tags[0x829A]),
+          aperture: formatAperture(tags[0x829D]),
+          iso: cleanText(tags[0x8827]),
+          lens: cleanText(tags[0xA434]),
+        });
+      }
+
+      offset += size;
+    }
+    return {};
+  } catch {
+    return {};
+  }
+}
+
 async function extractUploadMetadata(file) {
-  const dimensions = await readImageDimensions(file);
+  const [dimensions, exif] = await Promise.all([readImageDimensions(file), readExifMetadata(file)]);
   return sanitize({
     extension: fileExtension(file?.name || ""),
     lastModifiedAt: file?.lastModified ? new Date(file.lastModified).toISOString() : "",
     width: dimensions.width,
     height: dimensions.height,
+    cameraModel: cleanText(exif.cameraModel),
+    exifDate: cleanText(exif.exifDate),
+    shutter: cleanText(exif.shutter),
+    aperture: cleanText(exif.aperture),
+    iso: cleanText(exif.iso),
+    lens: cleanText(exif.lens),
   });
 }
 
@@ -261,8 +428,14 @@ export async function uploadMediaAsset(file, user, context = {}) {
     caption: "",
     title: assetTitleFromFileName(file.name || safeName),
     locationLabel: "",
-    cameraModel: "",
-    exifDate: "",
+    cameraModel: cleanText(extractedMetadata.cameraModel),
+    exifDate: cleanText(extractedMetadata.exifDate),
+    shutter: cleanText(extractedMetadata.shutter),
+    aperture: cleanText(extractedMetadata.aperture),
+    iso: cleanText(extractedMetadata.iso),
+    lens: cleanText(extractedMetadata.lens),
+    metadataEnabled: true,
+    shortQuote: "",
     createdAt: serverTimestamp(),
     createdBy: actor(user),
     updatedAt: serverTimestamp(),
@@ -276,12 +449,20 @@ export async function updateMediaAsset(id, updates, user) {
   assertFirestoreReady();
   const assetRef = doc(db, ADMIN_COLLECTIONS.media, id);
   const payload = sanitize({
-    alt: cleanText(updates.alt),
-    caption: cleanText(updates.caption),
-    title: cleanText(updates.title),
-    locationLabel: cleanText(updates.locationLabel),
-    kind: cleanText(updates.kind),
-    field: cleanText(updates.field),
+    alt: updates?.alt !== undefined ? cleanText(updates.alt) : undefined,
+    caption: updates?.caption !== undefined ? cleanText(updates.caption) : undefined,
+    title: updates?.title !== undefined ? cleanText(updates.title) : undefined,
+    locationLabel: updates?.locationLabel !== undefined ? cleanText(updates.locationLabel) : undefined,
+    cameraModel: updates?.cameraModel !== undefined ? cleanText(updates.cameraModel) : undefined,
+    exifDate: updates?.exifDate !== undefined ? cleanText(updates.exifDate) : undefined,
+    shutter: updates?.shutter !== undefined ? cleanText(updates.shutter) : undefined,
+    aperture: updates?.aperture !== undefined ? cleanText(updates.aperture) : undefined,
+    iso: updates?.iso !== undefined ? cleanText(updates.iso) : undefined,
+    lens: updates?.lens !== undefined ? cleanText(updates.lens) : undefined,
+    metadataEnabled: updates?.metadataEnabled !== undefined ? updates.metadataEnabled !== false : undefined,
+    shortQuote: updates?.shortQuote !== undefined ? cleanText(updates.shortQuote) : undefined,
+    kind: updates?.kind !== undefined ? cleanText(updates.kind) : undefined,
+    field: updates?.field !== undefined ? cleanText(updates.field) : undefined,
     updatedAt: serverTimestamp(),
     updatedBy: actor(user),
   });
@@ -307,6 +488,11 @@ export async function saveSectionMediaConfig(config, user) {
     readStoryPortrait: config?.readStoryPortrait || null,
     papersHeroImage: config?.papersHeroImage || null,
     papersAuthorPortrait: config?.papersAuthorPortrait || null,
+    based: cleanText(config?.based),
+    studying: cleanText(config?.studying),
+    shooting: cleanText(config?.shooting),
+    reading: cleanText(config?.reading),
+    email: cleanText(config?.email),
     updatedAt: serverTimestamp(),
     updatedBy: actor(user),
   });
@@ -331,6 +517,9 @@ export async function savePhotographyFeaturedConfig(config, user) {
           locationLabel: cleanText(item?.locationLabel),
           accentColor: cleanText(item?.accentColor),
           caption: cleanText(item?.caption),
+          photoTitle: cleanText(item?.photoTitle || item?.title),
+          width: Number.isFinite(Number(item?.width)) ? Number(item.width) : null,
+          height: Number.isFinite(Number(item?.height)) ? Number(item.height) : null,
         }))
         .filter((item) => item.shootId && item.photoId && item.photoUrl)
       : [],

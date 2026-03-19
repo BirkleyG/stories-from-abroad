@@ -69,6 +69,12 @@ function normalizeMedia(media = {}) {
     title: cleanString(media.title),
     caption: cleanString(media.caption),
     locationLabel: cleanString(media.locationLabel),
+    shutter: cleanString(media.shutter),
+    aperture: cleanString(media.aperture),
+    iso: cleanString(media.iso),
+    lens: cleanString(media.lens),
+    metadataEnabled: media.metadataEnabled !== false,
+    shortQuote: cleanString(media.shortQuote),
     storagePath: cleanString(media.storagePath),
     contentType: cleanString(media.contentType),
     fileName: cleanString(media.fileName),
@@ -372,14 +378,23 @@ function buildPhotographyPublic(draft, slug) {
   }
   const heroBlock = blocks.find((block) => block.type === "hero-photo");
   const coverPhoto = heroBlock?.photo?.url ? heroBlock.photo : allPhotos[0];
+  const tags = [
+    cleanString(draft.tagWord1),
+    cleanString(draft.tagWord2),
+    cleanString(draft.tagWord3),
+    ...(Array.isArray(draft.tags) ? draft.tags.map(cleanString) : []),
+  ].filter(Boolean).slice(0, 3);
   return {
     slug,
     title: cleanString(draft.title),
+    description: firstNonEmpty(cleanString(draft.description), cleanString(draft.notes)),
     subtitle: cleanString(draft.subtitle),
     shootDate: ensureIsoDate(draft.shootDate),
     locationLabel: firstNonEmpty(draft.locationLabel, [cleanString(draft.city), cleanString(draft.country)].filter(Boolean).join(", ")),
     city: cleanString(draft.city),
     country: cleanString(draft.country),
+    tags,
+    theme: firstNonEmpty(cleanString(draft.theme), "editorial"),
     descriptor: cleanString(draft.descriptor),
     accentColor: cleanString(draft.accentColor) || "#c96b28",
     template: cleanString(draft.template) || "desert-bloom",
@@ -450,6 +465,9 @@ export async function publishDraft(kind, id, actor = "system") {
       frameCount: publicData.frameCount,
       cameraModel: publicData.cameraModel,
       accentColor: publicData.accentColor,
+      tags: publicData.tags,
+      theme: publicData.theme,
+      description: publicData.description,
     } : {}),
   };
 

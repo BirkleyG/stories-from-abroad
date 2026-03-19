@@ -58,6 +58,9 @@ export function collectFeaturedPhotoOptions(shoots = []) {
           locationLabel: block.photo.locationLabel || shoot.locationLabel || "",
           accentColor: shoot.accentColor || shoot.publishedRecord?.accentColor || "#c96b28",
           caption: block.photo.caption || "",
+          photoTitle: block.photo.title || "",
+          width: Number.isFinite(Number(block.photo.width)) ? Number(block.photo.width) : null,
+          height: Number.isFinite(Number(block.photo.height)) ? Number(block.photo.height) : null,
         });
       }
       if ((block?.type === "photo-row" || block?.type === "ghost-text-row") && Array.isArray(block.photos)) {
@@ -73,6 +76,9 @@ export function collectFeaturedPhotoOptions(shoots = []) {
             locationLabel: photo.locationLabel || shoot.locationLabel || "",
             accentColor: shoot.accentColor || shoot.publishedRecord?.accentColor || "#c96b28",
             caption: photo.caption || "",
+            photoTitle: photo.title || "",
+            width: Number.isFinite(Number(photo.width)) ? Number(photo.width) : null,
+            height: Number.isFinite(Number(photo.height)) ? Number(photo.height) : null,
           });
         });
       }

@@ -41,6 +41,12 @@ const STATUS_TONES = {
   archived: "archived",
 };
 
+const PHOTOGRAPHY_THEME_OPTIONS = [
+  { value: "editorial", label: "Editorial" },
+  { value: "documentary", label: "Documentary" },
+  { value: "cinematic", label: "Cinematic" },
+];
+
 function toDate(value) {
   if (!value) return null;
   if (typeof value.toDate === "function") return value.toDate();
@@ -131,6 +137,12 @@ function stripMediaAsset(asset) {
     height: Number.isFinite(Number(asset.height)) ? Number(asset.height) : null,
     cameraModel: String(asset.cameraModel || ""),
     exifDate: String(asset.exifDate || ""),
+    shutter: String(asset.shutter || ""),
+    aperture: String(asset.aperture || ""),
+    iso: String(asset.iso || ""),
+    lens: String(asset.lens || ""),
+    metadataEnabled: asset?.metadataEnabled !== false,
+    shortQuote: String(asset.shortQuote || ""),
   };
 }
 
@@ -347,8 +359,26 @@ function AssetField({ label, accept, value, assets, onChange, onUpload, kind, fi
           value={value?.alt || ""}
           onChange={(next) => onChange({ ...value, alt: next })}
         />
-        <TextInput label="Title" hint="Internal media title or display label." value={value?.title || ""} onChange={(next) => onChange({ ...value, title: next })} />
+        <TextInput label="Title" hint={kind === "photography" ? "Frame title shown in the shoot panel." : "Internal media title or display label."} value={value?.title || ""} onChange={(next) => onChange({ ...value, title: next })} />
         <TextInput label="Caption" hint="Visible caption text used where the page supports it." value={value?.caption || ""} onChange={(next) => onChange({ ...value, caption: next })} />
+        {kind === "photography" ? (
+          <>
+            <TextInput label="Location" hint="Frame-level location override." value={value?.locationLabel || ""} onChange={(next) => onChange({ ...value, locationLabel: next })} />
+            <TextInput label="Date" type="datetime-local" hint="Captured date for this frame." value={formatDateTimeLocal(value?.exifDate)} onChange={(next) => onChange({ ...value, exifDate: toIsoDateTime(next) })} />
+            <ToggleField
+              label="Show metadata"
+              hint="Toggle camera/exposure details on the public panel for this frame."
+              checked={value?.metadataEnabled !== false}
+              onChange={(next) => onChange({ ...value, metadataEnabled: next })}
+            />
+            <TextInput label="Short quote (bottom)" hint="Displayed in the bottom quote slot for this frame." value={value?.shortQuote || ""} onChange={(next) => onChange({ ...value, shortQuote: next })} />
+            <TextInput label="Camera" value={value?.cameraModel || ""} onChange={(next) => onChange({ ...value, cameraModel: next })} />
+            <TextInput label="Lens" value={value?.lens || ""} onChange={(next) => onChange({ ...value, lens: next })} />
+            <TextInput label="Shutter" placeholder="e.g. 1/250s" value={value?.shutter || ""} onChange={(next) => onChange({ ...value, shutter: next })} />
+            <TextInput label="Aperture" placeholder="e.g. f/2.8" value={value?.aperture || ""} onChange={(next) => onChange({ ...value, aperture: next })} />
+            <TextInput label="ISO" placeholder="e.g. 400" value={value?.iso || ""} onChange={(next) => onChange({ ...value, iso: next })} />
+          </>
+        ) : null}
       </div>
       <input ref={inputRef} type="file" accept={accept} hidden onChange={handleFile} />
       {libraryOpen ? (
@@ -532,6 +562,21 @@ function SiteAssetsForm({ config, assets, onUpload, onChange, onSave, onRepairCo
           </button>
         </div>
         <div className="admin-form-stack">
+          <section className="admin-card-section">
+            <div className="admin-section-head">
+              <div>
+                <h3>Global admin info</h3>
+                <p>Reusable profile metadata for public pages (Based / Studying / Shooting / Reading / Email).</p>
+              </div>
+            </div>
+            <div className="admin-grid two-up">
+              <TextInput label="Based" value={config.based || ""} onChange={(next) => onChange({ ...config, based: next })} />
+              <TextInput label="Studying" value={config.studying || ""} onChange={(next) => onChange({ ...config, studying: next })} />
+              <TextInput label="Shooting" value={config.shooting || ""} onChange={(next) => onChange({ ...config, shooting: next })} />
+              <TextInput label="Reading" value={config.reading || ""} onChange={(next) => onChange({ ...config, reading: next })} />
+              <TextInput label="Email" type="email" value={config.email || ""} onChange={(next) => onChange({ ...config, email: next })} />
+            </div>
+          </section>
           <AssetField
             label="Read the Story portrait"
             accept="image/*"
@@ -900,20 +945,29 @@ function PhotographyForm({ draft, onChange, onUpload, assets }) {
         <div className="admin-grid two-up">
           <SelectField label="Status" value={draft.status} onChange={(next) => onChange({ ...draft, status: next })} options={DRAFT_STATUSES} />
           <TextInput label="Title" value={draft.title} onChange={(next) => onChange({ ...draft, title: next, slug: draft.slug || slugify(next) })} />
-          <TextInput label="Subtitle" value={draft.subtitle} onChange={(next) => onChange({ ...draft, subtitle: next })} />
-          <TextInput label="Shoot date" type="date" value={draft.shootDate} onChange={(next) => onChange({ ...draft, shootDate: next })} />
-          <TextInput label="Location label" value={draft.locationLabel} onChange={(next) => onChange({ ...draft, locationLabel: next })} />
-          <TextInput label="City" value={draft.city} onChange={(next) => onChange({ ...draft, city: next })} />
-          <TextInput label="Country" value={draft.country} onChange={(next) => onChange({ ...draft, country: next })} />
-          <TextInput label="Descriptor" hint="One-word or short descriptor that appears in archive cards." value={draft.descriptor} onChange={(next) => onChange({ ...draft, descriptor: next })} />
-          <TextInput label="Accent color" type="color" value={draft.accentColor || "#c96b28"} onChange={(next) => onChange({ ...draft, accentColor: next })} />
+          <TextInput label="Date" type="date" value={draft.shootDate} onChange={(next) => onChange({ ...draft, shootDate: next })} />
+          <TextInput label="City" hint="Not locked. Use any city text." value={draft.city} onChange={(next) => onChange({ ...draft, city: next, locationLabel: [next, draft.country].filter(Boolean).join(", ") })} />
+          <TextInput label="Country" hint="Not locked. Use any country/region text." value={draft.country} onChange={(next) => onChange({ ...draft, country: next, locationLabel: [draft.city, next].filter(Boolean).join(", ") })} />
+          <TextInput label="Location override" hint="Optional custom location label for display." value={draft.locationLabel} onChange={(next) => onChange({ ...draft, locationLabel: next })} />
+          <TextInput label="Color picker" type="color" value={draft.accentColor || "#c96b28"} onChange={(next) => onChange({ ...draft, accentColor: next })} />
+          <SelectField label="Theme" hint="Controls the public shoot panel style." value={draft.theme || "editorial"} onChange={(next) => onChange({ ...draft, theme: next })} options={PHOTOGRAPHY_THEME_OPTIONS} />
+          <TextInput label="Tag Word 1" value={draft.tagWord1 || ""} onChange={(next) => onChange({ ...draft, tagWord1: next })} />
+          <TextInput label="Tag Word 2" value={draft.tagWord2 || ""} onChange={(next) => onChange({ ...draft, tagWord2: next })} />
+          <TextInput label="Tag Word 3" value={draft.tagWord3 || ""} onChange={(next) => onChange({ ...draft, tagWord3: next })} />
           <SelectField label="Template" hint={template.theme} value={draft.template} onChange={(next) => onChange({ ...draft, template: next })} options={PHOTO_TEMPLATES} />
           <TextInput label="Camera model" hint="Auto-filled from attached photos when possible, but overrideable here." value={draft.cameraModel} onChange={(next) => onChange({ ...draft, cameraModel: next })} />
           <TextInput label="Schedule publish" type="datetime-local" value={formatDateTimeLocal(draft.scheduledPublishAt)} onChange={(next) => onChange({ ...draft, scheduledPublishAt: toIsoDateTime(next) })} />
           <TextInput label="Slug" hint="Used for the photography viewer URL, such as kyoto-in-winter." value={draft.slug} onChange={(next) => onChange({ ...draft, slug: slugify(next) })} />
           <TextInput label="Frame count" hint="Derived from current blocks." value={String(summary.frames || draft.frameCount || 0)} onChange={() => {}} />
         </div>
-        <TextArea label="Shoot notes / intro" value={draft.notes} onChange={(next) => onChange({ ...draft, notes: next })} rows={4} />
+        <TextArea
+          label="Description"
+          hint="Used as the shoot intro in the public design."
+          value={draft.description || draft.notes || ""}
+          onChange={(next) => onChange({ ...draft, description: next, notes: next })}
+          rows={4}
+        />
+        <TextArea label="Subtitle (optional)" value={draft.subtitle} onChange={(next) => onChange({ ...draft, subtitle: next })} rows={3} />
         <p className="admin-field-hint">Detected camera: {summary.cameraModel || draft.cameraModel || "Unknown"} | Frames in builder: {summary.frames}</p>
       </section>
 
@@ -1007,8 +1061,10 @@ function PhotographyPreview({ draft }) {
         <div className="admin-photo-preview-overlay">
           <span>{preview.locationLabel || "No location"}</span>
           <h2>{preview.title || "Untitled shoot"}</h2>
-          <p>{preview.subtitle || "Add a subtitle to shape the shoot atmosphere."}</p>
-          <small>{preview.frameCount} frame{preview.frameCount === 1 ? "" : "s"} | {preview.cameraModel || "Unknown camera"}</small>
+          <p>{preview.description || preview.subtitle || "Add a description to shape the shoot atmosphere."}</p>
+          <small>
+            {preview.theme || "editorial"} | {preview.frameCount} frame{preview.frameCount === 1 ? "" : "s"} | {preview.cameraModel || "Unknown camera"}
+          </small>
         </div>
       </div>
       <div className="admin-photo-preview-blocks">
@@ -1526,6 +1582,11 @@ export default function AdminApp() {
     readStoryPortrait: createMediaValue(),
     papersHeroImage: createMediaValue(),
     papersAuthorPortrait: createMediaValue(),
+    based: "",
+    studying: "",
+    shooting: "",
+    reading: "",
+    email: "",
   });
   const [photographyFeaturedConfig, setPhotographyFeaturedConfig] = useState({ items: [] });
   const [selectedIds, setSelectedIds] = useState({ faces: "", papers: "", travel: "", photography: "" });
@@ -1594,6 +1655,11 @@ export default function AdminApp() {
         readStoryPortrait: config?.readStoryPortrait || createMediaValue(),
         papersHeroImage: config?.papersHeroImage || createMediaValue(),
         papersAuthorPortrait: config?.papersAuthorPortrait || createMediaValue(),
+        based: String(config?.based || ""),
+        studying: String(config?.studying || ""),
+        shooting: String(config?.shooting || ""),
+        reading: String(config?.reading || ""),
+        email: String(config?.email || ""),
       });
     }, (error) => setNotice({ tone: "error", message: `Site assets failed to load: ${error.message}` }));
     const unsubscribePhotographyFeatured = subscribePhotographyFeaturedConfig((config) => {
@@ -1886,6 +1952,11 @@ export default function AdminApp() {
         readStoryPortrait: saved?.readStoryPortrait || createMediaValue(),
         papersHeroImage: saved?.papersHeroImage || createMediaValue(),
         papersAuthorPortrait: saved?.papersAuthorPortrait || createMediaValue(),
+        based: String(saved?.based || ""),
+        studying: String(saved?.studying || ""),
+        shooting: String(saved?.shooting || ""),
+        reading: String(saved?.reading || ""),
+        email: String(saved?.email || ""),
       });
       setNotice({ tone: "success", message: "Site assets saved." });
     } catch (error) {

@@ -1,124 +1,912 @@
 ---
 const base = import.meta.env.BASE_URL ?? "/";
 const basePath = base.endsWith("/") ? base : `${base}/`;
+const publicFirestoreConfigJson = JSON.stringify({
+  projectId: import.meta.env.PUBLIC_FIREBASE_PROJECT_ID ?? "",
+  apiKey: import.meta.env.PUBLIC_FIREBASE_API_KEY ?? "",
+});
 ---
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Photography | Coming Soon</title>
-    <meta name="description" content="Photography is coming soon to Stories From Abroad." />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
-    <style>
-      :root {
-        --bg: #060606;
-        --text: #f4efe5;
-        --line: rgba(244, 239, 229, 0.16);
-        --accent: #ff5a00;
-        --accent2: #ff2d78;
-      }
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Birkley — Photography</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --k:#080808;--w:#F0EFEB;
+  --g1:#111;--g2:#1A1A1A;--g3:#282828;--g4:#505050;--g5:#888;
+  --pk:#FF2D78;--bl:#1478FF;--or:#FF6500;
+  --nav-h:60px;
+  --ctrl-h:54px; /* featured controls + progress bar height */
+  --font-d:'Bebas Neue',sans-serif;
+  --font-b:'Cormorant Garamond',serif;
+  --font-m:'IBM Plex Mono',monospace;
+  --a:#FF2D78;
+  --dot-color:#FF2D78; /* FIX 1: changes dynamically */
+}
+html,body{height:100%;overflow-x:hidden}
+body{background:var(--k);color:var(--w);font-family:var(--font-b);-webkit-font-smoothing:antialiased}
+body::after{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size:180px;opacity:.028}
+img{display:block}
 
-      * { box-sizing: border-box; }
-      html, body { margin: 0; min-height: 100%; }
-      body {
-        background:
-          radial-gradient(circle at 16% 14%, rgba(255, 45, 120, 0.14), transparent 35rem),
-          radial-gradient(circle at 86% 84%, rgba(255, 90, 0, 0.14), transparent 34rem),
-          var(--bg);
-        color: var(--text);
-        font-family: "Space Mono", monospace;
-      }
+/* ── NAV ── */
+.nav{position:fixed;top:0;left:0;right:0;z-index:600;height:var(--nav-h);display:flex;align-items:center;justify-content:space-between;padding:0 40px;background:rgba(8,8,8,.93);backdrop-filter:blur(16px);border-bottom:1px solid var(--g2)}
+.nav::after{content:"";position:absolute;bottom:0;left:0;right:0;height:1px;background:linear-gradient(90deg,var(--pk),var(--bl),var(--or));opacity:.55}
+.nav-logo{font-family:var(--font-d);font-size:17px;letter-spacing:5px;cursor:pointer;user-select:none}
+.nav-right{display:flex;gap:28px;align-items:center}
+.nav-link{font-family:var(--font-m);font-size:9px;letter-spacing:2.5px;text-transform:uppercase;color:var(--g4);cursor:pointer;transition:color .2s;user-select:none}
+.nav-link:hover,.nav-link.cur{color:var(--w)}
+/* FIX 1: dot color driven by CSS var, transitions smoothly */
+.nav-dot{
+  width:5px;height:5px;border-radius:50%;
+  background:var(--dot-color);
+  transition:background .5s ease;
+}
 
-      .topbar {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        z-index: 10;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 1rem 1.4rem;
-        border-bottom: 1px solid var(--line);
-        background: rgba(6, 6, 6, 0.9);
-        backdrop-filter: blur(10px);
-      }
+/* ── PAGE SYSTEM ── */
+.page{display:none;padding-top:var(--nav-h);position:relative;z-index:1}
+.page.active{display:block}
 
-      .topbar a {
-        color: inherit;
-        text-decoration: none;
-        text-transform: uppercase;
-        letter-spacing: 0.18em;
-        font-size: 0.72rem;
-      }
+/* ── SHARED ── */
+.sec-label{font-family:var(--font-m);font-size:8.5px;letter-spacing:5px;text-transform:uppercase;color:var(--g4);margin-bottom:10px}
+.sec-title{font-family:var(--font-d);font-size:54px;letter-spacing:1px;color:var(--w);line-height:1}
+.footer{border-top:1px solid var(--g2);padding:32px 40px;display:flex;justify-content:space-between;align-items:center}
+.foot-l{font-family:var(--font-d);font-size:15px;letter-spacing:5px;color:var(--g3)}
+.foot-r{font-family:var(--font-m);font-size:8.5px;letter-spacing:2px;color:var(--g4)}
 
-      .topbar strong {
-        font-family: "Bebas Neue", sans-serif;
-        font-size: 1.3rem;
-        letter-spacing: 0.2em;
-      }
+/* ══════════════════════════════════════════
+   FEATURED ROTATOR
+   FIX 2: .feat is flex-column. Track gets remaining
+   height after controls, so photos never clip behind them.
+══════════════════════════════════════════ */
+.feat{
+  border-bottom:1px solid var(--g2);
+  overflow:hidden;background:var(--k);position:relative;
+  display:flex;
+  flex-direction:column;
+  height:calc(100vh - var(--nav-h)); /* full viewport minus nav */
+}
 
-      .shell {
-        min-height: 100vh;
-        display: grid;
-        place-items: center;
-        padding: 6rem 1.4rem 2rem;
-      }
+/* SEEN/FELT/KEPT — flex-direction:column, words stack top-to-bottom */
+.feat-mantra{
+  position:absolute;top:50%;transform:translateY(-50%);
+  right:20px;
+  display:flex;flex-direction:column;
+  align-items:flex-end;gap:0;line-height:.82;
+  z-index:1;pointer-events:none;
+}
+.feat-mantra .mw{
+  font-family:var(--font-d);
+  font-size:clamp(80px,11vw,148px);
+  letter-spacing:-2px;display:block;
+  color:transparent;
+  -webkit-text-stroke:1.5px rgba(240,239,235,.07);
+  transition:-webkit-text-stroke-color .45s ease;
+}
+.feat-mantra .mw.m-on{
+  -webkit-text-stroke:1.5px var(--dot-color); /* matches dot color */
+}
 
-      .card {
-        width: min(40rem, 100%);
-        border: 1px solid var(--line);
-        background: rgba(255, 255, 255, 0.02);
-        padding: 1.4rem;
-      }
+/* Track takes all remaining space; controls sit below */
+.feat-track{
+  flex:1;          /* fills available height */
+  min-height:0;    /* prevents flex blowout */
+  position:relative;
+  overflow:hidden;
+}
 
-      .kicker {
-        margin: 0;
-        color: var(--accent2);
-        text-transform: uppercase;
-        letter-spacing: 0.28em;
-        font-size: 0.7rem;
-      }
+.fslide{position:absolute;inset:0;display:flex;align-items:center;padding:0 48px;opacity:0;pointer-events:none;transition:opacity .75s cubic-bezier(.4,0,.2,1)}
+.fslide.active{opacity:1;pointer-events:auto}
+.fslide.r{flex-direction:row}
+.fslide.r .fs-img-wrap{flex:0 0 70%}
+.fslide.r .fs-title-block{margin-left:-56px;align-items:flex-start;text-align:left}
+.fslide.l{flex-direction:row-reverse}
+.fslide.l .fs-img-wrap{flex:0 0 70%}
+.fslide.l .fs-title-block{margin-right:-56px;align-items:flex-end;text-align:right}
 
-      h1 {
-        margin: 0.75rem 0 0;
-        font-family: "Bebas Neue", sans-serif;
-        font-size: clamp(2.4rem, 10vw, 5.3rem);
-        letter-spacing: 0.05em;
-        line-height: 0.92;
-      }
+/* Image wrapper — landscape default */
+.fs-img-wrap{
+  display:block;position:relative;
+  height:100%;
+  max-height:82vh;
+  overflow:hidden;z-index:1;flex-shrink:0;cursor:pointer;
+}
+.fs-img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .8s cubic-bezier(.25,.46,.45,.94)}
+.fs-img-wrap:hover .fs-img{transform:scale(1.025)}
 
-      p {
-        margin: 0.8rem 0 0;
-        color: rgba(244, 239, 229, 0.74);
-        line-height: 1.7;
-      }
+/* Portrait slide: narrower wrapper so tall images aren't forced into landscape crop.
+   The wrapper is ~48vh wide (portrait aspect), object-fit:cover fills it correctly. */
+.fslide.portrait .fs-img-wrap{
+  flex:0 0 auto;
+  width:clamp(280px,34vw,480px); /* narrow column — portrait aspect */
+  max-height:88vh;
+  height:88vh;
+}
+/* Portrait layout mirrors normal: title block still overlaps the image edge */
+.fslide.r.portrait{justify-content:flex-start}
+.fslide.l.portrait{justify-content:flex-end}
 
-      .bar {
-        margin-top: 1.1rem;
-        height: 2px;
-        background: linear-gradient(90deg, var(--accent2), var(--accent));
-      }
-    </style>
-  </head>
-  <body>
-    <header class="topbar">
-      <a href={`${basePath}`}>Back Home</a>
-      <strong>SFA</strong>
-    </header>
+.fs-title-block{flex:0 0 auto;width:340px;display:flex;flex-direction:column;background:var(--k);padding:36px 28px;position:relative;z-index:2;box-shadow:-40px 0 80px rgba(8,8,8,.97),40px 0 80px rgba(8,8,8,.97)}
+.fs-eyebrow{font-family:var(--font-m);font-size:8.5px;letter-spacing:3.5px;text-transform:uppercase;color:var(--accent);margin-bottom:18px}
+.fs-title{font-family:var(--font-d);font-size:clamp(50px,5.5vw,88px);line-height:.88;color:var(--accent);margin-bottom:30px}
+.fs-cta{font-family:var(--font-m);font-size:9px;letter-spacing:3px;text-transform:uppercase;color:var(--w);border-bottom:1px solid var(--accent);padding-bottom:3px;display:inline-flex;gap:7px;transition:color .2s;cursor:pointer;width:fit-content}
+.fs-cta:hover{color:var(--accent)}
 
-    <main class="shell">
-      <section class="card">
-        <p class="kicker">Photography</p>
-        <h1>Coming Soon</h1>
-        <p>
-          The new photography experience is in progress. Check back soon for the full launch.
-        </p>
-        <div class="bar"></div>
-      </section>
-    </main>
-  </body>
+/* Controls sit at bottom of .feat, outside the track */
+.feat-controls{
+  flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;gap:20px;
+  padding:14px 0 10px;
+  background:var(--k);
+}
+.feat-arr{background:none;border:none;font-family:var(--font-m);font-size:15px;color:var(--g4);cursor:pointer;padding:6px 12px;transition:color .2s}
+.feat-arr:hover{color:var(--w)}
+.feat-dots{display:flex;gap:8px;align-items:center}
+.feat-dot{width:6px;height:6px;border-radius:50%;background:var(--g3);border:none;padding:0;cursor:pointer;transition:background .3s,transform .3s}
+.feat-dot.active{background:var(--w);transform:scale(1.4)}
+.feat-prog{flex-shrink:0;height:2px;background:var(--g1)}
+.feat-prog-fill{height:100%;background:linear-gradient(90deg,var(--pk),var(--bl),var(--or));width:0%}
+
+/* ── SHOOTS GRID ── */
+.shoots{border-top:1px solid var(--g2)}
+.shoots-head{padding:64px 40px 40px}
+.shoots-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:2px}
+.sc{display:block;background:var(--g1);overflow:hidden;transition:transform .35s cubic-bezier(.25,.46,.45,.94);cursor:pointer}
+.sc:hover{transform:translateY(-6px)}
+.sc-img-w{overflow:hidden}
+.sc-img{width:100%;aspect-ratio:3/4;object-fit:cover;filter:brightness(.85);transition:transform .55s cubic-bezier(.25,.46,.45,.94),filter .35s}
+.sc:hover .sc-img{transform:scale(1.05);filter:brightness(1)}
+.sc-body{padding:18px 20px 8px}
+.sc-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.sc-date{font-family:var(--font-m);font-size:8.5px;letter-spacing:2px;color:var(--g4)}
+.sc-ct{font-family:var(--font-m);font-size:7.5px;letter-spacing:2px;text-transform:uppercase;padding:2px 8px;color:var(--accent);border:1px solid var(--accent)}
+.sc-title{font-family:var(--font-d);font-size:26px;letter-spacing:1px;color:var(--w);margin-bottom:7px}
+.sc-desc{font-family:var(--font-b);font-size:13px;font-style:italic;color:var(--g5);margin-bottom:14px;line-height:1.55}
+.sc-tags{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px}
+.sc-tag{font-family:var(--font-m);font-size:7.5px;letter-spacing:1px;text-transform:uppercase;padding:3px 8px;border:1px solid var(--g3);color:var(--g4)}
+.sc-loc{font-family:var(--font-m);font-size:8.5px;letter-spacing:1.5px;color:var(--g4);margin-bottom:18px}
+.sc-bar{height:3px;background:var(--accent);transition:height .25s}
+.sc:hover .sc-bar{height:5px}
+
+/* ══════════════════════════════════════════
+   SHOOT GALLERY
+   FIX 2: sg-wrap bottom:0 already accounts for no footer.
+   sg-photos height:100% works because sg-wrap is fixed.
+   sg-tile uses inset:0 so it fills sg-photos exactly.
+══════════════════════════════════════════ */
+#page-shoot{padding-top:0;min-height:0}
+.sg-wrap{position:fixed;top:var(--nav-h);left:0;right:0;bottom:0;display:flex;overflow:hidden}
+
+.sg-photos{position:relative;overflow:hidden;flex:1;min-width:0;height:100%}
+
+@keyframes kbA{from{transform:scale(1) translate(0,0)}to{transform:scale(1.025) translate(-0.5%,0.3%)}}
+@keyframes kbB{from{transform:scale(1) translate(0,0)}to{transform:scale(1.025) translate(0.5%,-0.3%)}}
+.kb-play{animation:kbA 12s ease-out forwards}
+.kb-b .kb-play{animation:kbB 12s ease-out forwards}
+
+.sg-tile{
+  position:absolute;inset:0;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--k);
+  transition:transform .62s cubic-bezier(.77,0,.18,1),opacity .45s ease;
+  will-change:transform;overflow:hidden;
+}
+.sg-title-tile{flex-direction:column;justify-content:center;align-items:flex-start;padding:64px 56px;overflow:hidden}
+
+/* Photos: width+height 100%, contain, pure black bg */
+.sg-photo-tile img{
+  width:100%;height:100%;
+  object-fit:contain;
+  display:block;
+  background:var(--k);
+}
+
+.sg-scrollbar{position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--g2);z-index:10}
+.sg-scrollbar-fill{width:100%;transition:height .4s cubic-bezier(.25,.46,.45,.94)}
+
+/* Right panel */
+.sg-panel{width:300px;flex-shrink:0;display:flex;flex-direction:column;border-left:1px solid var(--g2);overflow-y:auto;padding:36px 28px 36px 32px;background:#0A0A0A}
+.sg-panel::-webkit-scrollbar{width:2px}
+.sg-panel::-webkit-scrollbar-thumb{background:var(--g3)}
+.sg-counter{margin-bottom:32px}
+.cnt-editorial{font-family:var(--font-d);font-size:72px;line-height:1;letter-spacing:-2px;color:var(--g2);display:flex;align-items:baseline;gap:4px}
+.cnt-editorial .cur{color:var(--a)}
+.cnt-editorial .sep,.cnt-editorial .tot{font-size:40px}
+.cnt-documentary{font-family:var(--font-m);font-size:10px;letter-spacing:4px;color:var(--a);display:flex;align-items:center;gap:6px}
+.cnt-documentary .sep,.cnt-documentary .tot{color:var(--g4)}
+.cnt-cinematic{display:flex;align-items:flex-end;gap:8px}
+.cnt-cinematic .cur{font-family:var(--font-b);font-size:52px;font-style:italic;font-weight:300;color:var(--a);line-height:1}
+.cnt-cinematic .sep{display:none}
+.cnt-cinematic .tot{font-family:var(--font-b);font-size:18px;color:var(--g3);font-style:italic;padding-bottom:6px}
+.sg-pc{display:flex;flex-direction:column;flex:1;transition:opacity .22s}
+.sg-pc.fading{opacity:0}
+.sg-frame-title{margin-bottom:10px}
+.ft-editorial{font-family:var(--font-d);font-size:28px;letter-spacing:1px;color:var(--a);line-height:1}
+.ft-documentary{font-family:var(--font-m);font-size:10px;font-weight:500;letter-spacing:3px;text-transform:uppercase;color:var(--a)}
+.ft-cinematic{font-family:var(--font-b);font-size:22px;font-style:italic;font-weight:300;color:var(--a);line-height:1.1}
+.sg-caption{margin-bottom:0}
+.cap-editorial{font-family:var(--font-b);font-size:15px;font-style:italic;color:var(--w);line-height:1.6;opacity:.75}
+.cap-documentary{font-family:var(--font-m);font-size:10px;color:var(--w);line-height:1.8;opacity:.65}
+.cap-cinematic{font-family:var(--font-b);font-size:15px;font-style:italic;color:var(--w);line-height:1.65;opacity:.7}
+.sg-divider{height:1px;background:var(--g2);margin:20px 0}
+.sg-meta-group{margin-bottom:12px}
+.sg-meta-label{font-family:var(--font-m);font-size:7.5px;letter-spacing:3px;text-transform:uppercase;color:var(--g3);margin-bottom:4px}
+.sg-meta-val{font-family:var(--font-b);font-size:15px;color:var(--a)}
+.sg-exif-label{font-family:var(--font-m);font-size:7.5px;letter-spacing:4px;text-transform:uppercase;color:var(--g3);margin-bottom:12px}
+.sg-exif-grid{display:flex;flex-direction:column;gap:10px}
+.sg-exif-row{display:flex;justify-content:space-between;align-items:baseline}
+.sg-exif-k{font-family:var(--font-m);font-size:7.5px;letter-spacing:2px;text-transform:uppercase;color:var(--g3)}
+.sg-exif-v{font-family:var(--font-b);font-size:15px;color:var(--a)}
+.sg-note{font-family:var(--font-b);font-size:13px;font-style:italic;line-height:1.6;margin-top:auto;padding-top:20px;border-top:1px solid var(--g2);color:var(--g4)}
+.panel-accent-line{margin-top:20px;height:3px}
+.panel-accent-mono{font-family:var(--font-m);font-size:7px;letter-spacing:4px;margin-top:auto;padding-top:20px;word-break:break-all;line-height:1.8;opacity:.15}
+.panel-accent-dots{display:flex;gap:6px;flex-wrap:wrap;margin-top:auto;padding-top:20px}
+.pdot{width:5px;height:5px;border-radius:50%;background:var(--g2);display:inline-block;transition:background .3s,transform .3s}
+.pdot.active{background:var(--a);transform:scale(1.4)}
+
+.mob-bar{display:none;position:fixed;bottom:0;left:0;right:0;height:46px;z-index:700;background:rgba(8,8,8,.92);backdrop-filter:blur(12px);border-top:1px solid var(--g2);align-items:center;padding:0 20px;gap:10px}
+.mob-bar-num{font-family:var(--font-m);font-size:9px;letter-spacing:3px;flex-shrink:0}
+.mob-bar-sep{width:1px;height:16px;background:var(--g3);flex-shrink:0}
+.mob-bar-title{font-family:var(--font-b);font-size:16px;font-style:italic;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* ── ABOUT ── */
+.ab-header{padding:72px 40px 64px;border-bottom:1px solid var(--g2)}
+.ab-tag{font-family:var(--font-m);font-size:9px;letter-spacing:6px;text-transform:uppercase;color:var(--pk);margin-bottom:28px;display:flex;align-items:center;gap:12px}
+.ab-tag::before{content:"";display:inline-block;width:32px;height:1px;background:var(--pk)}
+.ab-name{font-family:var(--font-d);font-size:clamp(72px,11vw,148px);line-height:.88;letter-spacing:-1px;margin-bottom:36px}
+.ab-name-oline{-webkit-text-stroke:1.5px var(--w);color:transparent}
+.ab-role{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.ab-pill{font-family:var(--font-m);font-size:9px;letter-spacing:3px;text-transform:uppercase;padding:5px 14px;border:1px solid currentColor}
+.ab-bio{display:grid;grid-template-columns:200px 1fr;gap:0 64px;padding:64px 40px;align-items:start}
+.bio-p{font-family:var(--font-b);font-size:20px;line-height:1.72;color:var(--g5);margin-bottom:28px}
+.bio-p em{font-style:italic;color:var(--w)}
+.bio-p.closing{color:var(--g4);font-size:18px;font-style:italic;padding-top:10px;border-top:1px solid var(--g2);margin-top:10px}
+.ab-rule{border:none;border-top:1px solid var(--g2);margin:0 40px}
+.ab-current{padding:48px 40px;display:grid;grid-template-columns:200px 1fr;gap:0 64px;align-items:start}
+.ab-cur-grid{display:flex;flex-direction:column}
+.ab-cur-row{display:flex;gap:32px;padding:16px 0;border-bottom:1px solid var(--g2);align-items:baseline}
+.ab-cur-row:first-child{border-top:1px solid var(--g2)}
+.ab-cur-k{font-family:var(--font-m);font-size:8.5px;letter-spacing:3px;text-transform:uppercase;color:var(--g4);min-width:88px}
+.ab-cur-v{font-family:var(--font-b);font-size:17px;color:var(--w)}
+.ab-photos{padding:48px 40px 56px}
+.ab-photos-head{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:32px}
+.ab-photos-link{font-family:var(--font-m);font-size:9px;letter-spacing:3px;text-transform:uppercase;color:var(--g4);border-bottom:1px solid var(--g3);padding-bottom:3px;transition:color .2s,border-color .2s;cursor:pointer;margin-bottom:4px}
+.ab-photos-link:hover{color:var(--or);border-color:var(--or)}
+.ab-photos-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:3px;margin-bottom:16px}
+.ab-shoot-card{position:relative;overflow:hidden;aspect-ratio:3/4;background:var(--g1);cursor:pointer;display:block}
+.ab-shoot-card img{width:100%;height:100%;object-fit:cover;filter:brightness(.75);transition:transform .6s cubic-bezier(.25,.46,.45,.94),filter .4s;display:block}
+.ab-shoot-card:hover img{transform:scale(1.05);filter:brightness(.95)}
+.ab-shoot-card-over{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:flex-end;padding:16px 18px;background:linear-gradient(to top,rgba(8,8,8,.75) 0%,transparent 60%);opacity:0;transition:opacity .35s}
+.ab-shoot-card:hover .ab-shoot-card-over{opacity:1}
+.ab-shoot-card-title{font-family:var(--font-d);font-size:22px;letter-spacing:1px;color:var(--w);line-height:1}
+.ab-shoot-card-loc{font-family:var(--font-m);font-size:7.5px;letter-spacing:2px;text-transform:uppercase;color:rgba(240,239,235,.55);margin-top:4px}
+.ab-shoot-card-bar{position:absolute;bottom:0;left:0;right:0;height:3px;transition:height .25s}
+.ab-shoot-card:hover .ab-shoot-card-bar{height:5px}
+.ab-photos-note{font-family:var(--font-b);font-size:14px;font-style:italic;color:var(--g4)}
+.ab-contact{padding:64px 40px 72px;display:flex;gap:80px;align-items:flex-start;overflow:hidden}
+.ab-contact-inner{flex:1;max-width:560px}
+.ab-contact-h{font-family:var(--font-d);font-size:clamp(56px,8vw,110px);line-height:.88;letter-spacing:-1px;margin:20px 0 28px}
+.ab-contact-oline{-webkit-text-stroke:1.5px var(--w);color:transparent}
+.ab-contact-sub{font-family:var(--font-b);font-size:18px;font-style:italic;color:var(--g4);line-height:1.65;margin-bottom:40px;max-width:440px}
+.ab-contact-links{display:flex;flex-direction:column}
+.ab-clink{display:flex;align-items:baseline;gap:24px;padding:18px 0;border-bottom:1px solid var(--g2);transition:border-color .2s;cursor:pointer}
+.ab-clink:first-child{border-top:1px solid var(--g2)}
+.ab-clink:hover{border-bottom-color:var(--pk)}
+.ab-clink-label{font-family:var(--font-m);font-size:8px;letter-spacing:3px;text-transform:uppercase;color:var(--g4);min-width:48px}
+.ab-clink-val{font-family:var(--font-b);font-size:18px;color:var(--w);transition:color .2s}
+.ab-clink:hover .ab-clink-val{color:var(--pk)}
+.ab-contact-deco{width:32px;align-self:stretch;display:flex;flex-direction:column;gap:3px;margin-left:auto;flex-shrink:0}
+.deco-bar{width:100%;border-radius:1px;opacity:.55}
+
+/* ── MOBILE ── */
+@media(max-width:768px){
+  .nav{padding:0 20px}.nav-right{gap:16px}
+  .feat{height:calc(100svh - var(--nav-h))}
+  .fslide{padding:0;flex-direction:column !important;justify-content:flex-end;align-items:stretch}
+  .fslide .fs-img-wrap{flex:0 0 100%;height:100%;max-height:none;position:absolute;inset:0;z-index:1}
+  .fslide .fs-title-block{position:relative;z-index:2;margin:0 !important;width:100%;background:linear-gradient(to top,rgba(8,8,8,.95) 0%,rgba(8,8,8,.7) 65%,transparent 100%);box-shadow:none;padding:28px 24px 16px;align-items:flex-start !important;text-align:left !important}
+  .fs-title{font-size:clamp(36px,10vw,54px)}
+  .feat-mantra{display:none}
+  .feat-controls{padding:10px 0 8px;gap:14px}
+  .shoots-head{padding:40px 20px 24px}
+  .shoots-grid{grid-template-columns:repeat(2,1fr);gap:2px}
+  .sc-desc{display:none}
+  .sg-panel{display:none}
+  .sg-photos{flex:1;width:100%}
+  .sg-title-tile{padding:40px 24px 80px}
+  .mob-bar{display:flex}
+  .ab-header{padding:48px 20px 40px}
+  .ab-name{font-size:clamp(52px,14vw,96px)}
+  .ab-bio{grid-template-columns:1fr;padding:40px 20px;gap:20px 0}
+  .bio-p{font-size:16px}
+  .ab-rule{margin:0 20px}
+  .ab-current{grid-template-columns:1fr;padding:32px 20px;gap:16px 0}
+  .ab-photos{padding:32px 20px 40px}
+  .ab-photos-grid{grid-template-columns:repeat(2,1fr)}
+  .ab-contact{padding:40px 20px 80px;flex-direction:column;gap:40px}
+  .ab-contact-deco{width:100%;height:6px;flex-direction:row}
+  .deco-bar{height:100% !important}
+  .footer{padding:24px 20px}
+}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-logo" onclick="showPage('index')">BIRKLEY</div>
+  <div class="nav-right">
+    <span class="nav-link cur" id="nav-photo" onclick="showPage('index')">Photography</span>
+    <span class="nav-link" id="nav-about" onclick="showPage('about')">About</span>
+    <!-- FIX 1: dot color changes via --dot-color CSS var -->
+    <div class="nav-dot" id="nav-dot"></div>
+  </div>
+</nav>
+
+<div class="mob-bar" id="mob-bar">
+  <span class="mob-bar-num" id="mob-bar-num">01</span>
+  <div class="mob-bar-sep"></div>
+  <span class="mob-bar-title" id="mob-bar-title"></span>
+</div>
+
+<!-- ═══════════════════════════
+     PHOTOGRAPHY INDEX
+═══════════════════════════ -->
+<div class="page active" id="page-index">
+  <section class="feat">
+
+    <div class="feat-mantra" id="feat-mantra">
+      <span class="mw" id="mw0">SEEN</span>
+      <span class="mw" id="mw1">FELT</span>
+      <span class="mw" id="mw2">KEPT</span>
+    </div>
+
+    <div class="feat-track" id="feat-track">
+
+      <!-- Slide 0: landscape — pink -->
+      <div class="fslide r active" style="--accent:#FF2D78">
+        <div class="fs-img-wrap" onclick="showShoot('tokyo')">
+          <img class="fs-img" src="https://picsum.photos/seed/bk_tok/1400/900" alt="Tokyo Rain"/>
+        </div>
+        <div class="fs-title-block"><div class="fs-eyebrow">Shibuya, Japan · Nov 2024</div><h2 class="fs-title">Tokyo Rain</h2><span class="fs-cta" onclick="showShoot('tokyo')">View shoot ↗</span></div>
+      </div>
+
+      <!-- Slide 1: landscape — blue -->
+      <div class="fslide l" style="--accent:#1478FF">
+        <div class="fs-img-wrap" onclick="showShoot('shanghai')">
+          <img class="fs-img" src="https://picsum.photos/seed/bk_shg/1400/900" alt="The Bund"/>
+        </div>
+        <div class="fs-title-block"><div class="fs-eyebrow">Shanghai, China · Sep 2024</div><h2 class="fs-title">The Bund at Dusk</h2><span class="fs-cta" onclick="showShoot('shanghai')">View shoot ↗</span></div>
+      </div>
+
+      <!-- Portrait slide: .portrait class + narrow wrapper shows full portrait image -->
+      <div class="fslide r portrait" style="--accent:#FF6500">
+        <div class="fs-img-wrap" onclick="showShoot('studio')">
+          <img class="fs-img" src="https://picsum.photos/seed/bk_port/800/1200" alt="Studio Portrait"/>
+        </div>
+        <div class="fs-title-block"><div class="fs-eyebrow">New York, USA · Jan 2025</div><h2 class="fs-title">Studio I</h2><span class="fs-cta" onclick="showShoot('studio')">View shoot ↗</span></div>
+      </div>
+
+      <!-- Slide 3: landscape — pink -->
+      <div class="fslide l" style="--accent:#FF2D78">
+        <div class="fs-img-wrap" onclick="showShoot('pacific')">
+          <img class="fs-img" src="https://picsum.photos/seed/bk_pac/1400/900" alt="Pacific Dawn"/>
+        </div>
+        <div class="fs-title-block"><div class="fs-eyebrow">Highway 1, CA · Jul 2024</div><h2 class="fs-title">Pacific Dawn</h2><span class="fs-cta" onclick="showShoot('pacific')">View shoot ↗</span></div>
+      </div>
+
+      <!-- Slide 4: landscape — blue -->
+      <div class="fslide r" style="--accent:#1478FF">
+        <div class="fs-img-wrap" onclick="showShoot('desert')">
+          <img class="fs-img" src="https://picsum.photos/seed/bk_dsr/1400/900" alt="Desert Bloom"/>
+        </div>
+        <div class="fs-title-block"><div class="fs-eyebrow">Mojave, USA · Mar 2024</div><h2 class="fs-title">Desert Bloom</h2><span class="fs-cta" onclick="showShoot('desert')">View shoot ↗</span></div>
+      </div>
+
+      <!-- Slide 5: landscape — orange -->
+      <div class="fslide l" style="--accent:#FF6500">
+        <div class="fs-img-wrap" onclick="showShoot('kyoto')">
+          <img class="fs-img" src="https://picsum.photos/seed/bk_kyt/1400/900" alt="Kyoto"/>
+        </div>
+        <div class="fs-title-block"><div class="fs-eyebrow">Kyoto, Japan · Feb 2025</div><h2 class="fs-title">Kyoto in Winter</h2><span class="fs-cta" onclick="showShoot('kyoto')">View shoot ↗</span></div>
+      </div>
+
+    </div><!-- /feat-track -->
+
+    <!-- Controls outside track so photos never clip behind them -->
+    <div class="feat-controls">
+      <button class="feat-arr" id="feat-prev">←</button>
+      <div class="feat-dots" id="feat-dots">
+        <button class="feat-dot active" data-i="0"></button>
+        <button class="feat-dot" data-i="1"></button>
+        <button class="feat-dot" data-i="2"></button>
+        <button class="feat-dot" data-i="3"></button>
+        <button class="feat-dot" data-i="4"></button>
+        <button class="feat-dot" data-i="5"></button>
+      </div>
+      <button class="feat-arr" id="feat-next">→</button>
+    </div>
+    <div class="feat-prog"><div class="feat-prog-fill" id="feat-prog-fill"></div></div>
+  </section>
+
+  <section class="shoots">
+    <div class="shoots-head"><div class="sec-label">Archive</div><div class="sec-title">ALL SHOOTS</div></div>
+    <div class="shoots-grid">
+      <div class="sc" style="--accent:#FF6500" onclick="showShoot('kyoto')"><div class="sc-img-w"><img class="sc-img" src="https://picsum.photos/seed/kyt/480/620" loading="lazy"/></div><div class="sc-body"><div class="sc-top"><span class="sc-date">Feb 2025</span><span class="sc-ct">5 frames</span></div><div class="sc-title">Kyoto in Winter</div><div class="sc-desc">Ancient temples under pale grey skies.</div><div class="sc-tags"><span class="sc-tag">travel</span><span class="sc-tag">temples</span></div><div class="sc-loc">Kyoto, Japan</div></div><div class="sc-bar"></div></div>
+      <div class="sc" style="--accent:#1478FF" onclick="showShoot('studio')"><div class="sc-img-w"><img class="sc-img" src="https://picsum.photos/seed/std/480/620" loading="lazy"/></div><div class="sc-body"><div class="sc-top"><span class="sc-date">Jan 2025</span><span class="sc-ct">5 frames</span></div><div class="sc-title">Studio Series I</div><div class="sc-desc">Controlled light, unguarded moments.</div><div class="sc-tags"><span class="sc-tag">portrait</span><span class="sc-tag">studio</span></div><div class="sc-loc">New York, USA</div></div><div class="sc-bar"></div></div>
+      <div class="sc" style="--accent:#FF2D78" onclick="showShoot('tokyo')"><div class="sc-img-w"><img class="sc-img" src="https://picsum.photos/seed/tky/480/620" loading="lazy"/></div><div class="sc-body"><div class="sc-top"><span class="sc-date">Nov 2024</span><span class="sc-ct">5 frames</span></div><div class="sc-title">Tokyo Fragments</div><div class="sc-desc">Quiet moments in a city that never stops moving.</div><div class="sc-tags"><span class="sc-tag">street</span><span class="sc-tag">night</span></div><div class="sc-loc">Tokyo, Japan</div></div><div class="sc-bar"></div></div>
+      <div class="sc" style="--accent:#1478FF" onclick="showShoot('shanghai')"><div class="sc-img-w"><img class="sc-img" src="https://picsum.photos/seed/shg/480/620" loading="lazy"/></div><div class="sc-body"><div class="sc-top"><span class="sc-date">Sep 2024</span><span class="sc-ct">5 frames</span></div><div class="sc-title">Shanghai After Dark</div><div class="sc-desc">The city transforms when the lights come on.</div><div class="sc-tags"><span class="sc-tag">architecture</span><span class="sc-tag">neon</span></div><div class="sc-loc">Shanghai, China</div></div><div class="sc-bar"></div></div>
+      <div class="sc" style="--accent:#FF2D78" onclick="showShoot('pacific')"><div class="sc-img-w"><img class="sc-img" src="https://picsum.photos/seed/pac/480/620" loading="lazy"/></div><div class="sc-body"><div class="sc-top"><span class="sc-date">Jul 2024</span><span class="sc-ct">5 frames</span></div><div class="sc-title">Pacific Coast</div><div class="sc-desc">Highway 1, from the top to the bottom.</div><div class="sc-tags"><span class="sc-tag">road trip</span><span class="sc-tag">ocean</span></div><div class="sc-loc">California, USA</div></div><div class="sc-bar"></div></div>
+      <div class="sc" style="--accent:#FF6500" onclick="showShoot('desert')"><div class="sc-img-w"><img class="sc-img" src="https://picsum.photos/seed/dsr/480/620" loading="lazy"/></div><div class="sc-body"><div class="sc-top"><span class="sc-date">Mar 2024</span><span class="sc-ct">5 frames</span></div><div class="sc-title">Desert Bloom</div><div class="sc-desc">Silence, scale, and impossible colour.</div><div class="sc-tags"><span class="sc-tag">landscape</span></div><div class="sc-loc">Mojave, USA</div></div><div class="sc-bar"></div></div>
+    </div>
+  </section>
+  <footer class="footer"><div class="foot-l">BIRKLEY</div><div class="foot-r">© 2025 — All rights reserved</div></footer>
+</div>
+
+<!-- ═══════════════════════════
+     SHOOT PAGE
+═══════════════════════════ -->
+<div class="page" id="page-shoot" style="padding-top:0;min-height:0">
+  <div class="sg-wrap" id="sg-wrap">
+    <div class="sg-photos" id="sg-photos">
+      <div class="sg-scrollbar"><div class="sg-scrollbar-fill" id="sg-scrollbar-fill" style="height:0%"></div></div>
+    </div>
+    <aside class="sg-panel" id="sg-panel">
+      <div class="sg-counter" id="sg-counter"></div>
+      <div class="sg-pc" id="sg-pc">
+        <div class="sg-frame-title" id="sg-frame-title"></div>
+        <div class="sg-caption" id="sg-caption"></div>
+        <div class="sg-divider"></div>
+        <div class="sg-meta-group"><div class="sg-meta-label">Location</div><div class="sg-meta-val" id="sg-location"></div></div>
+        <div class="sg-meta-group"><div class="sg-meta-label">Date</div><div class="sg-meta-val" id="sg-date"></div></div>
+        <div class="sg-divider"></div>
+        <div class="sg-exif-label">Exposure</div>
+        <div class="sg-exif-grid">
+          <div class="sg-exif-row"><span class="sg-exif-k">Camera</span><span class="sg-exif-v" id="sg-camera"></span></div>
+          <div class="sg-exif-row"><span class="sg-exif-k">Lens</span><span class="sg-exif-v" id="sg-lens"></span></div>
+          <div class="sg-exif-row"><span class="sg-exif-k">Shutter</span><span class="sg-exif-v" id="sg-shutter"></span></div>
+          <div class="sg-exif-row"><span class="sg-exif-k">Aperture</span><span class="sg-exif-v" id="sg-aperture"></span></div>
+          <div class="sg-exif-row"><span class="sg-exif-k">ISO</span><span class="sg-exif-v" id="sg-iso"></span></div>
+        </div>
+        <div class="sg-note" id="sg-note"></div>
+      </div>
+      <div id="sg-panel-accent"></div>
+    </aside>
+  </div>
+</div>
+
+<!-- ═══════════════════════════
+     ABOUT PAGE
+═══════════════════════════ -->
+<div class="page" id="page-about">
+  <section class="ab-header">
+    <div class="ab-tag">About</div>
+    <h1 class="ab-name">BIRKLEY<br><span class="ab-name-oline">FOURIE</span></h1>
+    <div class="ab-role">
+      <span class="ab-pill" style="color:#FF2D78">South African</span>
+      <span style="color:#282828;font-family:'IBM Plex Mono',monospace;font-size:12px">—</span>
+      <span class="ab-pill" style="color:#1478FF">Student</span>
+      <span style="color:#282828;font-family:'IBM Plex Mono',monospace;font-size:12px">—</span>
+      <span class="ab-pill" style="color:#FF6500">Photographer</span>
+    </div>
+  </section>
+  <section class="ab-bio">
+    <div style="padding-top:6px"><div class="sec-label">On Photography</div></div>
+    <div>
+      <p class="bio-p">I have always loved telling stories. As a kid, I would rant for hours about imagined worlds — playing games with my friends on alien planets, building entire civilisations from nothing. But the older I got, the more I realised that the magical stories I dreamed of happened <em>right in front of my face</em> every day.</p>
+      <p class="bio-p">The Chinese ayi tending her garden at dawn. The ruins of an ancient Roman manor, half-swallowed by grass. The faces of two Indonesian construction workers sharing a cigarette at the end of a shift. All of these tell stories so intricate and so deeply human that words — for once — do not do them justice.</p>
+      <p class="bio-p">That is why I started shooting. To capture and carry the stories that language couldn't hold. The beautiful and ugly, the mundane and legendary, the quiet and the overwhelming. The complex, infinitely interesting story of our world.</p>
+      <p class="bio-p closing">I have not the skill of a professional photographer. This is not supposed to be art. It is simply my attempt to be a witness — to the places I pass through and the people I am lucky enough to encounter along the way.</p>
+    </div>
+  </section>
+  <hr class="ab-rule"/>
+  <section class="ab-current">
+    <div class="sec-label">Currently</div>
+    <div class="ab-cur-grid">
+      <div class="ab-cur-row"><span class="ab-cur-k">Based</span><span class="ab-cur-v">Kunshan, China</span></div>
+      <div class="ab-cur-row"><span class="ab-cur-k">Studying</span><span class="ab-cur-v">Quantitative Political Economy, DKU</span></div>
+      <div class="ab-cur-row"><span class="ab-cur-k">Shooting</span><span class="ab-cur-v">Sony A7IV — 35mm f/1.8</span></div>
+      <div class="ab-cur-row"><span class="ab-cur-k">Reading</span><span class="ab-cur-v">The Poverty of Nations — Grudem & Asmus</span></div>
+    </div>
+  </section>
+  <hr class="ab-rule"/>
+  <section class="ab-photos">
+    <div class="ab-photos-head">
+      <div><div class="sec-label">Recent Work</div><div class="sec-title">THE ARCHIVE</div></div>
+      <span class="ab-photos-link" onclick="showPage('index')">Browse all shoots ↗</span>
+    </div>
+    <div class="ab-photos-grid" id="ab-photos-grid"></div>
+    <p class="ab-photos-note">Frames from Japan, China, the US, South Africa, Indonesia, and beyond.</p>
+  </section>
+  <hr class="ab-rule"/>
+  <section class="ab-contact">
+    <div class="ab-contact-inner">
+      <div class="sec-label">Contact</div>
+      <h2 class="ab-contact-h">LET'S<br><span class="ab-contact-oline">TALK</span></h2>
+      <p class="ab-contact-sub">For consulting, collaboration, or just to share something beautiful you've seen.</p>
+      <div class="ab-contact-links">
+        <div class="ab-clink"><span class="ab-clink-label">Email</span><span class="ab-clink-val">hello@storiesfromabroad.com</span></div>
+        <div class="ab-clink"><span class="ab-clink-label">Site</span><span class="ab-clink-val">storiesfromabroad.com</span></div>
+      </div>
+    </div>
+    <div class="ab-contact-deco">
+      <div class="deco-bar" style="background:#FF2D78;height:28%"></div>
+      <div class="deco-bar" style="background:#1478FF;height:44%"></div>
+      <div class="deco-bar" style="background:#FF6500;height:28%"></div>
+    </div>
+  </section>
+  <footer class="footer"><div class="foot-l">BIRKLEY</div><div class="foot-r">storiesfromabroad.com — © 2025</div></footer>
+</div>
+
+<script>
+/* ─────────────────────────────────────────────────────
+   DATA
+   order: 1=most recent. FIX 3: (order-1)%3 → 0=SEEN, 1=FELT, 2=KEPT
+───────────────────────────────────────────────────── */
+const SHOOTS = {
+  kyoto:    {order:1,title:"Kyoto in Winter",    location:"Kyoto, Japan",          date:"February 2025",  intro:"The temples are less crowded when it's cold. You can actually hear the gravel under your feet. It changes things.",                                                               tags:["travel","temples","winter"],   accent:"#FF6500",camera:"Fujifilm GFX100S",lens:"63mm f/2.8",   template:"cinematic",   titles:["Torii","Temple Ground","The Monk","Stone Garden","Last Snow"],           captions:["Orange against pale winter sky.","Gravel and quiet.","He passed without looking up.","Raked every morning, regardless.","It melted by noon."],                cover:"https://picsum.photos/seed/kyt/480/620"},
+  studio:   {order:2,title:"Studio Series I",    location:"New York, USA",          date:"January 2025",   intro:"Remove the location. Remove the context. What's left is just a person and a light source and whatever they decide to do with the space between them.",                               tags:["portrait","studio","fashion"], accent:"#1478FF",camera:"Hasselblad X2D",  lens:"90mm f/2.2",   template:"documentary", titles:["Subject I","The Look","Between Takes","Unguarded","Resolution"],        captions:["Before she knew I was ready.","Some people own the frame.","The moments between moments.","Dropped the mask for a second.","What the light found."],        cover:"https://picsum.photos/seed/std/480/620"},
+  tokyo:    {order:3,title:"Tokyo Fragments",    location:"Tokyo, Japan",           date:"November 2024",  intro:"The city has a way of making you feel both invisible and entirely seen. These are the moments that fell through the cracks between trains.",                                          tags:["street","night","japan"],      accent:"#FF2D78",camera:"Sony A7IV",       lens:"35mm f/1.8",   template:"editorial",   titles:["2am, Shibuya","The Salary Man","Rain on Glass","Vending Light","Last Train"],   captions:["Shibuya crossing, long after the crowds left.","Waiting for a train that might not come.","Reflections worth stopping for.","The city's quiet glow.","End of the line."],     cover:"https://picsum.photos/seed/tky/480/620"},
+  shanghai: {order:4,title:"Shanghai After Dark", location:"Shanghai, China",       date:"September 2024", intro:"There's a particular quality to the light at 11pm on the Bund. Neon hitting water makes the city feel like a myth about itself.",                                                       tags:["architecture","neon","china"], accent:"#1478FF",camera:"Leica M11",       lens:"28mm f/2.8",   template:"documentary", titles:["The Bund","Neon Puddle","Tower Lights","Night Market","The Crossing"],     captions:["Where old Shanghai watches the new.","Puddles remember everything.","Glass and light, competing.","The market never truly sleeps.","Thousands cross here every hour."],  cover:"https://picsum.photos/seed/shg/480/620"},
+  pacific:  {order:5,title:"Pacific Coast",       location:"Highway 1, California", date:"July 2024",      intro:"There's no bad hour to drive Highway 1. We left at 4am anyway, because dawn light on the Pacific doesn't negotiate.",                                                                  tags:["road trip","ocean"],           accent:"#FF2D78",camera:"Sony A7IV",       lens:"16-35mm f/2.8",template:"editorial",   titles:["Before Dawn","The Pull","Fog Line","Cliff Edge","Due West"],              captions:["The sky before it decided what to do.","Water you could almost touch.","The fog had its own ideas.","Standing here changes your sense of scale.","Everything west of here is ocean."],cover:"https://picsum.photos/seed/pac/480/620"},
+  desert:   {order:6,title:"Desert Bloom",        location:"Mojave Desert, USA",    date:"March 2024",     intro:"You drive for two hours and don't see anything. Then the light shifts, and suddenly there's so much to look at you have to stop the car.",                                                tags:["landscape","golden hour"],     accent:"#FF6500",camera:"Canon R5",        lens:"24-70mm f/2.8",template:"cinematic",   titles:["First Light","The Valley","Roadside","Bloom","Dusk Falls"],               captions:["Before the heat arrived.","Scale you can feel.","Something grows here anyway.","Against all odds, colour.","The desert earns its beauty."],                   cover:"https://picsum.photos/seed/dsr/480/620"},
+};
+
+// Mixed seeds — portrait and landscape for variety
+const SEEDS = [
+  {w:900,  h:1200},   // portrait
+  {w:1300, h:750},    // landscape
+  {w:800,  h:1100},   // portrait
+  {w:1300, h:820},    // landscape
+  {w:900,  h:1300},   // portrait
+];
+const SHUT  = ["1/125s","1/250s","1/60s","1/500s","1/30s"];
+const APT   = ["f/1.8","f/2.8","f/1.4","f/5.6","f/2.0"];
+const ISO   = [400,800,1600,200,640];
+const NOTES = ["Shot hand-held, leaning against a wall.","Waited 20 minutes for this moment.","The colour barely needed touching in post.","This one surprised me in edit.","Golden hour — about 4 minutes left."];
+
+/* ─────────────────────────────────────────────────────
+   FIX 1: Set nav dot + CSS --dot-color globally
+───────────────────────────────────────────────────── */
+function setDotColor(color){
+  document.documentElement.style.setProperty('--dot-color', color);
+}
+
+/* ─────────────────────────────────────────────────────
+   About archive — 3 most recent shoots
+───────────────────────────────────────────────────── */
+(function(){
+  const sorted = Object.entries(SHOOTS).sort((a,b)=>a[1].order-b[1].order).slice(0,3);
+  const grid = document.getElementById('ab-photos-grid');
+  grid.innerHTML = sorted.map(([slug,s])=>`
+    <div class="ab-shoot-card" onclick="showShoot('${slug}')">
+      <img src="${s.cover}" alt="${s.title}" loading="lazy"/>
+      <div class="ab-shoot-card-over">
+        <div class="ab-shoot-card-title">${s.title}</div>
+        <div class="ab-shoot-card-loc">${s.location}</div>
+      </div>
+      <div class="ab-shoot-card-bar" style="background:${s.accent}"></div>
+    </div>`).join('');
+})();
+
+/* ─────────────────────────────────────────────────────
+   AUDIO
+───────────────────────────────────────────────────── */
+let audioCtx=null;
+function getACtx(){if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();if(audioCtx.state==='suspended')audioCtx.resume();return audioCtx;}
+function playShutter(){
+  try{
+    const ctx=getACtx(),now=ctx.currentTime;
+    const mkN=d=>{const b=ctx.createBuffer(1,ctx.sampleRate*d,ctx.sampleRate),a=b.getChannelData(0);for(let i=0;i<a.length;i++)a[i]=(Math.random()*2-1)*Math.pow(1-i/a.length,2.5);return b;};
+    const t=ctx.createBufferSource();t.buffer=mkN(.04);
+    const tf=ctx.createBiquadFilter();tf.type='lowpass';tf.frequency.value=400;
+    const tg=ctx.createGain();tg.gain.setValueAtTime(.18,now);tg.gain.exponentialRampToValueAtTime(.001,now+.04);
+    t.connect(tf);tf.connect(tg);tg.connect(ctx.destination);t.start(now);
+    const s=ctx.createBufferSource();s.buffer=mkN(.025);
+    const sf=ctx.createBiquadFilter();sf.type='highpass';sf.frequency.value=3000;
+    const sg=ctx.createGain();sg.gain.setValueAtTime(.08,now+.006);sg.gain.exponentialRampToValueAtTime(.001,now+.03);
+    s.connect(sf);sf.connect(sg);sg.connect(ctx.destination);s.start(now+.006);
+  }catch(e){}
+}
+
+/* ─────────────────────────────────────────────────────
+   ROUTING
+───────────────────────────────────────────────────── */
+function showPage(id){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  if(id!=='shoot'){
+    window.scrollTo(0,0);
+    if(window.innerWidth <= 768) document.getElementById('mob-bar').style.display='none';
+    // Reset dot to pink when leaving shoot
+    if(id==='index') setDotColor('#FF2D78');
+    if(id==='about') setDotColor('#FF2D78');
+  }
+  document.querySelectorAll('.nav-link').forEach(l=>l.classList.remove('cur'));
+  if(id==='index'||id==='shoot') document.getElementById('nav-photo').classList.add('cur');
+  if(id==='about') document.getElementById('nav-about').classList.add('cur');
+}
+
+/* ─────────────────────────────────────────────────────
+   FEATURED ROTATOR
+───────────────────────────────────────────────────── */
+(function(){
+  const INTERVAL = 5000;
+  const slides   = Array.from(document.querySelectorAll('.fslide'));
+  const dots     = Array.from(document.querySelectorAll('.feat-dot'));
+  const fill     = document.getElementById('feat-prog-fill');
+  const mantra   = document.getElementById('feat-mantra');
+  const mWords   = ['mw0','mw1','mw2'].map(id=>document.getElementById(id));
+  let slideIdx=0, timer=null, progRaf=null, progStart=null;
+
+  function updateMantra(accent, isLeft){
+    // FIX 1: set nav dot to current slide accent
+    setDotColor(accent);
+
+    // Active word = slideIdx % 3, outlined in accent color
+    const active = slideIdx % 3;
+    mWords.forEach((w,i)=>{
+      w.style.webkitTextStroke = i===active
+        ? `1.5px ${accent}`
+        : '1.5px rgba(240,239,235,0.07)';
+      i===active ? w.classList.add('m-on') : w.classList.remove('m-on');
+    });
+
+    // Mantra sits in opposite margin to title block
+    mantra.style.right      = isLeft ? 'auto' : '20px';
+    mantra.style.left       = isLeft ? '20px' : 'auto';
+    mantra.style.alignItems = isLeft ? 'flex-start' : 'flex-end';
+  }
+
+  function startProg(){
+    cancelAnimationFrame(progRaf);
+    progStart = performance.now();
+    (function step(now){
+      const pct = Math.min(((now-progStart)/INTERVAL)*100, 100);
+      fill.style.width = pct+'%';
+      if(pct<100) progRaf = requestAnimationFrame(step);
+    })(progStart);
+  }
+
+  function goTo(n){
+    slides[slideIdx].classList.remove('active'); dots[slideIdx].classList.remove('active');
+    slideIdx = ((n%slides.length)+slides.length)%slides.length;
+    slides[slideIdx].classList.add('active');   dots[slideIdx].classList.add('active');
+    const accent = slides[slideIdx].style.getPropertyValue('--accent').trim()||'#FF2D78';
+    const isLeft = slides[slideIdx].classList.contains('l');
+    updateMantra(accent, isLeft);
+    startProg();
+  }
+
+  function startTimer(){ clearInterval(timer); timer=setInterval(()=>goTo(slideIdx+1),INTERVAL); }
+
+  goTo(0); startTimer();
+  document.getElementById('feat-prev').onclick = ()=>{ goTo(slideIdx-1); startTimer(); };
+  document.getElementById('feat-next').onclick = ()=>{ goTo(slideIdx+1); startTimer(); };
+  dots.forEach(d=>d.addEventListener('click',()=>{ goTo(+d.dataset.i); startTimer(); }));
+})();
+
+/* ─────────────────────────────────────────────────────
+   SHOOT GALLERY
+───────────────────────────────────────────────────── */
+let shootCleanup = null;
+
+function showShoot(slug){
+  const s = SHOOTS[slug]; if(!s) return;
+  if(shootCleanup){ shootCleanup(); shootCleanup=null; }
+
+  // FIX 1: update nav dot to this shoot's accent
+  setDotColor(s.accent);
+
+  document.getElementById('page-shoot').style.setProperty('--a', s.accent);
+
+  // Photo data
+  const photos = s.titles.map((title,i)=>({
+    idx:i, src:`https://picsum.photos/seed/${slug}_f${i}/${SEEDS[i%SEEDS.length].w}/${SEEDS[i%SEEDS.length].h}`,
+    title, caption:s.captions[i]||'', note:NOTES[i%NOTES.length],
+    location:s.location, date:s.date, camera:s.camera, lens:s.lens,
+    shutter:SHUT[i%SHUT.length], aperture:APT[i%APT.length], iso:ISO[i%ISO.length],
+  }));
+
+  // Template helpers
+  const tmpl = s.template;
+  const tFS  = tmpl==='editorial'?'clamp(64px,9vw,130px)':tmpl==='documentary'?'clamp(28px,4vw,56px)':'clamp(52px,8vw,120px)';
+  const tFam = tmpl==='documentary'?"'IBM Plex Mono',monospace":tmpl==='cinematic'?"'Cormorant Garamond',serif":"'Bebas Neue',sans-serif";
+  const tExt = tmpl==='cinematic'?'font-style:italic;font-weight:300;letter-spacing:-2px;line-height:.9':tmpl==='documentary'?'font-weight:500;letter-spacing:-1px;line-height:1.1':'letter-spacing:-1px;line-height:.88';
+  const iFam = tmpl==='documentary'?"'IBM Plex Mono',monospace":"'Cormorant Garamond',serif";
+  const iSz  = tmpl==='documentary'?'11px':tmpl==='cinematic'?'22px':'20px';
+  const iIt  = tmpl!=='documentary'?'font-style:italic':'';
+  const tgSt = tmpl==='documentary'?`font-family:'IBM Plex Mono',monospace;font-size:7.5px;letter-spacing:2px;text-transform:uppercase;padding:3px 10px;background:#1A1A1A;color:${s.accent}`:tmpl==='cinematic'?`font-family:'Cormorant Garamond',serif;font-size:12px;font-style:italic;padding:2px 10px;border-bottom:1px solid #282828;color:#505050`:`font-family:'IBM Plex Mono',monospace;font-size:7.5px;letter-spacing:1px;text-transform:uppercase;padding:3px 8px;border:1px solid #282828;color:#505050`;
+
+  /*
+    FIX 3: SEEN/FELT/KEPT word highlighted = (s.order-1) % 3
+    order:1 → 0 → SEEN highlighted
+    order:2 → 1 → FELT highlighted
+    order:3 → 2 → KEPT highlighted
+    order:4 → 0 → SEEN highlighted (cycles)
+  */
+  const mantraActive = (s.order - 1) % 3;
+  const mantraWords  = ['SEEN','FELT','KEPT'];
+  const mantraHTML   = mantraWords.map((w,i)=>`
+    <span style="font-family:'Bebas Neue',sans-serif;font-size:clamp(60px,8vw,110px);letter-spacing:-2px;color:transparent;-webkit-text-stroke:1.5px ${i===mantraActive ? s.accent : 'rgba(240,239,235,.07)'};display:block">${w}</span>
+  `).join('');
+
+  const photosEl = document.getElementById('sg-photos');
+
+  const titleHTML = `<div class="sg-tile sg-title-tile" data-is-title="1" style="position:relative;overflow:hidden">
+    <div style="position:absolute;right:28px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;align-items:flex-end;gap:0;pointer-events:none;z-index:0;line-height:.82">
+      ${mantraHTML}
+    </div>
+    <div style="position:relative;z-index:1;max-width:680px">
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:8.5px;letter-spacing:3px;text-transform:uppercase;color:var(--g4);cursor:pointer;margin-bottom:44px;display:inline-block;transition:color .2s"
+        onmouseenter="this.style.color='#F0EFEB'" onmouseleave="this.style.color='#505050'"
+        onclick="showPage('index')">← Photography</span>
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:5px;text-transform:uppercase;color:${s.accent};margin-bottom:20px">${s.location} · ${s.date}</div>
+      <h1 style="font-family:${tFam};font-size:${tFS};${tExt};color:#F0EFEB;margin-bottom:28px">${s.title}</h1>
+      <p style="font-family:${iFam};font-size:${iSz};${iIt};color:#505050;line-height:1.65;max-width:560px;margin-bottom:28px">${s.intro}</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:36px">${s.tags.map(t=>`<span style="${tgSt}">${t}</span>`).join('')}</div>
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:8px;letter-spacing:3px;text-transform:uppercase;color:${s.accent};display:flex;align-items:center;gap:12px">
+        Scroll to enter
+        <span style="display:block;width:1px;height:40px;background:linear-gradient(to bottom,${s.accent},transparent)"></span>
+      </div>
+    </div>
+  </div>`;
+
+  const photoHTML = photos.map((p,i)=>`
+  <div class="sg-tile sg-photo-tile${i%2===1?' kb-b':''}"
+    data-index="${i}"
+    data-title="${encodeURIComponent(p.title)}"
+    data-caption="${encodeURIComponent(p.caption)}"
+    data-note="${encodeURIComponent(p.note)}"
+    data-location="${encodeURIComponent(p.location)}"
+    data-date="${encodeURIComponent(p.date)}"
+    data-camera="${p.camera}" data-lens="${p.lens}"
+    data-shutter="${p.shutter}" data-aperture="${p.aperture}" data-iso="${p.iso}">
+    <img src="${p.src}" alt="${p.title}" loading="${i<2?'eager':'lazy'}"/>
+  </div>`).join('');
+
+  const endHTML = `<div class="sg-tile" data-is-end="1" style="flex-direction:column">
+    <div style="text-align:center">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:8.5px;letter-spacing:5px;text-transform:uppercase;color:#282828;margin-bottom:16px">End of shoot</div>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:clamp(40px,6vw,80px);color:#F0EFEB;line-height:1;margin-bottom:8px">${s.title}</div>
+      <div style="font-family:'Cormorant Garamond',serif;font-size:15px;font-style:italic;color:#505050;margin-bottom:44px">${photos.length} frames · ${s.location}</div>
+      <div style="display:flex;gap:12px;justify-content:center">
+        <button onclick="showPage('index')" style="font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:3px;text-transform:uppercase;padding:12px 22px;background:${s.accent};color:#080808;border:none;cursor:pointer">← All shoots</button>
+        <button id="sg-restart" style="font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:3px;text-transform:uppercase;padding:12px 22px;background:transparent;border:1px solid #282828;color:#505050;cursor:pointer">↑ Back to start</button>
+      </div>
+    </div>
+  </div>`;
+
+  photosEl.innerHTML = `<div class="sg-scrollbar"><div class="sg-scrollbar-fill" id="sg-scrollbar-fill" style="height:0%"></div></div>${titleHTML}${photoHTML}${endHTML}`;
+
+  // Panel
+  const panel = document.getElementById('sg-panel');
+  panel.style.borderLeft = tmpl==='documentary' ? `2px solid ${s.accent}` : '1px solid #1A1A1A';
+  const counter = document.getElementById('sg-counter');
+  if(tmpl==='editorial')        counter.innerHTML=`<div class="cnt-editorial"><span class="cur">—</span><span class="sep">/</span><span class="tot">${String(photos.length).padStart(2,'0')}</span></div>`;
+  else if(tmpl==='documentary') counter.innerHTML=`<div class="cnt-documentary"><span class="cur">—</span><span class="sep">/</span><span class="tot">${String(photos.length).padStart(2,'0')}</span></div>`;
+  else                          counter.innerHTML=`<div class="cnt-cinematic"><span class="cur">—</span><span class="sep">/</span><span class="tot">${String(photos.length).padStart(2,'0')}</span></div>`;
+  document.getElementById('sg-frame-title').className = `sg-frame-title ft-${tmpl}`;
+  document.getElementById('sg-caption').className     = `sg-caption cap-${tmpl}`;
+  const acc = document.getElementById('sg-panel-accent');
+  if(tmpl==='editorial')        acc.innerHTML=`<div class="panel-accent-line" style="background:${s.accent}"></div>`;
+  else if(tmpl==='documentary') acc.innerHTML=`<div class="panel-accent-mono" style="color:${s.accent}">0110 1111 0110 0010</div>`;
+  else                          acc.innerHTML=`<div class="panel-accent-dots">${photos.map((_,i)=>`<span class="pdot${i===0?' active':''}" data-i="${i}"></span>`).join('')}</div>`;
+
+  document.getElementById('mob-bar-num').style.color   = s.accent;
+  document.getElementById('mob-bar-title').style.color = s.accent;
+
+  // Snap engine
+  const allTiles = Array.from(photosEl.querySelectorAll('.sg-tile'));
+  const total    = allTiles.length;
+  let current=0, snapping=false, accumulated=0;
+  const THRESH = 100;
+
+  function restartKB(tile){
+    const img = tile.querySelector('img'); if(!img) return;
+    img.classList.remove('kb-play'); void img.offsetWidth; img.classList.add('kb-play');
+  }
+
+  function positionTiles(idx, animate){
+    allTiles.forEach((tile,i)=>{
+      tile.style.transition = animate ? 'transform .62s cubic-bezier(.77,0,.18,1),opacity .45s ease' : 'none';
+      if(i===idx){
+        tile.style.transform='translateY(0)'; tile.style.opacity='1'; tile.style.zIndex='2';
+        if(!tile.dataset.isTitle&&!tile.dataset.isEnd) restartKB(tile);
+      } else if(i<idx){
+        tile.style.transform='translateY(-100%)'; tile.style.opacity='0'; tile.style.zIndex='1';
+      } else {
+        tile.style.transform='translateY(100%)'; tile.style.opacity='0'; tile.style.zIndex='1';
+      }
+    });
+    const pct = total>1 ? (idx/(total-1))*100 : 0;
+    const fillEl = document.getElementById('sg-scrollbar-fill');
+    if(fillEl) fillEl.style.height = pct+'%';
+    const tile    = allTiles[idx];
+    const isPhoto = !tile.dataset.isTitle && !tile.dataset.isEnd;
+    document.getElementById('sg-pc').style.opacity      = isPhoto ? '1' : '0.12';
+    document.getElementById('sg-counter').style.opacity = isPhoto ? '1' : '0';
+    if(isPhoto){
+      const d=tile.dataset, n=parseInt(d.index);
+      updatePanel(d,n);
+      document.getElementById('mob-bar-num').textContent   = String(n+1).padStart(2,'0');
+      document.getElementById('mob-bar-title').textContent = decodeURIComponent(d.title);
+      // Only show mob-bar on mobile — on desktop it was eating 46px off the bottom of photos
+      if(window.innerWidth <= 768) document.getElementById('mob-bar').style.display = 'flex';
+    } else {
+      if(window.innerWidth <= 768){
+        document.getElementById('mob-bar').style.display = tile.dataset.isTitle ? 'none' : 'flex';
+      }
+      if(tile.dataset.isEnd){
+        document.getElementById('mob-bar-num').textContent   = '';
+        document.getElementById('mob-bar-title').textContent = 'End of shoot';
+      }
+    }
+  }
+
+  function snapTo(n, animate=true){
+    if(snapping) return;
+    const next = Math.max(0, Math.min(n, total-1));
+    if(next===current){ snapping=false; return; }
+    if(!allTiles[next].dataset.isTitle&&!allTiles[next].dataset.isEnd) playShutter();
+    snapping=true; current=next;
+    positionTiles(current, animate);
+    setTimeout(()=>{ snapping=false; }, 700);
+  }
+
+  positionTiles(0, false);
+
+  function onWheel(e){ e.preventDefault(); if(snapping)return; accumulated+=e.deltaY; if(accumulated>THRESH){accumulated=0;snapTo(current+1);}else if(accumulated<-THRESH){accumulated=0;snapTo(current-1);} }
+  let ty=null;
+  function onTS(e){ ty=e.touches[0].clientY; }
+  function onTE(e){ if(ty===null)return; const dy=ty-e.changedTouches[0].clientY; if(Math.abs(dy)>55)snapTo(dy>0?current+1:current-1); ty=null; }
+  function onKey(e){ if(!document.getElementById('page-shoot').classList.contains('active'))return; if(e.key==='ArrowDown'||e.key==='ArrowRight')snapTo(current+1); if(e.key==='ArrowUp'||e.key==='ArrowLeft')snapTo(current-1); if(e.key==='Escape')showPage('index'); }
+
+  photosEl.addEventListener('wheel',onWheel,{passive:false});
+  photosEl.addEventListener('touchstart',onTS,{passive:true});
+  photosEl.addEventListener('touchend',onTE,{passive:true});
+  window.addEventListener('keydown',onKey);
+  document.getElementById('sg-restart')?.addEventListener('click',()=>snapTo(0));
+
+  shootCleanup = ()=>{
+    photosEl.removeEventListener('wheel',onWheel);
+    photosEl.removeEventListener('touchstart',onTS);
+    photosEl.removeEventListener('touchend',onTE);
+    window.removeEventListener('keydown',onKey);
+  };
+
+  showPage('shoot');
+}
+
+function updatePanel(d, n){
+  const pc = document.getElementById('sg-pc');
+  pc.classList.add('fading');
+  setTimeout(()=>{
+    const cur = document.querySelector('.cnt-editorial .cur,.cnt-documentary .cur,.cnt-cinematic .cur');
+    if(cur) cur.textContent = String(n+1).padStart(2,'0');
+    document.getElementById('sg-frame-title').textContent = decodeURIComponent(d.title);
+    document.getElementById('sg-caption').textContent     = decodeURIComponent(d.caption);
+    document.getElementById('sg-note').textContent        = decodeURIComponent(d.note);
+    document.getElementById('sg-location').textContent    = decodeURIComponent(d.location);
+    document.getElementById('sg-date').textContent        = decodeURIComponent(d.date);
+    document.getElementById('sg-camera').textContent      = d.camera;
+    document.getElementById('sg-lens').textContent        = d.lens;
+    document.getElementById('sg-shutter').textContent     = d.shutter;
+    document.getElementById('sg-aperture').textContent    = d.aperture;
+    document.getElementById('sg-iso').textContent         = d.iso;
+    document.querySelectorAll('.pdot').forEach((dot,i)=>dot.classList.toggle('active',i===n));
+    pc.classList.remove('fading');
+  }, 160);
+}
+</script>
+<script id="photography-public-firestore-config" type="application/json" set:html={publicFirestoreConfigJson}></script>
+<script src={`${basePath}scripts/public-firestore.js`}></script>
+<script src={`${basePath}scripts/photography-mockup-live.js`}></script>
+</body>
 </html>

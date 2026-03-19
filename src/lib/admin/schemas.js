@@ -117,6 +117,12 @@ export function createMediaValue() {
     title: "",
     caption: "",
     locationLabel: "",
+    shutter: "",
+    aperture: "",
+    iso: "",
+    lens: "",
+    metadataEnabled: true,
+    shortQuote: "",
     storagePath: "",
     contentType: "",
     fileName: "",
@@ -279,12 +285,17 @@ export function createEmptyPhotographyDraft() {
     status: "draft",
     slug: "",
     title: "",
+    description: "",
     subtitle: "",
     shootDate: "",
     scheduledPublishAt: "",
     locationLabel: "",
     city: "",
     country: "",
+    tagWord1: "",
+    tagWord2: "",
+    tagWord3: "",
+    theme: "editorial",
     descriptor: "",
     accentColor: "#c96b28",
     template: "desert-bloom",
@@ -310,7 +321,14 @@ function clone(value) {
 
 function normalizeMediaValue(value) {
   const base = createMediaValue();
-  return { ...base, ...(value || {}) };
+  const merged = { ...base, ...(value || {}) };
+  merged.metadataEnabled = merged.metadataEnabled !== false && String(merged.metadataEnabled) !== "false";
+  merged.shortQuote = String(merged.shortQuote || "");
+  merged.shutter = String(merged.shutter || "");
+  merged.aperture = String(merged.aperture || "");
+  merged.iso = String(merged.iso || "");
+  merged.lens = String(merged.lens || "");
+  return merged;
 }
 
 function normalizeStringList(list, fallbackOne = false) {
@@ -458,6 +476,13 @@ export function hydrateDraft(kind, raw = {}) {
   }
   return {
     ...merged,
+    description: String(merged.description ?? merged.notes ?? ""),
+    tagWord1: String(merged.tagWord1 ?? ""),
+    tagWord2: String(merged.tagWord2 ?? ""),
+    tagWord3: String(merged.tagWord3 ?? ""),
+    theme: ["editorial", "documentary", "cinematic"].includes(String(merged.theme || "").toLowerCase())
+      ? String(merged.theme).toLowerCase()
+      : "editorial",
     blocks: normalizePhotoBlocks(merged.blocks),
   };
 }

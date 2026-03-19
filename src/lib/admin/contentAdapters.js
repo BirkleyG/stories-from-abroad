@@ -81,17 +81,31 @@ export function collectSearchText(kind, draftInput) {
   }
   return [
     draft.title,
+    draft.description,
     draft.subtitle,
     draft.locationLabel,
     draft.city,
     draft.country,
     draft.descriptor,
+    draft.theme,
+    draft.tagWord1,
+    draft.tagWord2,
+    draft.tagWord3,
     draft.notes,
     draft.template,
     ...(draft.blocks || []).flatMap((block) => {
       if (block.type === "text-note") return [block.noteLabel, block.title, block.text];
       if (block.type === "section-title") return [block.tag, block.title, block.rightNote];
-      if (block.type === "ghost-text-row") return [block.ghostText];
+      if (block.type === "ghost-text-row") {
+        return [block.ghostText, ...((block.photos || []).flatMap((photo) => [photo?.title, photo?.caption, photo?.locationLabel, photo?.shortQuote]))];
+      }
+      if (block.type === "hero-photo" || block.type === "full-photo") {
+        const photo = block.photo || {};
+        return [photo.title, photo.caption, photo.locationLabel, photo.shortQuote];
+      }
+      if (block.type === "photo-row") {
+        return (block.photos || []).flatMap((photo) => [photo?.title, photo?.caption, photo?.locationLabel, photo?.shortQuote]);
+      }
       return [];
     }),
   ].join(" ").toLowerCase();
@@ -110,6 +124,12 @@ function cleanMedia(media = {}) {
     title: String(media.title || "").trim(),
     caption: String(media.caption || "").trim(),
     locationLabel: String(media.locationLabel || "").trim(),
+    shutter: String(media.shutter || "").trim(),
+    aperture: String(media.aperture || "").trim(),
+    iso: String(media.iso || "").trim(),
+    lens: String(media.lens || "").trim(),
+    metadataEnabled: media.metadataEnabled !== false,
+    shortQuote: String(media.shortQuote || "").trim(),
     storagePath: String(media.storagePath || "").trim(),
     contentType: String(media.contentType || "").trim(),
     fileName: String(media.fileName || "").trim(),
@@ -360,6 +380,12 @@ export function prepareDraftForSave(kind, draftInput) {
   const cleanedBlocks = cleanPhotoBlocks(draft.blocks);
   const frameCount = countPhotographyFrames(cleanedBlocks);
   const cameraModel = derivePhotographyCamera(cleanedBlocks, draft.cameraModel);
+  const tags = [
+    draft.tagWord1,
+    draft.tagWord2,
+    draft.tagWord3,
+    ...(Array.isArray(draft.tags) ? draft.tags : []),
+  ].map((tag) => String(tag || "").trim()).filter(Boolean).slice(0, 3);
   return {
     ...draft,
     status: draft.status,
@@ -367,11 +393,17 @@ export function prepareDraftForSave(kind, draftInput) {
     scheduledPublishAt: ensureIsoDateTime(draft.scheduledPublishAt) || "",
     searchText: collectSearchText(kind, draft),
     title: String(draft.title || "").trim(),
+    description: String(draft.description || draft.notes || "").trim(),
     subtitle: String(draft.subtitle || "").trim(),
     shootDate: ensureIsoDate(draft.shootDate) || "",
     locationLabel: String(draft.locationLabel || "").trim(),
     city: String(draft.city || "").trim(),
     country: String(draft.country || "").trim(),
+    tagWord1: String(draft.tagWord1 || "").trim(),
+    tagWord2: String(draft.tagWord2 || "").trim(),
+    tagWord3: String(draft.tagWord3 || "").trim(),
+    tags,
+    theme: String(draft.theme || "").trim() || "editorial",
     descriptor: String(draft.descriptor || "").trim(),
     accentColor: String(draft.accentColor || "#c96b28").trim() || "#c96b28",
     template: String(draft.template || "desert-bloom").trim() || "desert-bloom",
@@ -516,14 +548,23 @@ export function photographyDraftToPublic(draftInput, slugOverride = "") {
   const coverPhoto = draft.blocks.find((block) => block.type === "hero-photo")?.photo?.url
     ? draft.blocks.find((block) => block.type === "hero-photo")?.photo
     : allPhotos[0] || null;
+  const tags = [
+    draft.tagWord1,
+    draft.tagWord2,
+    draft.tagWord3,
+    ...(Array.isArray(draft.tags) ? draft.tags : []),
+  ].map((tag) => String(tag || "").trim()).filter(Boolean).slice(0, 3);
   return {
     slug,
     title: draft.title,
+    description: draft.description || draft.notes || "",
     subtitle: draft.subtitle,
     shootDate: draft.shootDate || ensureIsoDate(new Date().toISOString()),
     locationLabel: draft.locationLabel || firstNonEmpty([draft.city, draft.country]),
     city: draft.city,
     country: draft.country,
+    tags,
+    theme: draft.theme || "editorial",
     descriptor: draft.descriptor,
     accentColor: draft.accentColor,
     template: draft.template,
