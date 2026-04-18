@@ -1789,7 +1789,8 @@ const initialFeatCounter = copy.featured.counterTemplate
               : "";
 
           return {
-            id: paper.id || ("paper-" + index),
+            id: String(paper.id || ("paper-" + index)),
+            slug: String(paper.slug || "").trim(),
             title: paper.title || copy.defaults.title,
             subtitle: paper.subtitle || "",
             cat: paper.category || paper.cat || copy.defaults.category,
@@ -1869,6 +1870,38 @@ const initialFeatCounter = copy.featured.counterTemplate
 
         const counterTemplate = copy.featured.counterTemplate;
         const citationStyles = copy.overlay.citationStyles || [];
+
+        function readRequestedPaperToken() {
+          try {
+            return String(new URL(window.location.href).searchParams.get("paper") || "").trim();
+          } catch {
+            return "";
+          }
+        }
+
+        function writeRequestedPaperToken(token) {
+          try {
+            const url = new URL(window.location.href);
+            if (token) {
+              url.searchParams.set("paper", String(token));
+            } else {
+              url.searchParams.delete("paper");
+            }
+            window.history.replaceState(window.history.state, "", url.toString());
+          } catch {
+            // Ignore URL update failures.
+          }
+        }
+
+        function getPaperByToken(token) {
+          return state.papers.find(function (paper) {
+            return String(paper.slug || "") === token || String(paper.id || "") === token;
+          }) || null;
+        }
+
+        function getPaperToken(paper) {
+          return String(paper.slug || paper.id || "").trim();
+        }
 
         function formatCounter(current, total) {
           return counterTemplate.replace("{current}", current).replace("{total}", total);
@@ -2045,6 +2078,7 @@ const initialFeatCounter = copy.featured.counterTemplate
         function openPaper(id) {
           const paper = state.papers.find(function (item) { return item.id === id; });
           if (!paper) return;
+          writeRequestedPaperToken(getPaperToken(paper));
           const dateLabel = paper.date || String(paper.year);
           const timeLabel = paper.time ? paper.time + copy.overlay.timeSuffix : "";
           const kwLabel = paper.kw.length ? paper.kw.join(copy.overlay.kwSeparator) : copy.overlay.keywordsEmpty;
@@ -2113,6 +2147,7 @@ const initialFeatCounter = copy.featured.counterTemplate
         function closeOverlay() {
           document.getElementById("overlay").classList.remove("open");
           document.body.style.overflow = "";
+          writeRequestedPaperToken("");
         }
 
         async function boot() {
@@ -2136,6 +2171,10 @@ const initialFeatCounter = copy.featured.counterTemplate
             updateFeat(0);
             resetAutoTimer();
             buildList(state.papers);
+            const requestedPaper = getPaperByToken(readRequestedPaperToken());
+            if (requestedPaper) {
+              openPaper(requestedPaper.id);
+            }
           } catch (error) {
             console.warn("Selected Papers public load failed.", error);
             setFeaturedEmpty();

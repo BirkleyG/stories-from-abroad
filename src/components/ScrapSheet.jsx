@@ -1098,6 +1098,33 @@ export default function ScrapSheet({ backHref = "/" }) {
   var threadRef=useRef(null);
   var searchInputRef=useRef(null);
 
+  function writePostParam(token) {
+    if (typeof window === "undefined") return;
+    try {
+      var url = new URL(window.location.href);
+      if (token) {
+        url.searchParams.set("post", String(token));
+      } else {
+        url.searchParams.delete("post");
+      }
+      window.history.replaceState(window.history.state, "", url.toString());
+    } catch (error) {
+      // Ignore URL update errors.
+    }
+  }
+
+  function openPostById(postId) {
+    var match = posts.find(function(post) { return post.id === String(postId); });
+    if (!match) return;
+    setExpandedId(match.id);
+    writePostParam(match.slug || match.id);
+  }
+
+  function closePost() {
+    setExpandedId(null);
+    writePostParam("");
+  }
+
   useEffect(function(){
     if (typeof window === "undefined") return;
     var stored = window.localStorage.getItem("ss6-anon");
@@ -1618,7 +1645,7 @@ export default function ScrapSheet({ backHref = "/" }) {
             <div key={post.id}>
               <PostCard post={post} reactions={getR(post)} userReacted={userReacted}
                 onReact={function(emoji){handleReact(post.id,emoji);}}
-                onExpand={function(){setExpandedId(post.id);}}
+                onExpand={function(){openPostById(post.id);}}
                 highlighted={highlightId===post.id}/>
               {i<filtered.length-1&&<TimeMarker elapsed={getElapsed(post.dateObj,filtered[i+1].dateObj)}/>}
             </div>
@@ -1664,7 +1691,7 @@ export default function ScrapSheet({ backHref = "/" }) {
         <PostModal post={expanded} reactions={getR(expanded)} userReacted={userReacted}
           comments={comments[expanded.id]||[]}
           onReact={function(emoji){handleReact(expanded.id,emoji);}}
-          onClose={function(){setExpandedId(null);}}
+          onClose={closePost}
           onComment={function(){handleComment(expanded.id);}}
           newComment={newComment} setNewComment={setNewComment}
           threadRef={threadRef}

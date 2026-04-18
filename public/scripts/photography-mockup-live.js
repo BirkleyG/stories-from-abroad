@@ -28,6 +28,21 @@
     }
   }
 
+  function writeShootParam(slug) {
+    if (typeof window === "undefined") return;
+    try {
+      var url = new URL(window.location.href);
+      if (slug) {
+        url.searchParams.set("shoot", String(slug));
+      } else {
+        url.searchParams.delete("shoot");
+      }
+      window.history.replaceState(window.history.state, "", url.toString());
+    } catch {
+      // Ignore URL update failures.
+    }
+  }
+
   function installRuntimeGlobals() {
     if (typeof window.setDotColor !== "function") {
       window.setDotColor = function setDotColorFallback(color) {
@@ -40,6 +55,13 @@
   }
 
   function installPageRouter() {
+    var suppressInitialShootParamClear = false;
+    try {
+      suppressInitialShootParamClear = Boolean(new URL(window.location.href).searchParams.get("shoot"));
+    } catch {
+      suppressInitialShootParamClear = false;
+    }
+
     window.showPage = function showPage(id) {
       var pageId = "page-" + String(id || "index");
       Array.from(document.querySelectorAll(".page")).forEach(function (page) {
@@ -60,6 +82,11 @@
       }
 
       if (id !== "shoot") {
+        if (suppressInitialShootParamClear) {
+          suppressInitialShootParamClear = false;
+        } else {
+          writeShootParam("");
+        }
         window.scrollTo(0, 0);
         var mobileBar = document.getElementById("mob-bar");
         if (mobileBar) mobileBar.style.display = "none";
@@ -501,6 +528,7 @@
     window.showShoot = function showShoot(slug) {
       var shoot = LIVE_SHOOTS[slug];
       if (!shoot) return;
+      writeShootParam(shoot.slug);
       if (typeof cleanup === "function") {
         cleanup();
         cleanup = null;
@@ -822,6 +850,8 @@
       }
       if (requestedShoot && bySlug[requestedShoot] && typeof window.showShoot === "function") {
         window.showShoot(requestedShoot);
+      } else if (requestedShoot && !bySlug[requestedShoot]) {
+        writeShootParam("");
       }
     } catch (error) {
       applyEmptyState("Photography content could not be loaded right now.");
