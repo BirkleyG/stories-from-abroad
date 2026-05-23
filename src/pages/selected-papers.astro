@@ -353,11 +353,34 @@ const initialFeatCounter = copy.featured.counterTemplate
         position: relative;
         padding: 52px 52px 96px;
         width: 100%;
-        transition: opacity 0.24s ease, transform 0.24s ease;
       }
-      .feat-content.is-transitioning {
-        opacity: 0.3;
-        transform: translateY(6px);
+      .feat-content.is-swiping-out-left {
+        animation: featSwipeOutLeft 0.34s cubic-bezier(0.55, 0, 0.3, 1) both;
+      }
+      .feat-content.is-swiping-out-right {
+        animation: featSwipeOutRight 0.34s cubic-bezier(0.55, 0, 0.3, 1) both;
+      }
+      .feat-content.is-swiping-in-from-left {
+        animation: featSwipeInFromLeft 0.58s cubic-bezier(0.2, 0.8, 0.22, 1) both;
+      }
+      .feat-content.is-swiping-in-from-right {
+        animation: featSwipeInFromRight 0.58s cubic-bezier(0.2, 0.8, 0.22, 1) both;
+      }
+      @keyframes featSwipeOutLeft {
+        from { opacity: 1; transform: translateX(0); }
+        to { opacity: 0; transform: translateX(-58px); }
+      }
+      @keyframes featSwipeOutRight {
+        from { opacity: 1; transform: translateX(0); }
+        to { opacity: 0; transform: translateX(58px); }
+      }
+      @keyframes featSwipeInFromLeft {
+        from { opacity: 0; transform: translateX(-68px); }
+        to { opacity: 1; transform: translateX(0); }
+      }
+      @keyframes featSwipeInFromRight {
+        from { opacity: 0; transform: translateX(68px); }
+        to { opacity: 1; transform: translateX(0); }
       }
       .feat-kicker {
         font-family: "Cormorant Garamond", serif;
@@ -430,23 +453,32 @@ const initialFeatCounter = copy.featured.counterTemplate
       }
       .feat-progress-orb {
         --dot-progress: 0%;
-        width: 12px;
-        height: 12px;
+        position: relative;
+        width: 9px;
+        height: 9px;
         border-radius: 50%;
-        border: 1px solid rgba(255, 255, 255, 0.55);
-        background: rgba(255, 255, 255, 0.14);
+        border: 0;
+        background: transparent;
+        padding: 0;
         flex-shrink: 0;
         cursor: pointer;
-        transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+        transition: width 0.26s ease, height 0.26s ease, transform 0.2s ease;
+      }
+      .feat-progress-orb::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        background: var(--green);
       }
       .feat-progress-orb.active {
-        width: 18px;
-        height: 18px;
-        border-color: var(--green);
-        background:
-          radial-gradient(circle at 50% 50%, rgba(22, 52, 34, 0.2) 0 42%, transparent 44%),
-          conic-gradient(var(--green) var(--dot-progress), rgba(22, 52, 34, 0.2) 0);
-        transform: scale(1.02);
+        width: 20px;
+        height: 20px;
+      }
+      .feat-progress-orb.active::before {
+        background: conic-gradient(var(--green) var(--dot-progress), rgba(199, 154, 51, 0.22) 0);
+        -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
+        mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
       }
       .feat-meta {
         display: flex;
@@ -459,6 +491,11 @@ const initialFeatCounter = copy.featured.counterTemplate
         color: rgba(255, 255, 255, 0.55);
         margin-bottom: 34px;
         animation: heroTitleIn 0.6s ease 0.38s both;
+      }
+      .feat-meta-value {
+        color: #fff;
+        mix-blend-mode: difference;
+        opacity: 0.55;
       }
       .feat-meta-dot {
         width: 4px;
@@ -499,7 +536,9 @@ const initialFeatCounter = copy.featured.counterTemplate
       }
       .feat-dots {
         display: flex;
+        align-items: center;
         gap: 12px;
+        min-height: 20px;
       }
 
       #library {
@@ -750,13 +789,6 @@ const initialFeatCounter = copy.featured.counterTemplate
         object-fit: cover;
         object-position: 50% 50%;
         display: block;
-      }
-      .portrait-drips {
-        position: absolute;
-        right: 56%;
-        top: 0;
-        height: 100%;
-        pointer-events: none;
       }
       .author-content {
         margin-left: 44%;
@@ -1317,6 +1349,7 @@ const initialFeatCounter = copy.featured.counterTemplate
           border-left: none;
           border-top: 1px solid var(--border);
           min-width: 100%;
+          width: 100%;
         }
         .paper-row {
           grid-template-columns: 36px 1fr;
@@ -1333,9 +1366,6 @@ const initialFeatCounter = copy.featured.counterTemplate
           width: 100%;
           height: 280px;
           flex-shrink: 0;
-        }
-        .portrait-drips {
-          display: none;
         }
         .author-content {
           padding: 48px 32px;
@@ -1869,36 +1899,6 @@ const initialFeatCounter = copy.featured.counterTemplate
         <span class="portrait-ph" id="papers-author-portrait">{copy.author.portraitLabel}</span>
       </div>
 
-      <svg
-        class="portrait-drips"
-        viewBox="0 0 600 600"
-        preserveAspectRatio="xMaxYMid meet"
-        xmlns="http://www.w3.org/2000/svg"
-        aria-hidden="true"
-      >
-        <path
-          d="M 580 80 C 590 100, 592 130, 585 160 C 578 190, 582 220, 575 250
-             C 568 280, 572 310, 565 340 C 558 370, 562 400, 555 430"
-          stroke="#111110"
-          stroke-width="1.5"
-          fill="none"
-          opacity="0.18"
-        />
-        <path
-          d="M 550 432 C 558 422, 570 428, 568 444 C 566 458, 554 462, 546 452 C 540 444, 542 438, 550 432 Z"
-          fill="#111110"
-          opacity="0.28"
-        />
-        <path
-          d="M 572 180 C 578 172, 588 176, 586 188 C 584 198, 574 202, 568 194 C 563 188, 566 186, 572 180 Z"
-          fill="#111110"
-          opacity="0.22"
-        />
-        <circle cx="578" cy="288" r="5" fill="#111110" opacity="0.18" />
-        <circle cx="560" cy="370" r="3.2" fill="#111110" opacity="0.14" />
-        <circle cx="544" cy="462" r="2" fill="#111110" opacity="0.1" />
-      </svg>
-
       <div class="author-content">
         <div class="author-kicker">{copy.author.kicker}</div>
         <h3 class="author-name" set:html={copy.author.nameHtml}></h3>
@@ -2043,6 +2043,10 @@ const initialFeatCounter = copy.featured.counterTemplate
           };
         }
 
+        const copy = readJson("papers-copy");
+        const publicConfig = readJson("public-firestore-config");
+        if (!copy) return;
+
         let runtimeTypewriterLines = Array.isArray(copy.typewriterLines) ? copy.typewriterLines.slice() : [];
 
         function applySectionMedia(config) {
@@ -2091,9 +2095,69 @@ const initialFeatCounter = copy.featured.counterTemplate
           setTimeout(tick, 1200);
         }
 
-        const copy = readJson("papers-copy");
-        const publicConfig = readJson("public-firestore-config");
-        if (!copy || !window.SFAPublicFirestore) return;
+        const publicFirestore = window.SFAPublicFirestore || {
+          getDocument: async function (config, path) {
+            if (!config || !config.projectId || !config.apiKey) return null;
+            const baseUrl = "https://firestore.googleapis.com/v1/projects/" +
+              encodeURIComponent(config.projectId) +
+              "/databases/(default)/documents/";
+            const response = await fetch(baseUrl + path + "?key=" + encodeURIComponent(config.apiKey), { method: "GET", cache: "no-store" });
+            if (response.status === 404) return null;
+            if (!response.ok) throw new Error("Firestore request failed: " + response.status);
+            const payload = await response.json();
+            const decodeValue = function (value) {
+              if (!value || typeof value !== "object") return null;
+              if ("stringValue" in value) return value.stringValue;
+              if ("integerValue" in value) return Number(value.integerValue);
+              if ("doubleValue" in value) return Number(value.doubleValue);
+              if ("booleanValue" in value) return Boolean(value.booleanValue);
+              if ("timestampValue" in value) return value.timestampValue;
+              if ("nullValue" in value) return null;
+              if ("mapValue" in value) return decodeFields(value.mapValue.fields || {});
+              if ("arrayValue" in value) return (value.arrayValue.values || []).map(decodeValue);
+              return null;
+            };
+            const decodeFields = function (fields) {
+              return Object.fromEntries(Object.entries(fields || {}).map(function (entry) {
+                return [entry[0], decodeValue(entry[1])];
+              }));
+            };
+            const name = String(payload.name || "");
+            return Object.assign({ id: name.split("/").pop() || "" }, decodeFields(payload.fields || {}));
+          },
+          listCollection: async function (config, collectionId) {
+            if (!config || !config.projectId || !config.apiKey) return [];
+            const baseUrl = "https://firestore.googleapis.com/v1/projects/" +
+              encodeURIComponent(config.projectId) +
+              "/databases/(default)/documents/";
+            const response = await fetch(baseUrl + collectionId + "?pageSize=200&key=" + encodeURIComponent(config.apiKey), { method: "GET", cache: "no-store" });
+            if (response.status === 404) return [];
+            if (!response.ok) throw new Error("Firestore request failed: " + response.status);
+            const payload = await response.json();
+            const decodeValue = function (value) {
+              if (!value || typeof value !== "object") return null;
+              if ("stringValue" in value) return value.stringValue;
+              if ("integerValue" in value) return Number(value.integerValue);
+              if ("doubleValue" in value) return Number(value.doubleValue);
+              if ("booleanValue" in value) return Boolean(value.booleanValue);
+              if ("timestampValue" in value) return value.timestampValue;
+              if ("nullValue" in value) return null;
+              if ("mapValue" in value) return decodeFields(value.mapValue.fields || {});
+              if ("arrayValue" in value) return (value.arrayValue.values || []).map(decodeValue);
+              return null;
+            };
+            const decodeFields = function (fields) {
+              return Object.fromEntries(Object.entries(fields || {}).map(function (entry) {
+                return [entry[0], decodeValue(entry[1])];
+              }));
+            };
+            const docs = Array.isArray(payload.documents) ? payload.documents : [];
+            return docs.map(function (item) {
+              const name = String(item.name || "");
+              return Object.assign({ id: name.split("/").pop() || "" }, decodeFields(item.fields || {}));
+            });
+          },
+        };
         const state = {
           papers: [],
           featured: [],
@@ -2103,7 +2167,7 @@ const initialFeatCounter = copy.featured.counterTemplate
           progressStartedAt: 0,
           swapTimer: null,
         };
-        const FEATURED_CYCLE_MS = 8000;
+        const FEATURED_CYCLE_MS = 14000;
 
         const counterTemplate = copy.featured.counterTemplate;
         const citationStyles = copy.overlay.citationStyles || [];
@@ -2353,33 +2417,39 @@ const initialFeatCounter = copy.featured.counterTemplate
           }
         }
 
-        function updateFeat(idx) {
+        function renderFeaturedPaper(paper) {
+          document.getElementById("feat-kicker").textContent = paper.cat;
+          document.getElementById("feat-title").textContent = paper.title;
+          document.getElementById("feat-summary").textContent = paper.summary;
+          document.getElementById("feat-kws").innerHTML = paper.kw.map(function (keyword) {
+            return '<span class="feat-kw">' + esc(keyword) + "</span>";
+          }).join("");
+          document.getElementById("feat-meta").innerHTML =
+            '<span class="feat-meta-value">' + esc(paper.date || paper.year) + "</span>" +
+            '<span class="feat-meta-dot"></span>' +
+            '<span class="feat-meta-value">' + esc(paper.time) + esc(copy.featured.metaReadSuffix) + "</span>" +
+            '<span class="feat-meta-dot"></span>' +
+            '<span class="feat-meta-value">' + esc(paper.type) + "</span>";
+          applyAdaptiveMasks();
+        }
+
+        function clearSwipeClasses(content) {
+          content.classList.remove(
+            "is-swiping-out-left",
+            "is-swiping-out-right",
+            "is-swiping-in-from-left",
+            "is-swiping-in-from-right"
+          );
+        }
+
+        function updateFeat(idx, direction) {
           const paper = state.featured[idx];
           if (!paper) {
             setFeaturedEmpty();
             return;
           }
           const content = document.getElementById("feat-content");
-          content.classList.add("is-transitioning");
           if (state.swapTimer) clearTimeout(state.swapTimer);
-          state.swapTimer = setTimeout(function () {
-            document.getElementById("feat-kicker").textContent = paper.cat;
-            document.getElementById("feat-title").textContent = paper.title;
-            document.getElementById("feat-summary").textContent = paper.summary;
-            document.getElementById("feat-kws").innerHTML = paper.kw.map(function (keyword) {
-              return '<span class="feat-kw">' + esc(keyword) + "</span>";
-            }).join("");
-            document.getElementById("feat-meta").innerHTML =
-              "<span>" + esc(paper.date || paper.year) + "</span>" +
-              '<span class="feat-meta-dot"></span>' +
-              "<span>" + esc(paper.time) + esc(copy.featured.metaReadSuffix) + "</span>" +
-              '<span class="feat-meta-dot"></span>' +
-              "<span>" + esc(paper.type) + "</span>";
-            applyAdaptiveMasks();
-            requestAnimationFrame(function () {
-              content.classList.remove("is-transitioning");
-            });
-          }, 120);
           document.getElementById("feat-ghost").textContent = String(idx + 1).padStart(2, "0");
           document.getElementById("feat-ctr-sd").textContent = formatCounter(
             String(idx + 1).padStart(2, "0"),
@@ -2392,6 +2462,24 @@ const initialFeatCounter = copy.featured.counterTemplate
           button.textContent = copy.featured.button;
           button.disabled = false;
           button.onclick = function () { openPaper(paper.id); };
+
+          const swipeDirection = Number(direction || 0);
+          clearSwipeClasses(content);
+          if (!swipeDirection) {
+            renderFeaturedPaper(paper);
+            return;
+          }
+          content.classList.add(swipeDirection > 0 ? "is-swiping-out-left" : "is-swiping-out-right");
+          state.swapTimer = setTimeout(function () {
+            renderFeaturedPaper(paper);
+            clearSwipeClasses(content);
+            void content.offsetWidth;
+            content.classList.add(swipeDirection > 0 ? "is-swiping-in-from-right" : "is-swiping-in-from-left");
+            state.swapTimer = setTimeout(function () {
+              clearSwipeClasses(content);
+              state.swapTimer = null;
+            }, 620);
+          }, 320);
         }
 
         function buildFeatDots() {
@@ -2400,22 +2488,26 @@ const initialFeatCounter = copy.featured.counterTemplate
           }).join("");
           document.querySelectorAll("[data-feat-index]").forEach(function (dot) {
             dot.addEventListener("click", function () {
-              goFeat(Number(dot.getAttribute("data-feat-index") || 0));
+              const targetIndex = Number(dot.getAttribute("data-feat-index") || 0);
+              const direction = targetIndex >= state.featIdx ? 1 : -1;
+              goFeat(targetIndex, direction);
             });
           });
         }
 
-        function goFeat(nextIndex) {
+        function goFeat(nextIndex, direction) {
           const max = state.featured.length;
           if (!max) return;
           nextIndex = ((nextIndex % max) + max) % max;
+          const swipeDirection = Number(direction || (nextIndex >= state.featIdx ? 1 : -1)) || 1;
+          if (nextIndex === state.featIdx) return;
           state.featIdx = nextIndex;
-          updateFeat(state.featIdx);
+          updateFeat(state.featIdx, swipeDirection);
           resetAutoTimer();
         }
 
         function moveFeat(dir) {
-          goFeat(state.featIdx + dir);
+          goFeat(state.featIdx + dir, dir);
         }
 
         function resetAutoTimer() {
@@ -2423,7 +2515,7 @@ const initialFeatCounter = copy.featured.counterTemplate
           if (state.featured.length < 2) return;
           animateFeaturedProgress();
           state.autoTimer = setTimeout(function () {
-            goFeat(state.featIdx + 1);
+            goFeat(state.featIdx + 1, 1);
           }, FEATURED_CYCLE_MS);
         }
 
@@ -2584,37 +2676,49 @@ const initialFeatCounter = copy.featured.counterTemplate
         }
 
         async function boot() {
-          try {
-            const results = await Promise.all([
-              window.SFAPublicFirestore.getDocument(publicConfig, "site_config/section_media"),
-              window.SFAPublicFirestore.listCollection(publicConfig, "papers"),
-            ]);
-            applySectionMedia(results[0] || {});
-            initTypewriter();
-            state.papers = sortPapers((results[1] || []).map(function (paper, index) {
+          const settled = await Promise.allSettled([
+            publicFirestore.getDocument(publicConfig, "site_config/section_media"),
+            publicFirestore.listCollection(publicConfig, "papers"),
+          ]);
+
+          const mediaResult = settled[0];
+          const papersResult = settled[1];
+          if (mediaResult.status === "fulfilled") {
+            applySectionMedia(mediaResult.value || {});
+          } else {
+            console.warn("Selected Papers section media load failed.", mediaResult.reason);
+          }
+          initTypewriter();
+
+          if (papersResult.status === "fulfilled") {
+            state.papers = sortPapers((papersResult.value || []).map(function (paper, index) {
               return normalizePaper(copy, paper, index);
             }));
-            state.featured = state.papers.filter(function (paper) { return paper.featured; }).sort(function (a, b) {
-              return a.featuredRank - b.featuredRank || String(a.title).localeCompare(String(b.title));
-            });
-            if (!state.featured.length && state.papers.length) {
-              state.featured = state.papers.slice(0, 3);
-            }
-            populateFilters(state.papers);
-            buildFeatDots();
+          } else {
+            console.warn("Selected Papers papers load failed.", papersResult.reason);
+            state.papers = [];
+          }
+
+          state.featured = state.papers.filter(function (paper) { return paper.featured; }).sort(function (a, b) {
+            return a.featuredRank - b.featuredRank || String(a.title).localeCompare(String(b.title));
+          });
+          if (!state.featured.length && state.papers.length) {
+            state.featured = state.papers.slice(0, 3);
+          }
+          populateFilters(state.papers);
+          buildFeatDots();
+          if (state.featured.length) {
             updateFeat(0);
             resetAutoTimer();
-            buildList(state.papers);
-            const requestedPaper = getPaperByToken(readRequestedPaperToken());
-            if (requestedPaper) {
-              openPaper(requestedPaper.id);
-            }
-            applyAdaptiveMasks();
-          } catch (error) {
-            console.warn("Selected Papers public load failed.", error);
+          } else {
             setFeaturedEmpty();
-            buildList([]);
           }
+          buildList(state.papers);
+          const requestedPaper = getPaperByToken(readRequestedPaperToken());
+          if (requestedPaper) {
+            openPaper(requestedPaper.id);
+          }
+          applyAdaptiveMasks();
         }
 
         window.closeOverlay = closeOverlay;
