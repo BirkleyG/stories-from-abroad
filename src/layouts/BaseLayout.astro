@@ -211,8 +211,25 @@ const publicFirebaseConfigJson = JSON.stringify({
       const auth = firebaseApp ? getAuth(firebaseApp) : null;
       const db = firebaseApp ? getFirestore(firebaseApp) : null;
       const pendingKey = "sfa-pending-subscriber-v2";
+      const segmentLabels = ["Articles & Op-Eds", "Photography", "Faces of the World", "Travel"];
+      const preferenceToSegment = {
+        articles: "Articles & Op-Eds",
+        papers: "Articles & Op-Eds",
+        photography: "Photography",
+        photo: "Photography",
+        faces: "Faces of the World",
+        stories: "Faces of the World",
+        travel: "Travel",
+      };
+      const segmentToPreference = {
+        "Articles & Op-Eds": "articles",
+        Photography: "photography",
+        "Faces of the World": "faces",
+        Travel: "travel",
+      };
 
       let authUser = null;
+      let subscriberProfile = null;
 
       if (auth) {
         setPersistence(auth, browserLocalPersistence).catch(() => undefined);
@@ -226,10 +243,8 @@ const publicFirebaseConfigJson = JSON.stringify({
         return normalizeString(value).toLowerCase();
       }
 
-      function fallbackNameFromEmail(email) {
-        const local = normalizeEmail(email).split("@")[0] || "";
-        if (!local) return "Subscriber";
-        return local.replace(/[._-]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 80);
+      function unique(items) {
+        return Array.from(new Set(items.filter(Boolean)));
       }
 
       function collectPreferences() {
@@ -242,14 +257,116 @@ const publicFirebaseConfigJson = JSON.stringify({
         return out;
       }
 
+      function normalizeSegments(value) {
+        if (!Array.isArray(value)) return [];
+        return unique(value.map(normalizeString).filter((item) => segmentLabels.includes(item)));
+      }
+
+      function segmentsFromPreferences(preferences) {
+        const list = Array.isArray(preferences) ? preferences.map(normalizeString) : [];
+        if (list.includes("all")) return [...segmentLabels];
+        return unique(list.map((item) => preferenceToSegment[item]));
+      }
+
+      function segmentsFromFlags(profile) {
+        if (!profile || typeof profile !== "object") return [];
+        const out = [];
+        if (profile.wantsAllUpdates) out.push(...segmentLabels);
+        if (profile.wantsPapers) out.push("Articles & Op-Eds");
+        if (profile.wantsPhotography) out.push("Photography");
+        if (profile.wantsFaces) out.push("Faces of the World");
+        if (profile.wantsTravel) out.push("Travel");
+        return unique(out);
+      }
+
+      function segmentsFromProfile(profile) {
+        if (!profile || typeof profile !== "object") return [];
+        const direct = normalizeSegments(profile.segmentTags);
+        if (direct.length) return direct;
+        return unique([
+          ...segmentsFromPreferences(profile.preferences),
+          ...segmentsFromFlags(profile),
+        ]);
+      }
+
+      function segmentsFromPath(pathname) {
+        const path = normalizeString(pathname).toLowerCase();
+        if (path.includes("selected-papers")) return ["Articles & Op-Eds"];
+        if (path.includes("photography")) return ["Photography"];
+        if (path.includes("faces-of-the-world")) return ["Faces of the World"];
+        if (path.includes("travel-stories")) return ["Travel"];
+        return [];
+      }
+
+      function preferencesFromSegments(segments) {
+        return unique(segments.map((segment) => segmentToPreference[segment]));
+      }
+
+      function defaultSegmentsForCurrentPage() {
+        return typeof window === "undefined" ? [] : segmentsFromPath(window.location.pathname);
+      }
+
+      function sourceForCurrentPage() {
+        if (typeof window === "undefined") return "global_modal";
+        const segments = defaultSegmentsForCurrentPage();
+        if (segments.includes("Articles & Op-Eds")) return "articles_modal";
+        if (segments.includes("Photography")) return "photography_modal";
+        if (segments.includes("Faces of the World")) return "faces_modal";
+        if (segments.includes("Travel")) return "travel_modal";
+        return "global_modal";
+      }
+
+      function collectSegmentTags(preferences) {
+        const selected = segmentsFromPreferences(preferences);
+        if (selected.length) return selected;
+        const pageSegments = defaultSegmentsForCurrentPage();
+        return pageSegments.length ? pageSegments : [...segmentLabels];
+      }
+
+      function profileHasSegments(profile, segments) {
+        if (!profile || profile.status !== "active") return false;
+        const existing = segmentsFromProfile(profile);
+        return segments.every((segment) => existing.includes(segment));
+      }
+
+      function syncPreferenceControls() {
+        const lock = Boolean(prefAll?.checked);
+        [prefArticles, prefPhoto, prefFaces, prefTravel].forEach((el) => {
+          if (!el) return;
+          el.disabled = lock;
+          if (lock) el.checked = false;
+        });
+      }
+
+      function applyDefaultPreferencesForPage() {
+        const pageSegments = defaultSegmentsForCurrentPage();
+        if (!prefAll) return;
+        if (!pageSegments.length) {
+          prefAll.checked = true;
+          [prefArticles, prefPhoto, prefFaces, prefTravel].forEach((el) => {
+            if (el) el.checked = false;
+          });
+          syncPreferenceControls();
+          return;
+        }
+        prefAll.checked = false;
+        if (prefArticles) prefArticles.checked = pageSegments.includes("Articles & Op-Eds");
+        if (prefPhoto) prefPhoto.checked = pageSegments.includes("Photography");
+        if (prefFaces) prefFaces.checked = pageSegments.includes("Faces of the World");
+        if (prefTravel) prefTravel.checked = pageSegments.includes("Travel");
+        syncPreferenceControls();
+      }
+
       function flagsFromPreferences(preferences) {
         const set = new Set(Array.isArray(preferences) ? preferences : []);
+        const segments = collectSegmentTags(preferences);
+        const segmentSet = new Set(segments);
         return {
-          wantsAllUpdates: set.has("all"),
-          wantsPapers: set.has("articles") || set.has("papers"),
-          wantsPhotography: set.has("photography"),
-          wantsFaces: set.has("faces") || set.has("stories"),
-          wantsTravel: set.has("travel"),
+          wantsAllUpdates: set.has("all") || segments.length === segmentLabels.length,
+          wantsPapers: set.has("articles") || set.has("papers") || segmentSet.has("Articles & Op-Eds"),
+          wantsPhotography: set.has("photography") || segmentSet.has("Photography"),
+          wantsFaces: set.has("faces") || set.has("stories") || segmentSet.has("Faces of the World"),
+          wantsTravel: set.has("travel") || segmentSet.has("Travel"),
         };
       }
 
@@ -291,20 +408,31 @@ const publicFirebaseConfigJson = JSON.stringify({
           : Array.isArray(existing?.preferences)
             ? existing.preferences
             : [];
-        const flags = flagsFromPreferences(preferences);
+        const segmentTags = unique([
+          ...normalizeSegments(options.segmentTags),
+          ...segmentsFromPreferences(preferences),
+          ...normalizeSegments(existing?.segmentTags),
+          ...segmentsFromFlags(existing),
+          ...defaultSegmentsForCurrentPage(),
+        ]);
+        const normalizedPreferences = preferences.length
+          ? unique(preferences)
+          : preferencesFromSegments(segmentTags);
+        const flags = flagsFromPreferences(normalizedPreferences);
         const payload = {
           email: user.email,
           emailLower: normalizeEmail(user.email),
-          name: normalizeString(options.name) || normalizeString(existing?.name) || fallbackNameFromEmail(user.email),
+          name: normalizeString(options.name) || normalizeString(existing?.name),
           verified: true,
           status: "active",
-          preferences,
+          preferences: normalizedPreferences,
+          segmentTags: segmentTags.length ? segmentTags : [...segmentLabels],
           wantsAllUpdates: flags.wantsAllUpdates,
           wantsPapers: flags.wantsPapers,
           wantsPhotography: flags.wantsPhotography,
           wantsFaces: flags.wantsFaces,
           wantsTravel: flags.wantsTravel,
-          source: normalizeString(options.source) || normalizeString(existing?.source) || "global_modal",
+          source: normalizeString(options.source) || normalizeString(existing?.source) || sourceForCurrentPage(),
           updatedAt: serverTimestamp(),
         };
         if (!existing) payload.createdAt = serverTimestamp();
@@ -335,6 +463,7 @@ const publicFirebaseConfigJson = JSON.stringify({
 
       function openModal() {
         if (!modal) return;
+        applyDefaultPreferencesForPage();
         modal.classList.add("open");
         document.body.style.overflow = "hidden";
         setStatus("");
@@ -372,45 +501,29 @@ const publicFirebaseConfigJson = JSON.stringify({
 
       if (prefAll) {
         prefAll.addEventListener("change", () => {
-          const checked = prefAll.checked;
-          [prefArticles, prefPhoto, prefFaces, prefTravel].forEach((el) => {
-            if (!el) return;
-            el.checked = false;
-            el.disabled = checked;
-          });
+          syncPreferenceControls();
         });
       }
 
-      if (prefAll?.checked) {
-        [prefArticles, prefPhoto, prefFaces, prefTravel].forEach((el) => {
-          if (!el) return;
-          el.disabled = true;
-        });
-      }
+      syncPreferenceControls();
 
       [prefArticles, prefPhoto, prefFaces, prefTravel].forEach((el) => {
         if (!el) return;
         el.addEventListener("change", () => {
           if (!prefAll) return;
           if (el.checked) prefAll.checked = false;
-          const lock = prefAll.checked;
-          [prefArticles, prefPhoto, prefFaces, prefTravel].forEach((item) => {
-            if (!item) return;
-            item.disabled = lock;
-          });
+          syncPreferenceControls();
         });
       });
-
-      if (nameInput && !nameInput.value && authUser?.email) {
-        nameInput.value = fallbackNameFromEmail(authUser.email);
-      }
 
       if (auth) {
         onAuthStateChanged(auth, async (user) => {
           authUser = user;
+          subscriberProfile = null;
           if (!user?.uid || !(nameInput instanceof HTMLInputElement)) return;
           const profile = await getSubscriberRecord(user.uid);
-          const preferredName = profile?.name || fallbackNameFromEmail(user.email || "");
+          subscriberProfile = profile;
+          const preferredName = profile?.name || "";
           if (preferredName && !nameInput.value.trim()) nameInput.value = preferredName;
         });
       }
@@ -438,6 +551,7 @@ const publicFirebaseConfigJson = JSON.stringify({
         await upsertSubscriberRecord(credential.user, {
           name: pending?.name,
           preferences: Array.isArray(pending?.preferences) ? pending.preferences : [],
+          segmentTags: normalizeSegments(pending?.segmentTags),
           source: pending?.source || "global_modal",
         });
         clearPendingSubscriber();
@@ -477,18 +591,27 @@ const publicFirebaseConfigJson = JSON.stringify({
 
           const name = nameInput instanceof HTMLInputElement ? nameInput.value : "";
           const preferences = collectPreferences();
+          const segmentTags = collectSegmentTags(preferences);
+          const source = sourceForCurrentPage();
 
           if (modalSubmit instanceof HTMLButtonElement) {
             modalSubmit.disabled = true;
           }
 
           try {
+            if (authUser?.uid && profileHasSegments(subscriberProfile, segmentTags)) {
+              showSuccess("Already subscribed", "This subscriber account is already on that list.");
+              return;
+            }
+
             if (authUser?.uid && normalizeEmail(authUser.email) === normalizedEmail) {
               await upsertSubscriberRecord(authUser, {
                 name,
                 preferences,
-                source: "global_modal",
+                segmentTags,
+                source,
               });
+              subscriberProfile = await getSubscriberRecord(authUser.uid);
               showSuccess("Subscription confirmed", "Your subscriber account is active.");
               return;
             }
@@ -501,7 +624,8 @@ const publicFirebaseConfigJson = JSON.stringify({
               email: normalizedEmail,
               name: normalizeString(name).slice(0, 80),
               preferences,
-              source: "global_modal",
+              segmentTags,
+              source,
             });
             showSuccess("Check your inbox", "Use the sign-in link to confirm your subscription.");
           } catch (error) {

@@ -577,15 +577,7 @@ export const siteCopy = {
       lat: 41.69,
       lng: 44.83,
     },
-    quotes: [
-      { text: "Ferries here are not transport. They are philosophy.", postId: 4 },
-      { text: "10 dirhams for five minutes of quiet.", postId: 2 },
-      { text: "The evidence was destroyed immediately.", postId: 1 },
-      { text: "It is impossibly, stubbornly itself.", postId: 1 },
-      { text: "A person who needs food and sleep and occasionally to watch the sea.", postId: 3 },
-      { text: "Nobody warned me \u2014 woodsmoke and roses.", postId: 1 },
-      { text: "Whether it was silence, or just the permission to stop.", postId: 2 },
-    ],
+    quotes: [],
     filters: {
       label: "View",
       defaultCategoryLabel: "Dispatch",
@@ -764,9 +756,10 @@ export const siteCopy = {
       titleMain: "Why I Keep Sending",
       titleEm: "You These",
       paragraphs: [
-        "I had a WhatsApp group with over 50 people who wanted to keep track of me while I traveled abroad. They would react with emojis and inside jokes and the occasional message asking if I was alive at 2am (mostly from my mom). No matter where in the world I was, I had my community around me.",
-        "This is the same thing, but slower. More considered. A little more permanent. I write these for the same reason I wrote those WhatsApp updates -- because something is lost when we experience things without trying to articulate them, and the world gets smaller when you only talk to people who already see it the way you do.",
-        "Agree with me. Argue with me. Tell me what you are reading. Leave a comment. Suggest a place. The whole point is that you are here.",
+        "I had a WhatsApp group called \"Travel Updates\" where I would send photos, travel logs, and general updates. It was my way of including my friends and family into my daily adventures while abroad.",
+        "Eventually, the group grew and became harder and harder to manage. I was pursuing too many different things to spam my group with every new photo, article, interview, or update.",
+        "So, I developed this site. A little more permanent and interactive. More custom to what I wanted that WhatsApp group to represent. A place where I can send dispatches to you and hear your thoughts.",
+        "So whether its just a small reaction or a long form comment, I would love to hear from you. Let me know what you think of these scrap notes from abroad.",
       ],
       signatureName: "The Correspondent",
       signatureLine: "Writing from abroad, always.",
@@ -775,10 +768,10 @@ export const siteCopy = {
     footer: {
       title: "The Scrap Sheet",
       subtitle: "Written from the road. Read anywhere.",
-      subscribeLabel: "Subscribe ->",
+      subscribeLabel: "Subscribe",
     },
     postCard: {
-      openLabel: "Open dispatch ->",
+      openLabel: "Open dispatch →",
       photoSingular: "photo",
       photoPlural: "photos",
     },

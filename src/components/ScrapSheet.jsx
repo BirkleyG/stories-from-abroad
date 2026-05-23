@@ -29,10 +29,10 @@ import { siteCopy } from "../content/siteCopy";
 const copy = siteCopy.dispatches;
 const RED = "#CC1111";
 
-const QUOTES = copy.quotes;
 const POSTS = copy.posts;
 const CATS = copy.categories;
 const INITIAL_COMMENTS = copy.defaultComments;
+const SUBSCRIBER_SEGMENTS = ["Articles & Op-Eds", "Photography", "Faces of the World", "Travel"];
 const QUICK_REACTIONS = ["❤️", "🔥", "😂", "😮", "✈️", "🌍", "👏", "✨", "🥳", "💯"];
 
 // ── HELPERS ───────────────────────────────────────────────────────────────────
@@ -63,6 +63,26 @@ function matchesSearch(post, q) {
     post.location.toLowerCase().includes(lq) ||
     catLabel.toLowerCase().includes(lq)
   );
+}
+
+function subscriberSegments(profile) {
+  if (!profile || typeof profile !== "object") return [];
+  var direct = Array.isArray(profile.segmentTags)
+    ? profile.segmentTags.filter(function(segment){ return SUBSCRIBER_SEGMENTS.includes(segment); })
+    : [];
+  if (direct.length) return Array.from(new Set(direct));
+  var preferences = Array.isArray(profile.preferences) ? profile.preferences : [];
+  if (preferences.includes("all") || profile.wantsAllUpdates) return SUBSCRIBER_SEGMENTS.slice();
+  var next = [];
+  if (preferences.includes("articles") || preferences.includes("papers") || profile.wantsPapers) next.push("Articles & Op-Eds");
+  if (preferences.includes("photography") || profile.wantsPhotography) next.push("Photography");
+  if (preferences.includes("faces") || preferences.includes("stories") || profile.wantsFaces) next.push("Faces of the World");
+  if (preferences.includes("travel") || profile.wantsTravel) next.push("Travel");
+  return Array.from(new Set(next));
+}
+
+function subscriberHasSegment(profile, segment) {
+  return isSubscriberProfileActive(profile) && subscriberSegments(profile).includes(segment);
 }
 
 function decodeLandPaths(topo) {
@@ -531,7 +551,15 @@ function Globe(props) {
 // ── TYPEWRITER QUOTES ─────────────────────────────────────────────────────────
 
 function TypewriterQuotes({ onQuoteClick, quotes }) {
-  var list = quotes && quotes.length ? quotes : QUOTES;
+  function pickNextIndex(current, length) {
+    if (length <= 1) return 0;
+    var next = current;
+    while (next === current) {
+      next = Math.floor(Math.random() * length);
+    }
+    return next;
+  }
+  var list = Array.isArray(quotes) ? quotes.filter(function(item){ return item && item.text; }) : [];
   var st = useState({ idx: 0, chars: 0, del: false });
   var state = st[0], setState = st[1];
   useEffect(function() {
@@ -540,20 +568,21 @@ function TypewriterQuotes({ onQuoteClick, quotes }) {
     if (!del && chars < q.length)       t = setTimeout(function(){setState(function(s){return{idx:s.idx,chars:s.chars+1,del:false};});},48);
     else if (!del && chars===q.length)  t = setTimeout(function(){setState(function(s){return{idx:s.idx,chars:s.chars,del:true};});},2800);
     else if (del && chars > 0)          t = setTimeout(function(){setState(function(s){return{idx:s.idx,chars:s.chars-1,del:true};});},20);
-    else setState(function(s){return{idx:(s.idx+1)%list.length,chars:0,del:false};});
+    else setState(function(s){return{idx:pickNextIndex(s.idx, list.length),chars:0,del:false};});
     return function(){clearTimeout(t);};
   }, [state, list]);
+  if (!list.length) return null;
 
   var q = list[state.idx] || { text: "", postId: "" };
   var done = state.chars === q.text.length && !state.del;
+  var typed = String(q.text || "").replace(/^\s+/, "").slice(0, state.chars);
   return (
-    <button className="quote-btn" onClick={function(){if(q.postId) onQuoteClick(q.postId);}}>
-      <div style={{fontFamily:"'Courier Prime',monospace",fontSize:13,lineHeight:1.5,display:"flex",alignItems:"center",gap:2,flexWrap:"wrap"}}>
-        <span style={{color:RED}}>{"\u201c"}</span>
-        <span style={{color:RED}}>{q.text.slice(0,state.chars)}</span>
+    <button className="quote-btn" onClick={function(){if(q.postId) onQuoteClick(q.postId);}} style={{display:"block",height:78,width:"100%",overflow:"hidden"}}>
+      <div style={{fontFamily:"'Courier Prime',monospace",fontSize:13,lineHeight:1.5,color:RED,whiteSpace:"normal",textWrap:"balance"}}>
+        <span>{typed ? "\u201c" + typed : "\u201c"}</span>
         {done
-          ? <span style={{color:RED}}>{"\u201d"}</span>
-          : <span style={{color:RED,animation:"blink 1s step-end infinite"}}>|</span>
+          ? <span>{"\u201d"}</span>
+          : <span style={{animation:"blink 1s step-end infinite"}}>|</span>
         }
       </div>
     </button>
@@ -896,8 +925,9 @@ function PostModal({
   onComment,
   newComment,
   setNewComment,
+  commenterName,
+  setCommenterName,
   threadRef,
-  canComment,
   commentAuthorName,
   commentWarning,
   commentSignInEmail,
@@ -981,43 +1011,40 @@ function PostModal({
               })}
             </div>
             <div style={{padding:"0 28px 22px",display:"flex",flexDirection:"column",gap:8}}>
-              {canComment ? (
-                <>
-                  <div style={{fontFamily:"'Jost',sans-serif",fontSize:11,color:"var(--muted)",letterSpacing:".04em"}}>
-                    Commenting as <strong style={{color:"var(--ink2)"}}>{commentAuthorName}</strong>
-                  </div>
-                  <div style={{display:"flex",gap:7,alignItems:"flex-start"}}>
-                    <textarea
-                      className="tinput"
-                      placeholder={copy.postModal.commentPlaceholder}
-                      value={newComment}
-                      onChange={function(e){setNewComment(e.target.value);}}
-                      rows={2}
-                      onKeyDown={function(e){if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();onComment();}}}
-                    />
-                    <button className="sendbtn" onClick={onComment}>{copy.postModal.sendLabel}</button>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div style={{fontFamily:"'Lora',serif",fontSize:13,color:"var(--muted)",lineHeight:1.6}}>
-                    Sign in with your subscriber email to comment.
-                  </div>
-                  <div style={{display:"flex",gap:7,alignItems:"flex-start"}}>
-                    <input
-                      className="tinput"
-                      type="email"
-                      placeholder={copy.subscribeModal.emailPlaceholder}
-                      value={commentSignInEmail}
-                      onChange={function(e){setCommentSignInEmail(e.target.value);}}
-                      onKeyDown={function(e){if(e.key==="Enter"){e.preventDefault();onRequestCommentSignIn();}}}
-                    />
-                    <button className="sendbtn" onClick={onRequestCommentSignIn} disabled={sendingCommentSignIn}>
-                      {sendingCommentSignIn ? "Sending..." : "Email Sign-In Link"}
-                    </button>
-                  </div>
-                </>
-              )}
+              <div style={{fontFamily:"'Jost',sans-serif",fontSize:11,color:"var(--muted)",letterSpacing:".04em"}}>
+                Commenting as <strong style={{color:"var(--ink2)"}}>{commentAuthorName}</strong>
+              </div>
+              <input
+                className="tinput"
+                type="text"
+                placeholder={copy.postModal.namePlaceholder}
+                value={commenterName}
+                onChange={function(e){setCommenterName(e.target.value);}}
+              />
+              <div style={{display:"flex",gap:7,alignItems:"flex-start"}}>
+                <textarea
+                  className="tinput"
+                  placeholder={copy.postModal.commentPlaceholder}
+                  value={newComment}
+                  onChange={function(e){setNewComment(e.target.value);}}
+                  rows={2}
+                  onKeyDown={function(e){if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();onComment();}}}
+                />
+                <button className="sendbtn" onClick={onComment}>{copy.postModal.sendLabel}</button>
+              </div>
+              <div style={{display:"flex",gap:7,alignItems:"flex-start"}}>
+                <input
+                  className="tinput"
+                  type="email"
+                  placeholder={copy.subscribeModal.emailPlaceholder}
+                  value={commentSignInEmail}
+                  onChange={function(e){setCommentSignInEmail(e.target.value);}}
+                  onKeyDown={function(e){if(e.key==="Enter"){e.preventDefault();onRequestCommentSignIn();}}}
+                />
+                <button className="sendbtn" onClick={onRequestCommentSignIn} disabled={sendingCommentSignIn}>
+                  {sendingCommentSignIn ? "Sending..." : "Sign in (optional)"}
+                </button>
+              </div>
               {commentWarning ? (
                 <div style={{fontFamily:"'Jost',sans-serif",fontSize:11,color:"var(--red)",lineHeight:1.5}}>
                   {commentWarning}
@@ -1082,6 +1109,7 @@ export default function ScrapSheet({ backHref = "/" }) {
   var commentsS=useState(INITIAL_COMMENTS),comments=commentsS[0],setComments=commentsS[1];
   var showSubS=useState(false),showSub=showSubS[0],setShowSub=showSubS[1];
   var newComS=useState(""),newComment=newComS[0],setNewComment=newComS[1];
+  var commenterS=useState(""),commenterName=commenterS[0],setCommenterName=commenterS[1];
   var emailS=useState(""),email=emailS[0],setEmail=emailS[1];
   var subscribedS=useState(false),subscribed=subscribedS[0],setSubscribed=subscribedS[1];
   var subStatusS=useState(""),subStatus=subStatusS[0],setSubStatus=subStatusS[1];
@@ -1157,7 +1185,7 @@ export default function ScrapSheet({ backHref = "/" }) {
           var profile = await getSubscriberRecord(currentUser.uid);
           if (active) {
             setSubscriberProfile(profile);
-            if (isSubscriberProfileActive(profile)) setSubscribed(true);
+            setSubscribed(subscriberHasSegment(profile, "Travel"));
           }
         }
       } catch (error) {
@@ -1175,7 +1203,7 @@ export default function ScrapSheet({ backHref = "/" }) {
         var profile = await getSubscriberRecord(user.uid);
         if (!active) return;
         setSubscriberProfile(profile);
-        if (isSubscriberProfileActive(profile)) setSubscribed(true);
+        setSubscribed(subscriberHasSegment(profile, "Travel"));
       });
     })();
     return function(){
@@ -1350,15 +1378,12 @@ export default function ScrapSheet({ backHref = "/" }) {
   var handleComment=async function(postId){
     var trimmed = newComment.trim();
     if(!trimmed)return;
-    if (!authUser?.uid || !isSubscriberProfileActive(subscriberProfile)) {
-      setCommentWarning("Sign in with an active subscriber account to comment.");
-      return;
-    }
 
     setCommentWarning("");
     var authorName =
+      commenterName.trim() ||
       (subscriberProfile && typeof subscriberProfile.name === "string" && subscriberProfile.name.trim()) ||
-      fallbackNameFromEmail(authUser.email || "") ||
+      fallbackNameFromEmail(authUser?.email || "") ||
       copy.postModal.defaultAuthor;
     if (!firestoreReady || !db) {
       setCommentWarning("Comments are temporarily unavailable.");
@@ -1366,7 +1391,8 @@ export default function ScrapSheet({ backHref = "/" }) {
     }
 
     try {
-      var throttleRef = doc(db, "comment_throttles", authUser.uid);
+      var throttleKey = authUser?.uid || anonId || "guest";
+      var throttleRef = doc(db, "comment_throttles", throttleKey);
       var throttle = await getDoc(throttleRef).then(function(snap){ return snap.exists() ? snap.data() : null; }).catch(function(){ return null; });
       var activeWindow = Boolean(
         throttle &&
@@ -1396,13 +1422,13 @@ export default function ScrapSheet({ backHref = "/" }) {
 
         var commentRef = doc(collection(db, COLLECTIONS.posts, String(postId), "comments"));
         tx.set(commentRef, {
-          authorUid: authUser.uid,
+          authorUid: authUser?.uid || null,
           authorName: authorName.slice(0, 80),
           text: trimmed.slice(0, 1200),
           createdAt: serverTimestamp(),
         });
         tx.set(throttleRef, {
-          uid: authUser.uid,
+          uid: throttleKey,
           windowStart: txnActiveWindow ? txnThrottle.windowStart : serverTimestamp(),
           count: txnNextCount,
           updatedAt: serverTimestamp(),
@@ -1436,6 +1462,7 @@ export default function ScrapSheet({ backHref = "/" }) {
     try {
       var result = await sendSubscriberSignInLink({
         email: targetEmail,
+        segmentTags: ["Travel"],
         source: "travel_comment",
         redirectUrl: window.location.href,
       });
@@ -1444,7 +1471,7 @@ export default function ScrapSheet({ backHref = "/" }) {
       } else if (result.linked) {
         var signedInUser = await getCurrentAuthUser();
         if (signedInUser) {
-          await upsertSubscriberRecord(signedInUser, { source: "travel_comment" });
+          await upsertSubscriberRecord(signedInUser, { segmentTags: ["Travel"], source: "travel_comment" });
           setAuthUser(signedInUser);
           var profile = await getSubscriberRecord(signedInUser.uid);
           setSubscriberProfile(profile);
@@ -1466,12 +1493,35 @@ export default function ScrapSheet({ backHref = "/" }) {
       setSubStatus("Please enter a valid email.");
       return;
     }
+    if (authUser?.uid && isSubscriberProfileActive(subscriberProfile)) {
+      if (subscriberHasSegment(subscriberProfile, "Travel")) {
+        setSubscribed(true);
+        setSubStatus("You are already subscribed to Travel updates.");
+        return;
+      }
+      if (authUser.email && normalizeEmail(authUser.email) === targetEmail) {
+        setSubSending(true);
+        setSubStatus("");
+        try {
+          await upsertSubscriberRecord(authUser, { segmentTags: ["Travel"], source: "travel_subscribe" });
+          var updatedProfile = await getSubscriberRecord(authUser.uid);
+          setSubscriberProfile(updatedProfile);
+          setSubscribed(true);
+        } catch (error) {
+          setSubStatus("Subscription failed. Try again in a moment.");
+        } finally {
+          setSubSending(false);
+        }
+        return;
+      }
+    }
     setCommentSignInEmail(targetEmail);
     setSubSending(true);
     setSubStatus("");
     try {
       var result = await sendSubscriberSignInLink({
         email: targetEmail,
+        segmentTags: ["Travel"],
         source: "travel_subscribe",
         redirectUrl: window.location.href,
       });
@@ -1482,7 +1532,7 @@ export default function ScrapSheet({ backHref = "/" }) {
       if (result.linked) {
         var signedUser = await getCurrentAuthUser();
         if (signedUser) {
-          await upsertSubscriberRecord(signedUser, { source: "travel_subscribe" });
+          await upsertSubscriberRecord(signedUser, { segmentTags: ["Travel"], source: "travel_subscribe" });
           setAuthUser(signedUser);
           var signedProfile = await getSubscriberRecord(signedUser.uid);
           setSubscriberProfile(signedProfile);
@@ -1519,8 +1569,8 @@ export default function ScrapSheet({ backHref = "/" }) {
   var dispatchCount = copy.hero.countTemplate
     .replace("{current}", String(posts.length).padStart(2,"0"))
     .replace("{total}", String(posts.length).padStart(2,"0"));
-  var canComment = Boolean(authUser?.uid && isSubscriberProfileActive(subscriberProfile));
   var commentAuthorName =
+    commenterName.trim() ||
     (subscriberProfile && typeof subscriberProfile.name === "string" && subscriberProfile.name.trim()) ||
     fallbackNameFromEmail(authUser?.email || "") ||
     copy.postModal.defaultAuthor;
@@ -1694,8 +1744,9 @@ export default function ScrapSheet({ backHref = "/" }) {
           onClose={closePost}
           onComment={function(){handleComment(expanded.id);}}
           newComment={newComment} setNewComment={setNewComment}
+          commenterName={commenterName}
+          setCommenterName={setCommenterName}
           threadRef={threadRef}
-          canComment={canComment}
           commentAuthorName={commentAuthorName}
           commentWarning={commentWarning}
           commentSignInEmail={commentSignInEmail}

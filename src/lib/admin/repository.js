@@ -318,6 +318,15 @@ export function subscribePhotographyFeaturedConfig(callback, onError) {
   }, onError);
 }
 
+export function subscribeSubscribers(callback, onError) {
+  assertFirestoreReady();
+  return onSnapshot(
+    query(collection(db, "subscribers"), orderBy("createdAt", "desc"), limit(500)),
+    (snapshot) => callback(snapshot.docs.map((item) => ({ id: item.id, ...item.data() }))),
+    onError
+  );
+}
+
 export async function getDraft(kind, id) {
   assertFirestoreReady();
   const snapshot = await getDoc(doc(db, collectionName(kind), id));
@@ -484,10 +493,18 @@ export async function deleteDraft(kind, id) {
 export async function saveSectionMediaConfig(config, user) {
   assertFirestoreReady();
   const ref = doc(db, SITE_CONFIG_COLLECTION, SITE_CONFIG_DOCS.sectionMedia);
+  const papersTypewriterLines = Array.isArray(config?.papersTypewriterLines)
+    ? config.papersTypewriterLines.map((line) => cleanText(line)).filter(Boolean)
+    : [];
+  const papersWritingTypes = Array.isArray(config?.papersWritingTypes)
+    ? config.papersWritingTypes.map((type) => cleanText(type)).filter(Boolean)
+    : [];
   const payload = sanitize({
     readStoryPortrait: config?.readStoryPortrait || null,
     papersHeroImage: config?.papersHeroImage || null,
     papersAuthorPortrait: config?.papersAuthorPortrait || null,
+    papersTypewriterLines,
+    papersWritingTypes,
     based: cleanText(config?.based),
     studying: cleanText(config?.studying),
     shooting: cleanText(config?.shooting),

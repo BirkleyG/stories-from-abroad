@@ -96,6 +96,24 @@ const initialFeatCounter = copy.featured.counterTemplate
         text-transform: uppercase;
         color: var(--ink3);
       }
+      .nav-subscribe,
+      .footer-subscribe {
+        border: 1px solid var(--border);
+        background: transparent;
+        color: var(--ink3);
+        font-family: "Cormorant Garamond", serif;
+        font-size: 10px;
+        letter-spacing: 0.26em;
+        text-transform: uppercase;
+        padding: 8px 12px;
+        cursor: pointer;
+        transition: color 0.2s, border-color 0.2s, background 0.2s;
+      }
+      .nav-subscribe:hover,
+      .footer-subscribe:hover {
+        border-color: var(--gold);
+        color: var(--gold);
+      }
 
       #hero {
         position: relative;
@@ -197,7 +215,7 @@ const initialFeatCounter = copy.featured.counterTemplate
         animation: heroTitleIn 0.7s ease 0.52s both;
       }
       .hero-tw {
-        font-family: "Lora", serif;
+        font-family: "Times New Roman", Times, serif;
         font-size: 15.5px;
         font-style: italic;
         line-height: 1.76;
@@ -270,7 +288,7 @@ const initialFeatCounter = copy.featured.counterTemplate
         font-family: "Cormorant", serif;
         font-weight: 300;
         font-size: 22px;
-        color: var(--ink2);
+        color: var(--gold);
         letter-spacing: -0.01em;
       }
 
@@ -303,7 +321,7 @@ const initialFeatCounter = copy.featured.counterTemplate
 
       #featured {
         position: relative;
-        min-height: calc(100vh - var(--nav-h));
+        min-height: clamp(380px, 56vh, 620px);
         background: var(--white);
         overflow: hidden;
         display: flex;
@@ -333,8 +351,13 @@ const initialFeatCounter = copy.featured.counterTemplate
       }
       .feat-content {
         position: relative;
-        padding: 80px 52px 110px;
+        padding: 52px 52px 96px;
         width: 100%;
+        transition: opacity 0.24s ease, transform 0.24s ease;
+      }
+      .feat-content.is-transitioning {
+        opacity: 0.3;
+        transform: translateY(6px);
       }
       .feat-kicker {
         font-family: "Cormorant Garamond", serif;
@@ -378,9 +401,14 @@ const initialFeatCounter = copy.featured.counterTemplate
         letter-spacing: 0.01em;
         color: white;
         mix-blend-mode: difference;
-        max-width: 650px;
+        max-width: min(960px, 78%);
         margin-bottom: 28px;
         position: relative;
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        text-overflow: ellipsis;
         animation: heroTitleIn 0.7s ease 0.26s both;
       }
       .feat-kws {
@@ -395,9 +423,30 @@ const initialFeatCounter = copy.featured.counterTemplate
         font-size: 10px;
         letter-spacing: 0.24em;
         text-transform: uppercase;
-        color: rgba(255, 255, 255, 0.64);
-        border: 1px solid rgba(255, 255, 255, 0.16);
+        color: #fff;
+        border: 1px solid rgba(255, 255, 255, 0.6);
         padding: 4px 10px;
+        mix-blend-mode: difference;
+      }
+      .feat-progress-orb {
+        --dot-progress: 0%;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        border: 1px solid rgba(255, 255, 255, 0.55);
+        background: rgba(255, 255, 255, 0.14);
+        flex-shrink: 0;
+        cursor: pointer;
+        transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+      }
+      .feat-progress-orb.active {
+        width: 18px;
+        height: 18px;
+        border-color: var(--green);
+        background:
+          radial-gradient(circle at 50% 50%, rgba(22, 52, 34, 0.2) 0 42%, transparent 44%),
+          conic-gradient(var(--green) var(--dot-progress), rgba(22, 52, 34, 0.2) 0);
+        transform: scale(1.02);
       }
       .feat-meta {
         display: flex;
@@ -446,41 +495,11 @@ const initialFeatCounter = copy.featured.counterTemplate
         bottom: 26px;
         display: flex;
         align-items: center;
-        justify-content: space-between;
+        justify-content: flex-start;
       }
       .feat-dots {
         display: flex;
-        gap: 10px;
-      }
-      .feat-dot {
-        width: 7px;
-        height: 7px;
-        border-radius: 50%;
-        border: 1px solid rgba(255, 255, 255, 0.45);
-        cursor: pointer;
-        transition: background 0.2s, transform 0.2s;
-      }
-      .feat-dot.active {
-        background: #fff;
-        transform: scale(1.1);
-      }
-      .feat-arrows {
-        display: flex;
-        gap: 10px;
-      }
-      .feat-arr {
-        width: 36px;
-        height: 36px;
-        border-radius: 50%;
-        border: 1px solid rgba(255, 255, 255, 0.3);
-        background: rgba(255, 255, 255, 0.08);
-        color: #fff;
-        cursor: pointer;
-        transition: background 0.2s, border 0.2s;
-      }
-      .feat-arr:hover {
-        background: rgba(255, 255, 255, 0.18);
-        border-color: rgba(255, 255, 255, 0.5);
+        gap: 12px;
       }
 
       #library {
@@ -540,18 +559,20 @@ const initialFeatCounter = copy.featured.counterTemplate
       .search-bar {
         display: flex;
         align-items: center;
-        background: var(--white);
-        border: 1px solid var(--border);
+        background: transparent;
+        border: 1px solid rgba(255, 255, 255, 0.72);
         border-radius: 999px;
         overflow: hidden;
         margin-bottom: 22px;
+        color: #fff;
+        mix-blend-mode: difference;
       }
       .s-wrap {
         display: flex;
         align-items: center;
         gap: 10px;
         padding: 14px 18px;
-        color: var(--ink3);
+        color: #fff;
         flex: 1;
         min-height: 54px;
       }
@@ -562,6 +583,10 @@ const initialFeatCounter = copy.featured.counterTemplate
         font-family: "Lora", serif;
         font-size: 14px;
         background: transparent;
+        color: #fff;
+      }
+      .s-input::placeholder {
+        color: rgba(255, 255, 255, 0.82);
       }
       .s-sep {
         display: none;
@@ -574,12 +599,12 @@ const initialFeatCounter = copy.featured.counterTemplate
         font-size: 11px;
         letter-spacing: 0.2em;
         text-transform: uppercase;
-        color: var(--ink3);
+        color: #fff;
         background: transparent;
         min-width: 150px;
         cursor: pointer;
         height: 54px;
-        border-left: 1px solid var(--border);
+        border-left: 1px solid rgba(255, 255, 255, 0.45);
       }
 
       .papers-list {
@@ -795,6 +820,171 @@ const initialFeatCounter = copy.featured.counterTemplate
         color: var(--gold);
       }
 
+      body.segment-subscribe-open {
+        overflow: hidden;
+      }
+      .papers-subscribe {
+        position: fixed;
+        inset: 0;
+        z-index: 9500;
+        display: grid;
+        place-items: center;
+        overflow: auto;
+        background: transparent;
+        padding: 24px;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+      }
+      .papers-subscribe.is-open {
+        opacity: 1;
+        pointer-events: auto;
+      }
+      .papers-subscribe::before {
+        content: none;
+      }
+      .papers-subscribe-inner {
+        position: relative;
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 18px;
+        width: min(420px, 100%);
+        max-height: none;
+        overflow: hidden;
+        background: var(--white);
+        border: 1px solid rgba(255, 255, 255, 0.7);
+        border-radius: 22px;
+        padding: 30px 28px 28px;
+        box-shadow: 0 28px 90px rgba(0, 0, 0, 0.5);
+        isolation: isolate;
+        transform: translateY(10px) scale(0.975);
+        transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+      }
+      .papers-subscribe-ink {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        z-index: 0;
+      }
+      .papers-subscribe-copy {
+        position: relative;
+      }
+      .sub-dyn {
+        color: #fff;
+        mix-blend-mode: difference;
+      }
+      .sub-dyn.on-dark {
+        color: #fff;
+      }
+      .papers-subscribe.is-open .papers-subscribe-inner {
+        transform: translateY(0) scale(1);
+      }
+      .papers-subscribe-close {
+        position: absolute;
+        top: 14px;
+        right: 14px;
+        border: 1px solid rgba(255, 255, 255, 0.7);
+        background: transparent;
+        width: 34px;
+        height: 34px;
+        cursor: pointer;
+        z-index: 2;
+      }
+      .papers-subscribe-close.sub-dyn {
+        border-color: currentColor;
+      }
+      .papers-subscribe-kicker {
+        font-family: "Cormorant Garamond", serif;
+        font-size: 11px;
+        letter-spacing: 0.32em;
+        text-transform: uppercase;
+        color: var(--gold);
+        margin-bottom: 18px;
+      }
+      .papers-subscribe h2 {
+        font-family: "Cormorant", serif;
+        font-size: clamp(2rem, 4vw, 3.2rem);
+        font-weight: 500;
+        line-height: 0.88;
+        margin-bottom: 20px;
+      }
+      .papers-subscribe h2 em {
+        color: var(--green);
+        font-style: italic;
+        mix-blend-mode: normal;
+      }
+      .papers-subscribe p {
+        font-size: 15px;
+        line-height: 1.85;
+      }
+      .papers-subscribe-form {
+        display: grid;
+        gap: 12px;
+        position: relative;
+        margin-top: 6px;
+      }
+      .papers-subscribe-input {
+        display: flex;
+        align-items: center;
+        min-height: 54px;
+        padding: 0 16px;
+        border: 1px solid currentColor;
+        border-radius: 999px;
+        background: transparent;
+        color: #fff;
+        mix-blend-mode: difference;
+      }
+      .papers-subscribe-input.on-dark {
+        color: #fff;
+      }
+      .papers-subscribe-form input {
+        width: 100%;
+        border: none;
+        background: transparent;
+        color: inherit;
+        font-family: "Lora", serif;
+        font-size: 14px;
+        outline: none;
+      }
+      .papers-subscribe-form input::placeholder {
+        color: color-mix(in srgb, currentColor 60%, transparent);
+      }
+      .papers-subscribe-form button {
+        border: 1px solid var(--gold);
+        background: transparent;
+        color: var(--gold);
+        padding: 11px 14px;
+        font-family: "Cormorant Garamond", serif;
+        font-size: 11px;
+        letter-spacing: 0.24em;
+        text-transform: uppercase;
+        cursor: pointer;
+        margin-top: 4px;
+        transition: background 0.2s ease, color 0.2s ease;
+      }
+      .papers-subscribe-form button:hover {
+        background: rgba(212, 175, 55, 0.14);
+        color: var(--gold);
+      }
+      .papers-subscribe-form button:disabled {
+        cursor: not-allowed;
+        opacity: 0.65;
+      }
+      .papers-subscribe-status {
+        min-height: 20px;
+        font-size: 13px;
+      }
+      .papers-subscribe-status[data-tone="ok"] {
+        color: var(--green);
+        mix-blend-mode: normal;
+      }
+      .papers-subscribe-status[data-tone="error"] {
+        color: #f29a8f;
+        mix-blend-mode: normal;
+      }
+
       footer {
         background: var(--ink);
         padding: 26px 52px;
@@ -808,6 +998,10 @@ const initialFeatCounter = copy.featured.counterTemplate
         font-size: 10.5px;
         letter-spacing: 0.2em;
         color: rgba(255, 255, 255, 0.22);
+      }
+      footer .footer-subscribe {
+        border-color: rgba(255, 255, 255, 0.14);
+        color: rgba(255, 255, 255, 0.34);
       }
 
       #overlay {
@@ -1090,6 +1284,9 @@ const initialFeatCounter = copy.featured.counterTemplate
         .author-content {
           padding: 72px 40px 72px 4%;
         }
+        .papers-subscribe-inner {
+          grid-template-columns: 1fr;
+        }
         .lib-ink {
           width: 75%;
         }
@@ -1339,6 +1536,7 @@ const initialFeatCounter = copy.featured.counterTemplate
     <nav id="nav">
       <a class="nav-back" href={basePath}>{copy.nav.backLabel}</a>
       <span class="nav-label">{copy.nav.label}</span>
+      <button class="nav-subscribe" type="button" data-subscribe-open="papers">Subscribe</button>
     </nav>
 
     <section id="hero">
@@ -1509,10 +1707,6 @@ const initialFeatCounter = copy.featured.counterTemplate
 
       <div class="feat-controls">
         <div class="feat-dots" id="feat-dots"></div>
-        <div class="feat-arrows">
-          <button class="feat-arr" onclick="moveFeat(-1)">&larr;</button>
-          <button class="feat-arr" onclick="moveFeat(1)">&rarr;</button>
-        </div>
       </div>
     </section>
 
@@ -1720,8 +1914,40 @@ const initialFeatCounter = copy.featured.counterTemplate
       </div>
     </section>
 
+    <section class="papers-subscribe" data-segment-subscribe="Articles & Op-Eds" data-subscribe-source="articles_scene" data-subscribe-id="papers" data-subscribe-modal="true">
+      <div class="papers-subscribe-inner">
+        <button class="papers-subscribe-close sub-dyn" type="button" data-subscribe-close aria-label="Close subscribe form">x</button>
+        <svg class="papers-subscribe-ink" viewBox="0 0 560 460" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path d="M 315 0 C 286 38, 296 90, 268 136 C 240 182, 256 226, 232 272 C 208 318, 224 360, 210 410 C 205 428, 212 447, 220 460 L 560 460 L 560 0 Z" fill="#111110" />
+          <g filter="url(#f-drop)">
+            <ellipse cx="236" cy="112" rx="24" ry="16" fill="#111110" opacity="0.82" />
+            <ellipse cx="210" cy="142" rx="14" ry="10" fill="#111110" opacity="0.66" />
+            <path d="M 186 166 C 194 160, 204 164, 202 176 C 200 187, 190 190, 184 182 C 178 174, 180 170, 186 166 Z" fill="#111110" opacity="0.5" />
+            <circle cx="170" cy="194" r="6" fill="#111110" opacity="0.34" />
+            <circle cx="160" cy="204" r="3.4" fill="#111110" opacity="0.22" />
+          </g>
+        </svg>
+        <div class="papers-subscribe-copy">
+          <div class="papers-subscribe-kicker">Articles &amp; Op-Eds</div>
+          <h2><span class="sub-dyn">Notes from the </span><em>margins.</em></h2>
+          <p class="sub-dyn">Subscribe for new essays, paper releases, and opinion pieces when something new is ready.</p>
+        </div>
+        <form class="papers-subscribe-form" data-subscribe-form>
+          <label class="papers-subscribe-input sub-dyn">
+            <input data-subscribe-email type="email" placeholder="your@email.com" autocomplete="email" />
+          </label>
+          <label class="papers-subscribe-input sub-dyn">
+            <input data-subscribe-name type="text" placeholder="Name (optional)" autocomplete="name" />
+          </label>
+          <button data-subscribe-submit type="submit">Subscribe to Articles</button>
+          <p class="papers-subscribe-status sub-dyn" data-subscribe-status aria-live="polite"></p>
+        </form>
+      </div>
+    </section>
+
     <footer>
       <p>{copy.footer.left}</p>
+      <button class="footer-subscribe" type="button" data-subscribe-open="papers">Subscribe</button>
       <p>{copy.footer.right}</p>
     </footer>
 
@@ -1742,6 +1968,9 @@ const initialFeatCounter = copy.featured.counterTemplate
     <script id="papers-copy" type="application/json" set:html={copyJson}></script>
     <script id="public-firestore-config" type="application/json" set:html={publicFirestoreConfigJson}></script>
     <script src={`${basePath}scripts/public-firestore.js`}></script>
+    <script>
+      import "../scripts/segmentSubscribeScene.js";
+    </script>
     <script is:inline>
       (function () {
         function esc(value) {
@@ -1814,9 +2043,15 @@ const initialFeatCounter = copy.featured.counterTemplate
           };
         }
 
+        let runtimeTypewriterLines = Array.isArray(copy.typewriterLines) ? copy.typewriterLines.slice() : [];
+
         function applySectionMedia(config) {
           const hero = document.getElementById("papers-hero-media");
           const authorPortrait = document.getElementById("papers-author-portrait");
+          if (config && Array.isArray(config.papersTypewriterLines)) {
+            const lines = config.papersTypewriterLines.map(function (line) { return String(line || "").trim(); }).filter(Boolean);
+            if (lines.length) runtimeTypewriterLines = lines;
+          }
           if (hero && config && config.papersHeroImage && config.papersHeroImage.url) {
             hero.classList.remove("is-empty");
             hero.innerHTML = '<img src="' + esc(config.papersHeroImage.url) + '" alt="' + esc(config.papersHeroImage.alt || "Selected Papers hero image") + '" loading="lazy">';
@@ -1828,9 +2063,9 @@ const initialFeatCounter = copy.featured.counterTemplate
           }
         }
 
-        function initTypewriter(copy) {
+        function initTypewriter() {
           const twEl = document.getElementById("tw-el");
-          const lines = copy.typewriterLines || [];
+          const lines = runtimeTypewriterLines || [];
           if (!twEl || !lines.length) return;
           let li = 0;
           let ci = 0;
@@ -1859,14 +2094,16 @@ const initialFeatCounter = copy.featured.counterTemplate
         const copy = readJson("papers-copy");
         const publicConfig = readJson("public-firestore-config");
         if (!copy || !window.SFAPublicFirestore) return;
-        initTypewriter(copy);
-
         const state = {
           papers: [],
           featured: [],
           featIdx: 0,
           autoTimer: null,
+          progressRaf: null,
+          progressStartedAt: 0,
+          swapTimer: null,
         };
+        const FEATURED_CYCLE_MS = 8000;
 
         const counterTemplate = copy.featured.counterTemplate;
         const citationStyles = copy.overlay.citationStyles || [];
@@ -1908,6 +2145,7 @@ const initialFeatCounter = copy.featured.counterTemplate
         }
 
         function setFeaturedEmpty() {
+          clearFeaturedTimers();
           document.getElementById("feat-kicker").textContent = "Published Writing";
           document.getElementById("feat-title").textContent = "No published papers yet";
           document.getElementById("feat-summary").textContent = "Published papers will appear here as soon as they are live in Firestore.";
@@ -1920,13 +2158,199 @@ const initialFeatCounter = copy.featured.counterTemplate
           button.textContent = "Awaiting Publication";
           button.disabled = true;
           button.onclick = null;
+          document.querySelectorAll(".feat-progress-orb").forEach(function (dot) {
+            dot.style.setProperty("--dot-progress", "0%");
+          });
         }
 
-        function triggerFeatAnim() {
-          const els = document.querySelectorAll(".feat-kicker,.feat-title,.feat-summary,.feat-kws,.feat-meta,.btn-read");
-          els.forEach(function (el) { el.style.animation = "none"; });
-          void document.getElementById("feat-content").offsetWidth;
-          els.forEach(function (el) { el.style.animation = ""; });
+        function parseRgbColor(value) {
+          if (!value) return null;
+          const match = String(value).match(/rgba?\(([^)]+)\)/i);
+          if (!match) return null;
+          const parts = match[1].split(",").map(function (part) { return Number(part.trim()); });
+          if (parts.length < 3 || parts.some(function (part, index) { return index < 3 && !Number.isFinite(part); })) return null;
+          return { r: parts[0], g: parts[1], b: parts[2], a: Number.isFinite(parts[3]) ? parts[3] : 1 };
+        }
+
+        function luminance(color) {
+          if (!color) return 0;
+          const channel = function (n) {
+            const c = n / 255;
+            return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+          };
+          return 0.2126 * channel(color.r) + 0.7152 * channel(color.g) + 0.0722 * channel(color.b);
+        }
+
+        function readBackgroundColor(target) {
+          let node = target;
+          while (node && node !== document.documentElement) {
+            const style = window.getComputedStyle(node);
+            const bg = parseRgbColor(style.backgroundColor);
+            if (bg && bg.a > 0) return bg;
+            if (node instanceof SVGGraphicsElement) {
+              const fill = parseRgbColor(style.fill);
+              if (fill && fill.a > 0) return fill;
+            }
+            node = node.parentElement;
+          }
+          return { r: 255, g: 255, b: 255, a: 1 };
+        }
+
+        function luminanceAtPoint(x, y, excludedElement) {
+          if (!Number.isFinite(x) || !Number.isFinite(y)) return 1;
+          const previousPointerEvents = excludedElement ? excludedElement.style.pointerEvents : "";
+          if (excludedElement) excludedElement.style.pointerEvents = "none";
+          const underneath = document.elementFromPoint(x, y);
+          if (excludedElement) excludedElement.style.pointerEvents = previousPointerEvents;
+          const color = readBackgroundColor(underneath || document.body);
+          return luminance(color);
+        }
+
+        function isLightBackgroundBehind(element) {
+          if (!element) return true;
+          const rect = element.getBoundingClientRect();
+          const points = [
+            [rect.left + rect.width * 0.18, rect.top + rect.height * 0.5],
+            [rect.left + rect.width * 0.5, rect.top + rect.height * 0.5],
+            [rect.left + rect.width * 0.82, rect.top + rect.height * 0.5],
+          ];
+          const avg = points.reduce(function (sum, point) {
+            return sum + luminanceAtPoint(point[0], point[1], element);
+          }, 0) / points.length;
+          return avg >= 0.46;
+        }
+
+        function applyAdaptiveMasks() {
+          const modal = document.querySelector(".papers-subscribe.is-open .papers-subscribe-inner");
+          if (!modal) return;
+          const inkSvg = modal.querySelector(".papers-subscribe-ink");
+          const dynEls = modal.querySelectorAll(".sub-dyn, .papers-subscribe-input");
+          if (!inkSvg) {
+            dynEls.forEach(function (el) {
+              el.classList.toggle("on-dark", !isLightBackgroundBehind(el));
+            });
+            return;
+          }
+
+          const modalRect = modal.getBoundingClientRect();
+          const vbW = 560;
+          const vbH = 460;
+          const scale = Math.max(modalRect.width / vbW, modalRect.height / vbH);
+          const drawW = vbW * scale;
+          const drawH = vbH * scale;
+          const offsetX = (modalRect.width - drawW) * 0.5;
+          const offsetY = (modalRect.height - drawH) * 0.5;
+
+          const hitCanvas = document.createElement("canvas");
+          const hitCtx = hitCanvas.getContext("2d");
+          const darkShapes = [];
+
+          function normalizedFill(shape) {
+            const attr = String(shape.getAttribute("fill") || "").toLowerCase().replace(/\s+/g, "");
+            if (attr) return attr;
+            const computed = String(window.getComputedStyle(shape).fill || "").toLowerCase().replace(/\s+/g, "");
+            return computed;
+          }
+
+          Array.from(inkSvg.querySelectorAll("path,ellipse,circle")).forEach(function (shape) {
+            const fill = normalizedFill(shape);
+            if (!(fill === "#111110" || fill === "rgb(17,17,16)")) return;
+            const tag = shape.tagName.toLowerCase();
+            if (tag === "path") {
+              const d = String(shape.getAttribute("d") || "").trim();
+              if (!d) return;
+              darkShapes.push({ kind: "path", path: new Path2D(d) });
+            } else if (tag === "ellipse") {
+              const cx = Number(shape.getAttribute("cx"));
+              const cy = Number(shape.getAttribute("cy"));
+              const rx = Number(shape.getAttribute("rx"));
+              const ry = Number(shape.getAttribute("ry"));
+              if (!Number.isFinite(cx) || !Number.isFinite(cy) || !Number.isFinite(rx) || !Number.isFinite(ry)) return;
+              darkShapes.push({ kind: "ellipse", cx: cx, cy: cy, rx: rx, ry: ry });
+            } else if (tag === "circle") {
+              const cx = Number(shape.getAttribute("cx"));
+              const cy = Number(shape.getAttribute("cy"));
+              const r = Number(shape.getAttribute("r"));
+              if (!Number.isFinite(cx) || !Number.isFinite(cy) || !Number.isFinite(r)) return;
+              darkShapes.push({ kind: "circle", cx: cx, cy: cy, r: r });
+            }
+          });
+
+          function isOnDarkInk(element) {
+            if (!element) return false;
+            if (!hitCtx || !darkShapes.length) {
+              return !isLightBackgroundBehind(element);
+            }
+            const rect = element.getBoundingClientRect();
+            const samples = [
+              [rect.left + rect.width * 0.12, rect.top + rect.height * 0.32],
+              [rect.left + rect.width * 0.3, rect.top + rect.height * 0.5],
+              [rect.left + rect.width * 0.5, rect.top + rect.height * 0.5],
+              [rect.left + rect.width * 0.7, rect.top + rect.height * 0.5],
+              [rect.left + rect.width * 0.88, rect.top + rect.height * 0.68],
+            ];
+            let darkHits = 0;
+            samples.forEach(function (sample) {
+              const localX = sample[0] - modalRect.left;
+              const localY = sample[1] - modalRect.top;
+              const sx = (localX - offsetX) / scale;
+              const sy = (localY - offsetY) / scale;
+              const hit = darkShapes.some(function (shape) {
+                if (shape.kind === "path") {
+                  return hitCtx.isPointInPath(shape.path, sx, sy);
+                }
+                if (shape.kind === "circle") {
+                  const dx = sx - shape.cx;
+                  const dy = sy - shape.cy;
+                  return (dx * dx + dy * dy) <= (shape.r * shape.r);
+                }
+                if (shape.kind === "ellipse") {
+                  const dx = sx - shape.cx;
+                  const dy = sy - shape.cy;
+                  return (dx * dx) / (shape.rx * shape.rx) + (dy * dy) / (shape.ry * shape.ry) <= 1;
+                }
+                return false;
+              });
+              if (hit) darkHits += 1;
+            });
+            return darkHits >= 2;
+          }
+
+          modal.querySelectorAll(".sub-dyn").forEach(function (el) {
+            el.classList.toggle("on-dark", isOnDarkInk(el));
+          });
+          modal.querySelectorAll(".papers-subscribe-input").forEach(function (el) {
+            el.classList.toggle("on-dark", isOnDarkInk(el));
+          });
+        }
+
+        function animateFeaturedProgress() {
+          if (state.progressRaf) cancelAnimationFrame(state.progressRaf);
+          state.progressStartedAt = performance.now();
+          const dots = document.querySelectorAll(".feat-progress-orb");
+          dots.forEach(function (dot) { dot.style.setProperty("--dot-progress", "0%"); });
+          function step(now) {
+            const progress = Math.min((now - state.progressStartedAt) / FEATURED_CYCLE_MS, 1);
+            const activeDot = document.querySelector(".feat-progress-orb.active");
+            if (activeDot) activeDot.style.setProperty("--dot-progress", String(progress * 100) + "%");
+            if (progress < 1 && state.featured.length > 1) {
+              state.progressRaf = requestAnimationFrame(step);
+            } else {
+              state.progressRaf = null;
+            }
+          }
+          state.progressRaf = requestAnimationFrame(step);
+        }
+
+        function clearFeaturedTimers() {
+          if (state.autoTimer) {
+            clearTimeout(state.autoTimer);
+            state.autoTimer = null;
+          }
+          if (state.progressRaf) {
+            cancelAnimationFrame(state.progressRaf);
+            state.progressRaf = null;
+          }
         }
 
         function updateFeat(idx) {
@@ -1935,36 +2359,44 @@ const initialFeatCounter = copy.featured.counterTemplate
             setFeaturedEmpty();
             return;
           }
-          document.getElementById("feat-kicker").textContent = paper.cat;
-          document.getElementById("feat-title").textContent = paper.title;
-          document.getElementById("feat-summary").textContent = paper.summary;
-          document.getElementById("feat-kws").innerHTML = paper.kw.map(function (keyword) {
-            return '<span class="feat-kw">' + esc(keyword) + "</span>";
-          }).join("");
-          document.getElementById("feat-meta").innerHTML =
-            "<span>" + esc(paper.date || paper.year) + "</span>" +
-            '<span class="feat-meta-dot"></span>' +
-            "<span>" + esc(paper.time) + esc(copy.featured.metaReadSuffix) + "</span>" +
-            '<span class="feat-meta-dot"></span>' +
-            "<span>" + esc(paper.type) + "</span>";
+          const content = document.getElementById("feat-content");
+          content.classList.add("is-transitioning");
+          if (state.swapTimer) clearTimeout(state.swapTimer);
+          state.swapTimer = setTimeout(function () {
+            document.getElementById("feat-kicker").textContent = paper.cat;
+            document.getElementById("feat-title").textContent = paper.title;
+            document.getElementById("feat-summary").textContent = paper.summary;
+            document.getElementById("feat-kws").innerHTML = paper.kw.map(function (keyword) {
+              return '<span class="feat-kw">' + esc(keyword) + "</span>";
+            }).join("");
+            document.getElementById("feat-meta").innerHTML =
+              "<span>" + esc(paper.date || paper.year) + "</span>" +
+              '<span class="feat-meta-dot"></span>' +
+              "<span>" + esc(paper.time) + esc(copy.featured.metaReadSuffix) + "</span>" +
+              '<span class="feat-meta-dot"></span>' +
+              "<span>" + esc(paper.type) + "</span>";
+            applyAdaptiveMasks();
+            requestAnimationFrame(function () {
+              content.classList.remove("is-transitioning");
+            });
+          }, 120);
           document.getElementById("feat-ghost").textContent = String(idx + 1).padStart(2, "0");
           document.getElementById("feat-ctr-sd").textContent = formatCounter(
             String(idx + 1).padStart(2, "0"),
             String(state.featured.length).padStart(2, "0")
           );
-          document.querySelectorAll(".feat-dot").forEach(function (dot, dotIndex) {
+          document.querySelectorAll(".feat-progress-orb").forEach(function (dot, dotIndex) {
             dot.classList.toggle("active", dotIndex === idx);
           });
           const button = document.getElementById("feat-btn");
           button.textContent = copy.featured.button;
           button.disabled = false;
           button.onclick = function () { openPaper(paper.id); };
-          triggerFeatAnim();
         }
 
         function buildFeatDots() {
           document.getElementById("feat-dots").innerHTML = state.featured.map(function (_, index) {
-            return '<div class="feat-dot' + (index === 0 ? " active" : "") + '" data-feat-index="' + index + '"></div>';
+            return '<button type="button" class="feat-progress-orb' + (index === 0 ? " active" : "") + '" data-feat-index="' + index + '" aria-label="Go to featured paper ' + String(index + 1) + '"></button>';
           }).join("");
           document.querySelectorAll("[data-feat-index]").forEach(function (dot) {
             dot.addEventListener("click", function () {
@@ -1987,11 +2419,12 @@ const initialFeatCounter = copy.featured.counterTemplate
         }
 
         function resetAutoTimer() {
-          clearInterval(state.autoTimer);
+          clearFeaturedTimers();
           if (state.featured.length < 2) return;
-          state.autoTimer = setInterval(function () {
+          animateFeaturedProgress();
+          state.autoTimer = setTimeout(function () {
             goFeat(state.featIdx + 1);
-          }, 8000);
+          }, FEATURED_CYCLE_MS);
         }
 
         function buildList(list) {
@@ -2157,6 +2590,7 @@ const initialFeatCounter = copy.featured.counterTemplate
               window.SFAPublicFirestore.listCollection(publicConfig, "papers"),
             ]);
             applySectionMedia(results[0] || {});
+            initTypewriter();
             state.papers = sortPapers((results[1] || []).map(function (paper, index) {
               return normalizePaper(copy, paper, index);
             }));
@@ -2175,6 +2609,7 @@ const initialFeatCounter = copy.featured.counterTemplate
             if (requestedPaper) {
               openPaper(requestedPaper.id);
             }
+            applyAdaptiveMasks();
           } catch (error) {
             console.warn("Selected Papers public load failed.", error);
             setFeaturedEmpty();
@@ -2199,6 +2634,17 @@ const initialFeatCounter = copy.featured.counterTemplate
         document.getElementById("f-cat").addEventListener("change", doFilter);
         document.getElementById("f-yr").addEventListener("change", doFilter);
         document.getElementById("f-tp").addEventListener("change", doFilter);
+        window.addEventListener("resize", applyAdaptiveMasks);
+        const subscribeScene = document.querySelector(".papers-subscribe");
+        if (subscribeScene && typeof MutationObserver !== "undefined") {
+          const observer = new MutationObserver(function () {
+            if (subscribeScene.classList.contains("is-open")) {
+              window.setTimeout(applyAdaptiveMasks, 50);
+              window.setTimeout(applyAdaptiveMasks, 220);
+            }
+          });
+          observer.observe(subscribeScene, { attributes: true, attributeFilter: ["class"] });
+        }
 
         boot();
       })();

@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Kyoto in Winter — Stories From Abroad</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Serif+Display:ital@0;1&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#050505;--text:#f4f0e8;--accent:#e8c547;--dim:#3a3a3a;--border:rgba(244,240,232,.08);--border2:rgba(244,240,232,.18);}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{background:var(--bg);color:var(--text);font-family:'Space Mono',monospace;overflow-x:hidden;}
+nav{position:fixed;top:0;left:0;right:0;z-index:300;display:flex;justify-content:space-between;align-items:center;padding:20px 44px;pointer-events:none;}
+nav a,nav span{pointer-events:all;}
+.nav-back{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--text);text-decoration:none;opacity:0;transition:opacity .3s;}
+.nav-back:hover{opacity:1;}
+.nav-logo{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:.3em;opacity:0;transition:opacity .3s;}
+
+#titleOverlay{
+  position:fixed;inset:0;z-index:100;pointer-events:none;
+  display:flex;align-items:flex-end;padding:0 52px 72px;
+  transition:opacity .5s ease;
+}
+#titleOverlay::before{content:'';position:absolute;inset:0;background:linear-gradient(to top,rgba(5,5,5,.88) 0%,rgba(5,5,5,.3) 40%,transparent 70%);}
+#titleOverlay::after{content:'Ancient temples under pale grey skies. The city between seasons.';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:90%;text-align:center;font-family:'Bebas Neue',sans-serif;font-size:clamp(28px,4.5vw,64px);letter-spacing:.06em;line-height:1.1;color:rgba(244,240,232,.045);pointer-events:none;user-select:none;}
+.to-inner{position:relative;z-index:2;animation:boldIn 1s cubic-bezier(.16,1,.3,1) .2s both;}
+@keyframes boldIn{from{opacity:0;transform:translateY(20px);}to{opacity:1;transform:none;}}
+.to-tag{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.35em;text-transform:uppercase;color:var(--accent);display:block;margin-bottom:12px;}
+.to-title{font-family:'Bebas Neue',sans-serif;font-size:clamp(80px,14vw,210px);line-height:.82;letter-spacing:.02em;}
+.to-t1{display:block;color:var(--text);}.to-t2{display:block;font-family:'DM Serif Display',serif;font-style:italic;color:var(--accent);font-size:clamp(44px,7vw,108px);}
+.to-meta{display:flex;align-items:center;gap:16px;margin-top:20px;}
+.to-meta span{font-family:'Space Mono',monospace;font-size:9px;letter-spacing:.2em;color:rgba(244,240,232,.32);}
+.to-sep{width:16px;height:1px;background:rgba(244,240,232,.1);flex-shrink:0;}
+
+#titleBar{
+  position:fixed;top:0;left:0;right:0;z-index:200;
+  display:flex;justify-content:space-between;align-items:center;
+  padding:12px 44px;
+  background:rgba(5,5,5,.94);backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--border);
+  opacity:0;transition:opacity .4s ease;
+  pointer-events:none;
+}
+.tb-name{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:.15em;color:var(--accent);}
+.tb-right{display:flex;align-items:center;gap:20px;}
+.tb-frames{font-family:'Space Mono',monospace;font-size:9px;letter-spacing:.18em;color:var(--dim);}
+.tb-back{font-family:'Space Mono',monospace;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--text);text-decoration:none;opacity:.5;transition:opacity .2s;}
+.tb-back:hover{opacity:1;}
+
+.section-title{display:flex;align-items:baseline;gap:18px;padding:40px 48px 18px;}
+.st-num{font-family:'Bebas Neue',sans-serif;font-size:72px;color:rgba(244,240,232,.06);line-height:1;user-select:none;}
+.st-label{display:flex;flex-direction:column;gap:3px;}
+.st-tag{font-family:'Space Mono',monospace;font-size:9px;letter-spacing:.35em;text-transform:uppercase;color:var(--accent);}
+.st-name{font-family:'DM Serif Display',serif;font-size:26px;font-style:italic;}
+.st-right{margin-left:auto;font-family:'Space Mono',monospace;font-size:9px;letter-spacing:.18em;color:var(--dim);align-self:center;}
+
+.photo-row-wrap{position:relative;}
+.ghost-text{position:absolute;z-index:1;pointer-events:none;user-select:none;font-family:'Bebas Neue',sans-serif;color:rgba(244,240,232,.055);line-height:.85;letter-spacing:.02em;}
+
+
+.photo-full{height:100vh;background:#000;display:flex;align-items:center;justify-content:center;}
+.photo-full .pw{width:100%;height:100%;}
+.photo-full .pw img{width:100%;height:100%;object-fit:contain;background:#000;display:block;}
+.photo-row{display:flex;gap:2px;background:#000;}
+.photo-row .pw{min-width:0;height:100%;background:#000;}
+.photo-row .pw img{width:100%;height:100%;object-fit:contain;background:#000;display:block;}
+.pw{position:relative;overflow:hidden;cursor:pointer;display:block;}
+.pw img{transition:filter .45s ease;}
+.pw:hover img{filter:brightness(1.06) contrast(1.02);}
+.pw-cap{position:absolute;bottom:0;left:0;right:0;padding:52px 24px 20px;background:linear-gradient(to top,rgba(0,0,0,.88),rgba(0,0,0,.38) 60%,transparent);transform:translateY(100%);transition:transform .38s cubic-bezier(.16,1,.3,1);z-index:2;}
+.pw:hover .pw-cap{transform:translateY(0);}
+.cap-text{font-size:15px;font-style:italic;font-weight:300;line-height:1.45;color:rgba(255,255,255,.9);margin-bottom:5px;}
+.cap-loc{font-size:9px;letter-spacing:.25em;text-transform:uppercase;}
+.i-btn{position:absolute;top:14px;right:14px;z-index:3;width:28px;height:28px;border-radius:50%;background:rgba(0,0,0,.7);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.7);font-size:13px;font-style:italic;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:0;transition:opacity .25s,background .2s;backdrop-filter:blur(6px);}
+.pw:hover .i-btn{opacity:1;}
+.meta-tooltip{position:absolute;top:48px;right:14px;z-index:10;min-width:210px;background:rgba(8,8,8,.97);border:1px solid var(--border2);backdrop-filter:blur(12px);padding:14px;opacity:0;transform:translateY(-6px);transition:opacity .2s,transform .2s;pointer-events:none;}
+.meta-tooltip.show{opacity:1;transform:translateY(0);pointer-events:all;}
+.mt-row{display:flex;justify-content:space-between;gap:14px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:11px;}
+.mt-row:last-child{border-bottom:none;}
+.mt-k{color:var(--dim);letter-spacing:.08em;}.mt-v{color:var(--text);font-weight:500;}
+
+.cap-text{font-family:'DM Serif Display',serif;font-size:16px;}
+.cap-loc{font-family:'Space Mono',monospace;letter-spacing:.22em;color:var(--accent);}
+.i-btn{font-family:'DM Serif Display',serif;}
+.i-btn:hover{background:rgba(232,197,71,.18);border-color:var(--accent);color:var(--accent);}
+
+.shoot-footer{display:flex;justify-content:space-between;align-items:flex-end;padding:64px 52px;border-top:1px solid var(--border);}
+.sf-ghost{font-family:'Bebas Neue',sans-serif;font-size:clamp(48px,8vw,112px);line-height:.85;color:rgba(244,240,232,.04);user-select:none;}
+.sf-right{text-align:right;display:flex;flex-direction:column;gap:12px;align-items:flex-end;}
+.sf-info{font-family:'Space Mono',monospace;font-size:9px;letter-spacing:.18em;color:var(--dim);}
+.sf-back{font-family:'Space Mono',monospace;font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--text);text-decoration:none;border-bottom:1px solid var(--accent);padding-bottom:2px;transition:color .2s;}
+.sf-back:hover{color:var(--accent);}
+
+
+#lb{position:fixed;inset:0;z-index:500;background:rgba(4,4,4,0.98);opacity:0;pointer-events:none;transition:opacity 0.3s;display:flex;flex-direction:row;}
+#lb.open{opacity:1;pointer-events:all;}
+.lb-img-area{flex:1;display:flex;align-items:center;justify-content:center;padding:60px 24px 60px 60px;height:100%;}
+.lb-img-area img{max-height:calc(100vh - 120px);max-width:100%;width:auto;height:auto;object-fit:contain;display:block;}
+.lb-panel{width:310px;min-width:310px;height:100vh;padding:80px 40px 56px 32px;display:flex;flex-direction:column;overflow-y:auto;border-left:1px solid var(--border);flex-shrink:0;}
+.lb-loc{font-size:9px;letter-spacing:0.3em;text-transform:uppercase;margin-bottom:10px;}
+.lb-cap{font-size:20px;font-style:italic;font-weight:300;line-height:1.45;flex:1;margin-bottom:0;}
+.lb-meta{margin-top:26px;padding-top:20px;border-top:1px solid var(--border);}
+.lb-meta-ttl{font-size:9px;letter-spacing:0.3em;text-transform:uppercase;margin-bottom:12px;}
+.lb-meta-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 20px;}
+.lb-mi{display:flex;flex-direction:column;gap:3px;}
+.lb-mi-k{font-size:9px;letter-spacing:0.18em;text-transform:uppercase;}
+.lb-mi-v{font-size:13px;font-weight:400;letter-spacing:0.04em;}
+.lb-actions{display:flex;flex-direction:column;gap:9px;margin-top:26px;}
+.lb-btn{display:inline-flex;align-items:center;gap:7px;padding:9px 16px;background:transparent;border:1px solid var(--border2);color:var(--text);font-size:9px;font-weight:500;letter-spacing:0.22em;text-transform:uppercase;cursor:pointer;text-decoration:none;transition:background .2s,border-color .2s,color .2s;}
+.lb-close{position:absolute;top:20px;right:28px;background:transparent;border:none;cursor:pointer;font-size:9px;letter-spacing:0.22em;text-transform:uppercase;color:var(--text);opacity:.3;transition:opacity .2s;z-index:10;padding:8px;}
+.lb-close:hover{opacity:1;}
+.lb-nav{position:absolute;top:50%;transform:translateY(-50%);background:transparent;border:1px solid var(--border);color:var(--text);width:40px;height:40px;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:.25;transition:opacity .2s;font-size:15px;}
+.lb-nav:hover{opacity:1;}
+.lb-nav.lb-prev{left:14px;}.lb-nav.lb-next{right:326px;}
+.lb-counter{position:absolute;bottom:18px;left:calc(50% - 155px);transform:translateX(-50%);font-size:9px;letter-spacing:.22em;}
+
+.lb-loc{color:var(--accent);font-family:'Space Mono',monospace;}
+.lb-cap{font-family:'DM Serif Display',serif;font-style:italic;color:var(--text);}
+.lb-meta-ttl{color:var(--dim);font-family:'Space Mono',monospace;}
+.lb-mi-k{color:var(--dim);font-family:'Space Mono',monospace;}
+.lb-mi-v{font-family:'Space Mono',monospace;}
+.lb-btn{font-family:'Space Mono',monospace;}
+.lb-btn:hover{background:var(--accent);border-color:var(--accent);color:#000;}
+</style>
+</head>
+<body>
+<nav>
+  <a href="../" class="nav-back">← Photography</a>
+  <span class="nav-logo">SFA</span>
+</nav>
+
+<div id="titleOverlay">
+  <div class="to-inner">
+    <span class="to-tag">Kyoto, Japan &nbsp;·&nbsp; February 2025</span>
+    <div class="to-title"><span class="to-t1">KYOTO</span><span class="to-t2">in Winter</span></div>
+    <div class="to-meta"><span>11 Frames</span><div class="to-sep"></div><span>Hasselblad X2D</span><div class="to-sep"></div><span>Bold</span></div>
+  </div>
+</div>
+
+<div id="titleBar">
+  <span class="tb-name">KYOTO IN WINTER</span>
+  <div class="tb-right">
+    <span class="tb-frames">11 frames</span>
+    <a href="../" class="tb-back">← All Shoots</a>
+  </div>
+</div>
+
+<div id="full-0"></div>
+<div class="section-title"><span class="st-num">01</span><div class="st-label"><span class="st-tag">Temple Circuit</span><span class="st-name">The Approach</span></div><span class="st-right">4 frames</span></div>
+<div class="photo-row-wrap">
+  <div class="ghost-text" style="font-size:clamp(100px,16vw,220px);top:50%;left:50%;transform:translate(-50%,-50%);white-space:nowrap;">WINTER</div>
+  <div id="row-1"></div>
+</div>
+<div class="section-title"><span class="st-num">02</span><div class="st-label"><span class="st-tag">Feature</span><span class="st-name">The Threshold</span></div><span class="st-right">1 frame</span></div>
+<div id="full-5"></div>
+<div class="section-title"><span class="st-num">03</span><div class="st-label"><span class="st-tag">Pairs</span><span class="st-name">Light Divided</span></div><span class="st-right">3 frames</span></div>
+<div class="photo-row-wrap">
+  <div class="ghost-text" style="font-size:clamp(80px,12vw,160px);bottom:16px;left:-4px;">京都</div>
+  <div id="row-6"></div>
+</div>
+<div class="section-title"><span class="st-num">04</span><div class="st-label"><span class="st-tag">Close</span><span class="st-name">The Quiet City</span></div><span class="st-right">3 frames</span></div>
+<div id="row-9"></div>
+
+<footer class="shoot-footer">
+  <div class="sf-ghost">KYOTO<br>IN WINTER</div>
+  <div class="sf-right">
+    <span class="sf-info">11 frames &nbsp;·&nbsp; Feb 2025 &nbsp;·&nbsp; Hasselblad X2D</span>
+    <a href="../" class="sf-back">← All Shoots</a>
+  </div>
+</footer>
+
+<div id="lb">
+  <button class="lb-close" onclick="closeLb()">ESC ✕</button>
+  <button class="lb-nav lb-prev" onclick="navLb(-1)">←</button>
+  <button class="lb-nav lb-next" onclick="navLb(1)">→</button>
+  <div class="lb-counter" id="lb-counter"></div>
+  <div class="lb-img-area"><img id="lb-img" src="" alt=""></div>
+  <div class="lb-panel">
+    <div style="flex:1">
+      <p class="lb-loc" id="lb-loc"></p>
+      <p class="lb-cap" id="lb-cap"></p>
+      <div class="lb-meta"><p class="lb-meta-ttl">Camera Data</p><div class="lb-meta-grid" id="lb-meta-grid"></div></div>
+    </div>
+    <div class="lb-actions" id="lb-actions">
+      <button class="lb-btn" onclick="sharePhoto()">↗ Share</button>
+      <a class="lb-btn" id="lb-dl" href="#" download="photo.jpg">↓ Save</a>
+    </div>
+  </div>
+</div>
+<script>
+const photos=[
+  {w:1600,h:900, src:'https://picsum.photos/seed/kyt-hero/1600/900',       caption:'Kinkaku-ji at 7am — yours for exactly four minutes.',                  loc:'Kinkaku-ji, Kyoto',   date:'Feb 7, 2025',meta:{Camera:'Hasselblad X2D',Lens:'45mm f/3.5',ISO:'100', Shutter:'1/640s',Aperture:'f/8', Format:'RAW'}},
+  {w:800,h:1200, src:'https://picsum.photos/seed/kyt-port-a/800/1200',     caption:'Ten thousand torii, end to end, red against pale sky.',                loc:'Fushimi Inari, Kyoto',date:'Feb 6, 2025',meta:{Camera:'Hasselblad X2D',Lens:'45mm f/3.5',ISO:'800', Shutter:'1/125s',Aperture:'f/4', Format:'RAW'}},
+  {w:800,h:1200, src:'https://picsum.photos/seed/kyt-port-b/800/1200',     caption:'The monk swept. The leaves kept falling.',                             loc:'Ryoan-ji, Kyoto',     date:'Feb 8, 2025',meta:{Camera:'Hasselblad X2D',Lens:'90mm f/2.2',ISO:'640', Shutter:'1/250s',Aperture:'f/2.8',Format:'RAW'}},
+  {w:800,h:1200, src:'https://picsum.photos/seed/kyt-port-c/800/1200',     caption:'Paper lanterns in the fog.',                                           loc:'Gion, Kyoto',         date:'Feb 9, 2025',meta:{Camera:'Hasselblad X2D',Lens:'90mm f/2.2',ISO:'3200',Shutter:'1/60s', Aperture:'f/2.2',Format:'RAW'}},
+  {w:800,h:1200, src:'https://picsum.photos/seed/kyt-port-d/800/1200',     caption:'The geisha district in the hour before tourists arrive.',              loc:'Gion, Kyoto',         date:'Feb 9, 2025',meta:{Camera:'Hasselblad X2D',Lens:'45mm f/3.5',ISO:'800', Shutter:'1/125s',Aperture:'f/2.8',Format:'RAW'}},
+  {w:1600,h:900, src:'https://picsum.photos/seed/kyt-land-b/1600/900',     caption:'Morning mist refuses to leave the temple grounds.',                    loc:'Arashiyama, Kyoto',   date:'Feb 7, 2025',meta:{Camera:'Hasselblad X2D',Lens:'90mm f/2.2',ISO:'200', Shutter:'1/500s',Aperture:'f/4', Format:'RAW'}},
+  {w:800,h:1200, src:'https://picsum.photos/seed/kyt-mix-a/800/1200',      caption:'Ancient timber, older than most nations.',                             loc:'Nijo Castle, Kyoto',  date:'Feb 8, 2025',meta:{Camera:'Hasselblad X2D',Lens:'90mm f/2.2',ISO:'640', Shutter:'1/250s',Aperture:'f/2.2',Format:'RAW'}},
+  {w:1600,h:900, src:'https://picsum.photos/seed/kyt-mix-b/1600/900',      caption:'The rock garden does not want to be understood.',                      loc:'Ryoan-ji, Kyoto',     date:'Feb 8, 2025',meta:{Camera:'Hasselblad X2D',Lens:'45mm f/3.5',ISO:'200', Shutter:'1/200s',Aperture:'f/8', Format:'RAW'}},
+  {w:800,h:1200, src:'https://picsum.photos/seed/kyt-mix-c/800/1200',      caption:'The roof line reads like a sentence I am still learning.',             loc:'Higashiyama, Kyoto',  date:'Feb 9, 2025',meta:{Camera:'Hasselblad X2D',Lens:'45mm f/3.5',ISO:'400', Shutter:'1/320s',Aperture:'f/5.6',Format:'RAW'}},
+  {w:1600,h:900, src:'https://picsum.photos/seed/kyt-land-c/1600/900',     caption:'Bamboo grove at closing time — just the wind.',                        loc:'Arashiyama, Kyoto',   date:'Feb 7, 2025',meta:{Camera:'Hasselblad X2D',Lens:'45mm f/3.5',ISO:'400', Shutter:'1/200s',Aperture:'f/4', Format:'RAW'}},
+  {w:1600,h:900, src:'https://picsum.photos/seed/kyt-close-land/1600/900', caption:'The path to Fushimi Inari before the gates begin.',                    loc:'Fushimi Inari, Kyoto',date:'Feb 6, 2025',meta:{Camera:'Hasselblad X2D',Lens:'45mm f/3.5',ISO:'400', Shutter:'1/250s',Aperture:'f/5.6',Format:'RAW'}},
+];
+
+let curIdx=0;
+function mkPW(idx){
+  const p=photos[idx];
+  const d=document.createElement('div');d.className='pw';
+  d.innerHTML=`<img src="${p.src}" alt="${p.caption}" loading="lazy"><div class="pw-cap"><p class="cap-text">${p.caption}</p><p class="cap-loc">${p.loc}</p></div><button class="i-btn">i</button>`;
+  d.addEventListener('click',()=>openLb(idx));
+  d.querySelector('.i-btn').addEventListener('click',e=>{e.stopPropagation();toggleTT(idx,d.querySelector('.i-btn'));});
+  return d;
+}
+function buildRow(id,indices,height){
+  const row=document.createElement('div');row.className='photo-row';row.style.height=height+'px';
+  indices.forEach(i=>{const p=photos[i];const pw=mkPW(i);pw.style.flex=p.w/p.h;row.appendChild(pw);});
+  document.getElementById(id).appendChild(row);
+}
+function buildFull(id,idx){
+  const wrap=document.createElement('div');wrap.className='photo-full';
+  wrap.appendChild(mkPW(idx));document.getElementById(id).appendChild(wrap);
+}
+function openLb(idx){
+  curIdx=idx;const p=photos[idx];
+  const lb=document.getElementById('lb');lb.className='open';
+  document.getElementById('lb-img').src=p.src;
+  document.getElementById('lb-loc').textContent=p.loc+'  ·  '+p.date;
+  document.getElementById('lb-cap').textContent=p.caption;
+  document.getElementById('lb-counter').textContent=(idx+1)+' / '+photos.length;
+  document.getElementById('lb-dl').href=p.src;
+  const mg=document.getElementById('lb-meta-grid');mg.innerHTML='';
+  if(p.meta)Object.entries(p.meta).forEach(([k,v])=>mg.innerHTML+=`<div class="lb-mi"><span class="lb-mi-k">${k}</span><span class="lb-mi-v">${v}</span></div>`);
+  document.body.style.overflow='hidden';
+}
+function closeLb(){document.getElementById('lb').className='';document.body.style.overflow='';}
+function navLb(d){let n=curIdx+d;if(n<0)n=photos.length-1;if(n>=photos.length)n=0;openLb(n);}
+let activeTT=null;
+function toggleTT(idx,btn){
+  if(activeTT){activeTT.el.remove();const wb=activeTT.btn;activeTT=null;if(wb===btn)return;}
+  const p=photos[idx];const tt=document.createElement('div');tt.className='meta-tooltip';
+  if(p.meta)Object.entries(p.meta).forEach(([k,v])=>tt.innerHTML+=`<div class="mt-row"><span class="mt-k">${k}</span><span class="mt-v">${v}</span></div>`);
+  btn.parentElement.appendChild(tt);requestAnimationFrame(()=>tt.classList.add('show'));
+  activeTT={el:tt,btn};
+  setTimeout(()=>document.addEventListener('click',()=>{tt.remove();activeTT=null;},{once:true}),20);
+}
+function sharePhoto(){
+  if(navigator.share)navigator.share({title:document.title,url:window.location.href});
+  else navigator.clipboard.writeText(window.location.href).then(()=>{const b=document.querySelector('#lb-actions .lb-btn');const o=b.innerHTML;b.innerHTML='✓ Copied';setTimeout(()=>b.innerHTML=o,2000);});
+}
+document.addEventListener('keydown',e=>{
+  if(!document.getElementById('lb').classList.contains('open'))return;
+  if(e.key==='Escape')closeLb();if(e.key==='ArrowRight')navLb(1);if(e.key==='ArrowLeft')navLb(-1);
+});
+// Title: fixed overlay fades to slim bar
+const overlay=document.getElementById('titleOverlay');
+const bar=document.getElementById('titleBar');
+window.addEventListener('scroll',()=>{
+  const t=window.scrollY;
+  const vh=window.innerHeight;
+  // full overlay fades out over first 35% of vh
+  const fullFade=Math.max(0,1-t/(vh*0.35));
+  overlay.style.opacity=fullFade;
+  overlay.style.pointerEvents=fullFade<0.05?'none':'all';
+  // slim bar fades IN after 25% vh
+  const barFade=Math.min(1,Math.max(0,(t-vh*0.25)/(vh*0.12)));
+  bar.style.opacity=barFade;
+},{passive:true});
+
+buildFull('full-0',0);
+buildRow('row-1',[1,2,3,4],window.innerHeight);
+buildFull('full-5',5);
+buildRow('row-6',[6,7,8],window.innerHeight);
+buildRow('row-9',[9,10,5],Math.round(window.innerHeight*.58));
+</script>
+</body></html>

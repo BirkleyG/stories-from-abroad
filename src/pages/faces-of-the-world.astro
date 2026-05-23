@@ -43,6 +43,8 @@ body{font-family:var(--bod);color:var(--white);background:#000;overflow-x:hidden
 .nav-sep{width:1px;height:12px;background:rgba(201,168,76,.1);flex-shrink:0}
 .nav-link{font-family:var(--bod);font-size:.6rem;letter-spacing:.3em;text-transform:uppercase;color:rgba(201,168,76,.36);cursor:pointer;background:none;border:none;padding:0;flex-shrink:0;transition:color .2s}
 .nav-link:hover{color:var(--gold)}
+.nav-subscribe,.faces-footer-subscribe{font-family:var(--bod);font-size:.56rem;letter-spacing:.26em;text-transform:uppercase;color:rgba(201,168,76,.42);background:transparent;border:1px solid rgba(201,168,76,.16);padding:.42rem .62rem;cursor:pointer;transition:color .2s,border-color .2s;white-space:nowrap}
+.nav-subscribe:hover,.faces-footer-subscribe:hover{color:var(--gold);border-color:rgba(201,168,76,.46)}
 /* SEARCH OVERLAY */
 #search-overlay{position:fixed;top:var(--nh);right:2.8vw;width:300px;background:rgba(2,1,0,.98);border:1px solid rgba(201,168,76,.18);border-top:none;box-shadow:0 18px 48px rgba(0,0,0,.95);z-index:700;display:none;overflow:hidden;animation:so-in .16s ease}
 @keyframes so-in{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
@@ -161,6 +163,23 @@ body{font-family:var(--bod);color:var(--white);background:#000;overflow-x:hidden
 .about-p{font-size:.91rem;line-height:1.96;color:rgba(242,237,230,.6);margin-bottom:1.15rem;text-shadow:0 1px 24px rgba(0,0,0,1),0 2px 48px rgba(0,0,0,.9)}
 .about-p:first-of-type::first-letter{font-family:var(--dis);font-weight:600;font-size:2.6rem;line-height:.78;float:left;margin-right:.12em;color:var(--gold)}
 .about-footer{font-family:var(--dis);font-style:italic;font-size:.7rem;color:rgba(201,168,76,.22);border-top:1px solid rgba(201,168,76,.07);padding-top:1.1rem;margin-top:.4rem;letter-spacing:.04em}
+body.segment-subscribe-open{overflow:hidden}
+.faces-subscribe{position:fixed;inset:0;z-index:9500;display:grid;place-items:center;overflow:auto;padding:1rem;background:transparent;opacity:0;pointer-events:none;transition:opacity .28s cubic-bezier(0.22,1,0.36,1)}
+.faces-subscribe.is-open{opacity:1;pointer-events:auto}
+.faces-subscribe-inner{position:relative;width:min(390px,100%);max-height:calc(100vh - 2rem);overflow:auto;padding:1.25rem;border:1px solid rgba(201,168,76,.16);background:rgba(4,2,0,.96);box-shadow:0 26px 80px rgba(0,0,0,.7);transform:translateY(10px) scale(.975);transition:transform .3s cubic-bezier(0.22,1,0.36,1)}
+.faces-subscribe.is-open .faces-subscribe-inner{transform:translateY(0) scale(1)}
+.faces-subscribe-close{position:absolute;top:.7rem;right:.7rem;width:32px;height:32px;border:1px solid rgba(201,168,76,.14);background:transparent;color:rgba(201,168,76,.38);cursor:pointer}
+.faces-subscribe-k{font-family:var(--bod);font-size:.46rem;letter-spacing:.34em;text-transform:uppercase;color:rgba(201,168,76,.42);margin-bottom:.55rem}
+.faces-subscribe h2{font-family:var(--dis);font-size:clamp(1.45rem,2.4vw,2.2rem);font-weight:500;line-height:1;color:var(--gold);margin-bottom:.55rem}
+.faces-subscribe p{font-size:.82rem;line-height:1.65;color:rgba(242,237,230,.52);margin-bottom:.85rem}
+.faces-subscribe-form{display:grid;grid-template-columns:1fr 1fr auto;gap:.5rem;align-items:start}
+.faces-subscribe-form input{min-width:0;border:1px solid rgba(201,168,76,.13);background:rgba(0,0,0,.5);color:var(--white);font-family:var(--bod);font-size:.82rem;padding:.58rem .65rem;outline:none}
+.faces-subscribe-form input::placeholder{color:rgba(201,168,76,.25)}
+.faces-subscribe-form button{border:1px solid var(--gold);background:var(--gold);color:#080300;font-family:var(--bod);font-size:.52rem;letter-spacing:.22em;text-transform:uppercase;padding:.68rem .78rem;cursor:pointer;white-space:nowrap}
+.faces-subscribe-form button:disabled{opacity:.6;cursor:not-allowed}
+.faces-subscribe-status{grid-column:1/-1;min-height:1rem;font-size:.74rem;color:rgba(201,168,76,.3)}
+.faces-subscribe-status[data-tone="ok"]{color:rgba(201,168,76,.78)}
+.faces-subscribe-status[data-tone="error"]{color:rgba(255,110,110,.78)}
 /* PROFILE */
 #profile-view{display:none;position:relative;padding-top:var(--nh);background:#000;min-height:100vh}
 .prof-map-bg{position:fixed;inset:0;z-index:0;opacity:.07;pointer-events:none}
@@ -200,6 +219,11 @@ body{font-family:var(--bod);color:var(--white);background:#000;overflow-x:hidden
 .art-photo-ph svg{opacity:.07}
 .art-photo-ph span{font-style:italic;font-size:.65rem;color:rgba(201,168,76,.16);letter-spacing:.1em}
 .art-photo-slot img{width:100%;display:block;max-height:480px;object-fit:contain;background:radial-gradient(circle at top,rgba(201,168,76,.08),rgba(10,6,2,.98) 68%);padding:.8rem}
+.faces-inspect{position:fixed;inset:0;background:#000;z-index:9800;display:none;align-items:center;justify-content:center}
+.faces-inspect.open{display:flex}
+.faces-inspect-stage{position:relative;width:100vw;height:100vh;overflow:hidden;background:#000}
+.faces-inspect-img{position:absolute;left:50%;top:50%;max-width:none;max-height:none;width:auto;height:auto;object-fit:contain;transform:translate(-50%,-50%) scale(1);will-change:transform;cursor:zoom-in;user-select:none;-webkit-user-drag:none}
+.faces-inspect-close{position:absolute;top:10px;right:10px;width:34px;height:34px;border:1px solid rgba(255,255,255,.72);background:rgba(0,0,0,.35);color:#fff;cursor:pointer;font-family:var(--bod);font-size:.76rem;letter-spacing:.2em;text-transform:uppercase;z-index:2}
 .art-photo-slot.is-static{border-style:solid;cursor:default}
 .art-photo-empty{padding:1.4rem 1rem;text-align:center;font-family:var(--dis);font-style:italic;color:rgba(230,220,201,.52);border:1px dashed rgba(201,168,76,.14);background:rgba(7,4,2,.84)}
 .prof-portrait-ph{width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,rgba(18,12,7,.98),rgba(8,5,2,.96));border:1px solid rgba(201,168,76,.12);font-family:var(--dis);font-style:italic;color:rgba(230,220,201,.5);letter-spacing:.08em;text-transform:uppercase;font-size:.7rem}
@@ -214,7 +238,7 @@ body{font-family:var(--bod);color:var(--white);background:#000;overflow-x:hidden
 @supports(height:100svh){@media(max-width:700px){.hero-sticky{height:100svh}}}
 @media(max-width:900px){.about-content{padding:3rem 5vw 3rem 5vw}#about-map-left{width:100vw;opacity:.18}#about-map-fade{background:rgba(0,0,0,.82)}}
 @media(max-width:820px){.prof-split{grid-template-columns:1fr}.prof-portrait-zone{min-height:52vw}.prof-meta{padding:1.7rem 1.2rem}.ptp{width:100%!important;background:linear-gradient(to top,rgba(0,0,0,.97) 40%,rgba(0,0,0,.65) 70%,transparent 100%)!important;padding:2rem 1.6rem 1.7rem!important;text-align:left!important;top:auto;justify-content:flex-end}.ptp-r .ptp-div{margin-left:0}.ptp-r .ptp-rb{text-align:left}.ptp-r .ptp-rb::after{left:0;right:auto}.ptp-name{font-size:clamp(1.8rem,8vw,2.6rem)}}
-@media(max-width:700px){#site-nav{padding:0 1.5vw;gap:.55rem}.nav-back{letter-spacing:.2em;font-size:.55rem}.nav-logo{font-size:.84rem;letter-spacing:.12em}.nav-logo em{display:none}.nav-link{letter-spacing:.2em}.nav-sep{display:none}#nav-search-wrap.open{width:120px}#archive-filter-bar{height:auto;min-height:var(--fh);padding:.45rem 3vw;flex-wrap:wrap;align-items:flex-end;row-gap:.45rem}.af-inp{order:1;flex:1 1 100%;min-width:0}.af-sep{display:none}.af-sel{flex:1 1 calc(33.33% - .35rem);min-width:95px}.cart{padding:0 1.2rem}.cart-title{font-size:clamp(2.9rem,11.5vw,4.3rem)}.cart-sub{font-size:.72rem;line-height:1.66}.ptp-exc{-webkit-line-clamp:2}.about-content{padding:2.5rem 6vw 2.5rem}.about-p{font-size:.86rem;line-height:1.84}.prof-article-cart{padding:2rem 1.05rem 3.1rem}}
+@media(max-width:700px){#site-nav{padding:0 1.5vw;gap:.55rem}.nav-back{letter-spacing:.2em;font-size:.55rem}.nav-logo{font-size:.84rem;letter-spacing:.12em}.nav-logo em{display:none}.nav-link{letter-spacing:.2em}.nav-sep{display:none}.nav-subscribe{padding:.36rem .46rem;letter-spacing:.16em}#nav-search-wrap.open{width:120px}#archive-filter-bar{height:auto;min-height:var(--fh);padding:.45rem 3vw;flex-wrap:wrap;align-items:flex-end;row-gap:.45rem}.af-inp{order:1;flex:1 1 100%;min-width:0}.af-sep{display:none}.af-sel{flex:1 1 calc(33.33% - .35rem);min-width:95px}.cart{padding:0 1.2rem}.cart-title{font-size:clamp(2.9rem,11.5vw,4.3rem)}.cart-sub{font-size:.72rem;line-height:1.66}.ptp-exc{-webkit-line-clamp:2}.about-content{padding:2.5rem 6vw 2.5rem}.about-p{font-size:.86rem;line-height:1.84}.faces-subscribe-form{grid-template-columns:1fr}.prof-article-cart{padding:2rem 1.05rem 3.1rem}}
 @media(max-width:520px){:root{--nh:54px;--fh:42px}#site-nav{padding:0 .5rem;gap:.38rem}.nav-back{font-size:.5rem;gap:.28rem}.nav-back svg{width:12px;height:8px}.nav-logo{display:none}#nav-search-wrap.open{width:96px}#nav-search-inp{font-size:.8rem}.nav-link{font-size:.5rem;letter-spacing:.15em}#search-overlay{right:6px;width:calc(100vw - 12px)}#hero{height:2100vh}.cart-eye{font-size:.46rem;letter-spacing:.36em;margin-bottom:.8rem}.cart-title{font-size:clamp(2.3rem,12.8vw,3.3rem);margin-bottom:1rem}.cart-rule{margin-bottom:.95rem;width:148px}.cart-sub{display:none}.cart-scroll{font-size:.43rem;letter-spacing:.28em}.af-sel{flex:1 1 100%}.pin-preview{width:238px;padding:1rem .95rem .88rem}.about-eyebrow{font-size:.45rem;letter-spacing:.32em}.about-h1{font-size:clamp(2.2rem,11vw,3.2rem)}.about-footer{font-size:.64rem}.prof-scroll{padding:1.8rem 0 5rem}.prof-meta{padding:1.3rem .92rem}.prof-name{font-size:clamp(1.55rem,8.2vw,2.2rem)}.art-pull{margin:2rem -.35rem;padding:1.25rem 1rem}}
 </style>
 </head>
@@ -233,6 +257,7 @@ body{font-family:var(--bod);color:var(--white);background:#000;overflow-x:hidden
   <div class="nav-sep"></div>
   <button class="nav-link" id="nav-archive-btn">Archive</button>
   <button class="nav-link" id="nav-about-btn">About</button>
+  <button class="nav-subscribe" type="button" data-subscribe-open="faces">Subscribe</button>
 </nav>
 
 <!-- Search results overlay -->
@@ -288,12 +313,34 @@ body{font-family:var(--bod);color:var(--white);background:#000;overflow-x:hidden
     <p class="about-p">Each entry is a single interview. The questions are the same across every subject: What do you do, and how did you learn to do it? What has your life taught you that you didn&#8217;t expect? The answers, predictably, are never the same.</p>
     <p class="about-p">This project began in Shanghai &mdash; in a semester spent studying abroad, looking out of windows, and noticing how vast and knowable the world truly is, just beyond them.</p>
     <p class="about-footer">One interviewer. One recorder. No studio, no styling.</p>
+    <button class="faces-footer-subscribe" type="button" data-subscribe-open="faces">Subscribe to new portraits</button>
   </div>
 </div>
+
+<section class="faces-subscribe" data-segment-subscribe="Faces of the World" data-subscribe-source="faces_scene" data-subscribe-id="faces" data-subscribe-modal="true">
+  <div class="faces-subscribe-inner">
+    <button class="faces-subscribe-close" type="button" data-subscribe-close aria-label="Close subscribe form">x</button>
+      <div class="faces-subscribe-k">Faces of the World</div>
+      <h2>Receive the next portrait.</h2>
+      <p>Subscribe for new interviews and portrait entries from this archive.</p>
+      <form class="faces-subscribe-form" data-subscribe-form>
+        <input data-subscribe-email type="email" placeholder="your@email.com" autocomplete="email">
+        <input data-subscribe-name type="text" placeholder="Name (optional)" autocomplete="name">
+        <button data-subscribe-submit type="submit">Subscribe</button>
+        <p class="faces-subscribe-status" data-subscribe-status aria-live="polite"></p>
+      </form>
+  </div>
+</section>
 
 <div id="profile-view">
   <div class="prof-map-bg" id="prof-map-bg"></div>
   <div class="prof-scroll"><div id="prof-content"></div></div>
+</div>
+<div id="faces-inspect" class="faces-inspect" aria-hidden="true">
+  <div class="faces-inspect-stage" id="faces-inspect-stage">
+    <button class="faces-inspect-close" id="faces-inspect-close" type="button" aria-label="Close inspect">X</button>
+    <img class="faces-inspect-img" id="faces-inspect-img" alt="Inspect portrait">
+  </div>
 </div>
 
 <script is:inline src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
@@ -301,6 +348,9 @@ body{font-family:var(--bod);color:var(--white);background:#000;overflow-x:hidden
 <script is:inline src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
 <script is:inline src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
 <div id="faces-firebase-config" data-json={firebaseConfigJson} hidden></div>
+<script>
+  import "../scripts/segmentSubscribeScene.js";
+</script>
 <script is:inline>
 /* === DATA === */
 const localInterviews = [
@@ -696,6 +746,143 @@ function resolvePortraitImage(iv) {
   }
   return '';
 }
+
+/* === INSPECT (reuse photography behavior) === */
+const facesInspect = (() => {
+  const overlay = document.getElementById('faces-inspect');
+  const stage = document.getElementById('faces-inspect-stage');
+  const image = document.getElementById('faces-inspect-img');
+  const closeBtn = document.getElementById('faces-inspect-close');
+  if (!overlay || !stage || !image || !closeBtn) return null;
+  const state = {
+    zoom: 1,
+    minZoom: 1,
+    maxZoom: 8,
+    tx: 0,
+    ty: 0,
+    baseW: 0,
+    baseH: 0,
+  };
+
+  function clampPan() {
+    const vw = stage.clientWidth || window.innerWidth;
+    const vh = stage.clientHeight || window.innerHeight;
+    const scaledW = state.baseW * state.zoom;
+    const scaledH = state.baseH * state.zoom;
+    const maxX = Math.max(0, (scaledW - vw) * 0.5);
+    const maxY = Math.max(0, (scaledH - vh) * 0.5);
+    state.tx = Math.max(-maxX, Math.min(maxX, state.tx));
+    state.ty = Math.max(-maxY, Math.min(maxY, state.ty));
+  }
+
+  function render() {
+    clampPan();
+    image.style.transform = 'translate(calc(-50% + ' + state.tx + 'px), calc(-50% + ' + state.ty + 'px)) scale(' + state.zoom + ')';
+    image.style.cursor = state.zoom > 1 ? 'zoom-out' : 'zoom-in';
+  }
+
+  function recalcBaseSize() {
+    const vw = stage.clientWidth || window.innerWidth;
+    const vh = stage.clientHeight || window.innerHeight;
+    const nw = image.naturalWidth || 1;
+    const nh = image.naturalHeight || 1;
+    const fitScale = Math.min(vw / nw, vh / nh);
+    state.baseW = nw * fitScale;
+    state.baseH = nh * fitScale;
+    image.style.width = state.baseW + 'px';
+    image.style.height = state.baseH + 'px';
+  }
+
+  function reset() {
+    state.zoom = 1;
+    state.tx = 0;
+    state.ty = 0;
+    recalcBaseSize();
+    render();
+  }
+
+  function open(src, alt) {
+    image.src = String(src || '');
+    image.alt = String(alt || 'Inspect portrait');
+    if (image.complete && image.naturalWidth > 0) {
+      reset();
+    } else {
+      image.onload = () => {
+        reset();
+        image.onload = null;
+      };
+    }
+    overlay.classList.add('open');
+    overlay.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function close() {
+    overlay.classList.remove('open');
+    overlay.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+  }
+
+  function zoomAt(clientX, clientY, direction) {
+    const prevZoom = state.zoom;
+    const zoomStep = direction > 0 ? 1.12 : 1 / 1.12;
+    const nextZoom = Math.max(state.minZoom, Math.min(state.maxZoom, prevZoom * zoomStep));
+    if (nextZoom === prevZoom) return;
+    const rect = stage.getBoundingClientRect();
+    const cx = rect.left + rect.width * 0.5;
+    const cy = rect.top + rect.height * 0.5;
+    const relX = clientX - cx - state.tx;
+    const relY = clientY - cy - state.ty;
+    const ratio = nextZoom / prevZoom;
+    state.tx -= relX * (ratio - 1);
+    state.ty -= relY * (ratio - 1);
+    state.zoom = nextZoom;
+    render();
+  }
+
+  stage.addEventListener('wheel', (event) => {
+    if (!overlay.classList.contains('open')) return;
+    event.preventDefault();
+    zoomAt(event.clientX, event.clientY, event.deltaY < 0 ? 1 : -1);
+  }, { passive: false });
+
+  image.addEventListener('dblclick', (event) => {
+    event.preventDefault();
+    if (state.zoom > 1) {
+      state.zoom = 1;
+      state.tx = 0;
+      state.ty = 0;
+      render();
+      return;
+    }
+    zoomAt(event.clientX, event.clientY, 1);
+  });
+
+  closeBtn.addEventListener('click', close);
+  overlay.addEventListener('click', (event) => { if (event.target === overlay) close(); });
+  window.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && overlay.classList.contains('open')) close();
+  });
+  window.addEventListener('resize', () => {
+    if (!overlay.classList.contains('open')) return;
+    recalcBaseSize();
+    render();
+  });
+
+  return { open };
+})();
+
+document.addEventListener('click', (event) => {
+  if (!facesInspect) return;
+  const img = event.target.closest('#profile-view #ppz img, #profile-view .art-photo-slot img');
+  if (!img) return;
+  if (document.getElementById('profile-view')?.style.display === 'none') return;
+  const src = img.getAttribute('src') || '';
+  if (!src || src.startsWith('data:image/svg+xml')) return;
+  event.preventDefault();
+  event.stopPropagation();
+  facesInspect.open(src, img.getAttribute('alt') || 'Portrait image');
+});
 
 /* === MAP === */
 const W=960, H=500;

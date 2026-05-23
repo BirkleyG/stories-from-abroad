@@ -12,11 +12,35 @@ import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
 import { app, db, firestoreReady } from "./firebaseClient";
 
 const PENDING_KEY = "sfa-pending-subscriber-v1";
+export const SUBSCRIBER_SEGMENTS = [
+  "Articles & Op-Eds",
+  "Photography",
+  "Faces of the World",
+  "Travel",
+] as const;
+
+const PREFERENCE_TO_SEGMENT: Record<string, (typeof SUBSCRIBER_SEGMENTS)[number]> = {
+  articles: "Articles & Op-Eds",
+  papers: "Articles & Op-Eds",
+  photography: "Photography",
+  photo: "Photography",
+  faces: "Faces of the World",
+  stories: "Faces of the World",
+  travel: "Travel",
+};
+
+const SEGMENT_TO_PREFERENCE: Record<(typeof SUBSCRIBER_SEGMENTS)[number], string> = {
+  "Articles & Op-Eds": "articles",
+  Photography: "photography",
+  "Faces of the World": "faces",
+  Travel: "travel",
+};
 
 type PendingSubscriber = {
   email: string;
   name: string;
   preferences: string[];
+  segmentTags?: string[];
   source: string;
 };
 
@@ -60,6 +84,61 @@ function toPreferenceList(value: unknown) {
     .slice(0, 10);
 }
 
+function dedupeList<T>(items: T[]) {
+  return Array.from(new Set(items));
+}
+
+function normalizeSegmentTags(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return dedupeList(
+    value
+      .map((item) => normalizeString(item))
+      .filter((item): item is (typeof SUBSCRIBER_SEGMENTS)[number] =>
+        (SUBSCRIBER_SEGMENTS as readonly string[]).includes(item)
+      )
+  );
+}
+
+function segmentsFromPreferences(value: unknown) {
+  const preferences = toPreferenceList(value);
+  if (preferences.includes("all")) return [...SUBSCRIBER_SEGMENTS];
+  return dedupeList(
+    preferences
+      .map((item) => PREFERENCE_TO_SEGMENT[item])
+      .filter(Boolean)
+  );
+}
+
+function segmentsFromLegacyFlags(value: unknown) {
+  if (!value || typeof value !== "object") return [];
+  const profile = value as SubscriberFlags;
+  const next = [];
+  if (profile.wantsAllUpdates) next.push(...SUBSCRIBER_SEGMENTS);
+  if (profile.wantsPapers) next.push("Articles & Op-Eds");
+  if (profile.wantsPhotography) next.push("Photography");
+  if (profile.wantsFaces) next.push("Faces of the World");
+  if (profile.wantsTravel) next.push("Travel");
+  return dedupeList(next);
+}
+
+function segmentsFromSource(source: unknown) {
+  const normalized = normalizeString(source).toLowerCase();
+  if (!normalized) return [];
+  if (normalized.includes("paper") || normalized.includes("article") || normalized.includes("op_ed")) return ["Articles & Op-Eds"];
+  if (normalized.includes("photo")) return ["Photography"];
+  if (normalized.includes("face")) return ["Faces of the World"];
+  if (normalized.includes("travel") || normalized.includes("dispatch") || normalized.includes("comment")) return ["Travel"];
+  return [];
+}
+
+function preferencesFromSegments(segments: string[]) {
+  return dedupeList(
+    segments
+      .map((segment) => SEGMENT_TO_PREFERENCE[segment as (typeof SUBSCRIBER_SEGMENTS)[number]])
+      .filter(Boolean)
+  );
+}
+
 function flagsFromPreferences(value: unknown): SubscriberFlags {
   const preferences = new Set(toPreferenceList(value));
   return {
@@ -68,6 +147,17 @@ function flagsFromPreferences(value: unknown): SubscriberFlags {
     wantsPhotography: preferences.has("photography"),
     wantsFaces: preferences.has("faces") || preferences.has("stories"),
     wantsTravel: preferences.has("travel"),
+  };
+}
+
+function flagsFromSegments(segments: string[]): SubscriberFlags {
+  const set = new Set(segments);
+  return {
+    wantsAllUpdates: segments.length === SUBSCRIBER_SEGMENTS.length,
+    wantsPapers: set.has("Articles & Op-Eds"),
+    wantsPhotography: set.has("Photography"),
+    wantsFaces: set.has("Faces of the World"),
+    wantsTravel: set.has("Travel"),
   };
 }
 
@@ -94,6 +184,7 @@ function readPendingSubscriber(): PendingSubscriber | null {
       email,
       name: normalizeString(parsed.name).slice(0, 80),
       preferences: toPreferenceList(parsed.preferences),
+      segmentTags: normalizeSegmentTags(parsed.segmentTags),
       source: normalizeString(parsed.source).slice(0, 40) || "subscriber_modal",
     };
   } catch (error) {
@@ -153,21 +244,23 @@ export async function upsertSubscriberRecord(
   options?: {
     name?: string;
     preferences?: string[];
+    segmentTags?: string[];
     source?: string;
   }
 ) {
   if (!firestoreReady || !db || !user?.uid || !user.email) return null;
 
   const existing = await getSubscriberRecord(user.uid);
-  const fallbackName = fallbackNameFromEmail(user.email);
   const nextName =
     normalizeString(options?.name) ||
     normalizeString((existing as { name?: string } | null)?.name) ||
-    normalizeString(user.displayName) ||
-    fallbackName;
+    normalizeString(user.displayName);
   const nextPreferences = toPreferenceList(
     options?.preferences ?? (existing as { preferences?: unknown } | null)?.preferences ?? []
   );
+  const source = normalizeString(options?.source) || normalizeString((existing as { source?: string } | null)?.source) || "subscriber_modal";
+  const nextSegments = normalizeSegmentTags(options?.segmentTags);
+  const existingSegments = normalizeSegmentTags((existing as { segmentTags?: unknown } | null)?.segmentTags);
   const existingFlags = {
     wantsAllUpdates: Boolean((existing as { wantsAllUpdates?: boolean } | null)?.wantsAllUpdates),
     wantsPapers: Boolean((existing as { wantsPapers?: boolean } | null)?.wantsPapers),
@@ -175,11 +268,19 @@ export async function upsertSubscriberRecord(
     wantsFaces: Boolean((existing as { wantsFaces?: boolean } | null)?.wantsFaces),
     wantsTravel: Boolean((existing as { wantsTravel?: boolean } | null)?.wantsTravel),
   };
-  const nextFlags = nextPreferences.length ? flagsFromPreferences(nextPreferences) : existingFlags;
-  if (!nextPreferences.length) {
-    nextPreferences.push(...preferencesFromFlags(existingFlags));
-  }
-  const source = normalizeString(options?.source) || normalizeString((existing as { source?: string } | null)?.source) || "subscriber_modal";
+  const segmentTags = dedupeList([
+    ...nextSegments,
+    ...segmentsFromPreferences(nextPreferences),
+    ...existingSegments,
+    ...segmentsFromLegacyFlags(existingFlags),
+    ...segmentsFromSource(source),
+  ]);
+  const preferences = nextPreferences.length
+    ? dedupeList(nextPreferences)
+    : preferencesFromSegments(segmentTags).length
+      ? preferencesFromSegments(segmentTags)
+      : preferencesFromFlags(existingFlags);
+  const nextFlags = segmentTags.length ? flagsFromSegments(segmentTags) : flagsFromPreferences(preferences);
   const emailLower = normalizeEmail(user.email);
 
   const next: Record<string, unknown> = {
@@ -188,7 +289,8 @@ export async function upsertSubscriberRecord(
     name: nextName.slice(0, 80),
     verified: true,
     status: "active",
-    preferences: nextPreferences,
+    preferences,
+    segmentTags,
     wantsAllUpdates: nextFlags.wantsAllUpdates,
     wantsPapers: nextFlags.wantsPapers,
     wantsPhotography: nextFlags.wantsPhotography,
@@ -210,6 +312,7 @@ export async function sendSubscriberSignInLink(options: {
   email: string;
   name?: string;
   preferences?: string[];
+  segmentTags?: string[];
   source?: string;
   redirectUrl?: string;
 }) {
@@ -228,6 +331,7 @@ export async function sendSubscriberSignInLink(options: {
     await upsertSubscriberRecord(existingUser, {
       name: options.name,
       preferences: options.preferences,
+      segmentTags: options.segmentTags,
       source: options.source,
     });
     return { ok: true, linked: true as const };
@@ -249,6 +353,7 @@ export async function sendSubscriberSignInLink(options: {
     email,
     name: normalizeString(options.name).slice(0, 80),
     preferences: toPreferenceList(options.preferences),
+    segmentTags: normalizeSegmentTags(options.segmentTags),
     source: normalizeString(options.source).slice(0, 40) || "subscriber_modal",
   });
 
@@ -296,6 +401,7 @@ export async function completeSubscriberSignInFromLink() {
   await upsertSubscriberRecord(credential.user, {
     name: pending?.name,
     preferences: pending?.preferences,
+    segmentTags: pending?.segmentTags,
     source: pending?.source || "subscriber_modal",
   });
 

@@ -1,6 +1,9 @@
 ﻿(function () {
   var LIVE_SHOOTS = {};
   var ADMIN_PREVIEW_STORAGE_KEY = "sfa-admin-preview-v1";
+  var featuredRotatorState = { timer: null, raf: null, index: 0, start: 0, interval: 5000 };
+  var currentAccentColor = "#FF2D78";
+  var shootAccentLock = null;
   function esc(value) {
     return String(value || "")
       .replace(/&/g, "&amp;")
@@ -54,6 +57,20 @@
     }
   }
 
+  function applyAccent(color) {
+    var next = String(color || currentAccentColor || "#FF2D78");
+    currentAccentColor = next;
+    if (typeof window.setDotColor === "function") {
+      window.setDotColor(next);
+    }
+  }
+
+  function getActiveFeaturedAccent() {
+    var active = document.querySelector("#feat-track .fslide.active");
+    var accent = String(active?.style.getPropertyValue("--accent") || "").trim();
+    return accent || currentAccentColor || "#FF2D78";
+  }
+
   function installPageRouter() {
     var suppressInitialShootParamClear = false;
     try {
@@ -90,14 +107,27 @@
         window.scrollTo(0, 0);
         var mobileBar = document.getElementById("mob-bar");
         if (mobileBar) mobileBar.style.display = "none";
-        if (typeof window.setDotColor === "function") {
-          window.setDotColor("#FF2D78");
+        if (id === "index") {
+          shootAccentLock = null;
+          currentAccentColor = getActiveFeaturedAccent();
         }
+        applyAccent(shootAccentLock || currentAccentColor);
       }
     };
 
     var photoNav = document.getElementById("nav-photo");
     if (photoNav) photoNav.addEventListener("click", function () { window.showPage("index"); });
+
+    var backLogo = document.querySelector(".nav-logo");
+    if (backLogo) {
+      backLogo.addEventListener("click", function (event) {
+        var shootPage = document.getElementById("page-shoot");
+        if (shootPage && shootPage.classList.contains("active")) {
+          event.preventDefault();
+          window.showPage("index");
+        }
+      });
+    }
 
     var aboutNav = document.getElementById("nav-about");
     if (aboutNav) aboutNav.addEventListener("click", function () { window.showPage("about"); });
@@ -330,6 +360,7 @@
     if (note) {
       note.textContent = String(message || "No photography shoots have been published yet.");
     }
+    document.body.classList.remove("photo-loading");
   }
 
   function setCurrentField(label, value) {
@@ -426,9 +457,7 @@
             '<span class="fs-cta" style="cursor:default;border-bottom-color:#282828;color:#888">Publish from Admin to populate this page</span>' +
           "</div>" +
         "</div>";
-      if (typeof window.setDotColor === "function") {
-        window.setDotColor("#FF2D78");
-      }
+      applyAccent(shootAccentLock || currentAccentColor);
       return;
     }
 
@@ -484,13 +513,198 @@
     slides.forEach(function (slide, index) {
       slide.classList.toggle("active", index === 0);
     });
-    if (typeof window.setDotColor === "function") {
-      window.setDotColor(items[0].accent || "#FF2D78");
+    applyAccent(items[0].accent || currentAccentColor);
+    setupFeaturedRotator();
+  }
+
+  function stopFeaturedRotator() {
+    if (featuredRotatorState.timer) {
+      clearInterval(featuredRotatorState.timer);
+      featuredRotatorState.timer = null;
     }
+    if (featuredRotatorState.raf) {
+      cancelAnimationFrame(featuredRotatorState.raf);
+      featuredRotatorState.raf = null;
+    }
+  }
+
+  function setupFeaturedRotator() {
+    stopFeaturedRotator();
+    var slides = Array.from(document.querySelectorAll("#feat-track .fslide"));
+    var dots = Array.from(document.querySelectorAll(".feat-dot"));
+    var fill = document.getElementById("feat-prog-fill");
+    var mantra = document.getElementById("feat-mantra");
+    var words = ["mw0", "mw1", "mw2"].map(function (id) { return document.getElementById(id); }).filter(Boolean);
+    var prev = document.getElementById("feat-prev");
+    var next = document.getElementById("feat-next");
+    if (!slides.length || !dots.length) return;
+
+    function paintProgress() {
+      if (!fill) return;
+      featuredRotatorState.raf = requestAnimationFrame(function step(now) {
+        var elapsed = now - featuredRotatorState.start;
+        var pct = Math.min((elapsed / featuredRotatorState.interval) * 100, 100);
+        fill.style.width = pct + "%";
+        if (pct < 100) paintProgress();
+      });
+    }
+
+    function activate(index) {
+      var previous = featuredRotatorState.index;
+      if (slides[previous]) slides[previous].classList.remove("active");
+      if (dots[previous]) dots[previous].classList.remove("active");
+      featuredRotatorState.index = ((index % slides.length) + slides.length) % slides.length;
+      var activeSlide = slides[featuredRotatorState.index];
+      var activeDot = dots[featuredRotatorState.index];
+      if (activeSlide) activeSlide.classList.add("active");
+      if (activeDot) activeDot.classList.add("active");
+      var accent = String(activeSlide?.style.getPropertyValue("--accent") || "#FF2D78").trim() || "#FF2D78";
+      var indexPage = document.getElementById("page-index");
+      var isIndexActive = Boolean(indexPage && indexPage.classList.contains("active"));
+      if (!shootAccentLock && isIndexActive) applyAccent(accent);
+      if (mantra) {
+        var isLeft = activeSlide ? activeSlide.classList.contains("l") : false;
+        mantra.style.right = isLeft ? "auto" : "20px";
+        mantra.style.left = isLeft ? "20px" : "auto";
+        mantra.style.alignItems = isLeft ? "flex-start" : "flex-end";
+      }
+      words.forEach(function (word, wordIndex) {
+        word.style.webkitTextStroke = wordIndex === (featuredRotatorState.index % 3)
+          ? "1.5px " + accent
+          : "1.5px rgba(240,239,235,0.07)";
+      });
+      if (fill) fill.style.width = "0%";
+      featuredRotatorState.start = performance.now();
+      if (featuredRotatorState.raf) cancelAnimationFrame(featuredRotatorState.raf);
+      paintProgress();
+    }
+
+    function restartTimer() {
+      if (featuredRotatorState.timer) clearInterval(featuredRotatorState.timer);
+      featuredRotatorState.timer = setInterval(function () {
+        activate(featuredRotatorState.index + 1);
+      }, featuredRotatorState.interval);
+    }
+
+    dots.forEach(function (dot, dotIndex) {
+      dot.onclick = function () {
+        activate(dotIndex);
+        restartTimer();
+      };
+    });
+    if (prev) prev.onclick = function () { activate(featuredRotatorState.index - 1); restartTimer(); };
+    if (next) next.onclick = function () { activate(featuredRotatorState.index + 1); restartTimer(); };
+    activate(0);
+    restartTimer();
   }
 
   function installShootOverride() {
     var cleanup = null;
+    var inspectState = null;
+
+    function ensureInspectOverlay() {
+      var overlay = document.getElementById("photo-inspect");
+      if (!overlay) {
+        overlay = document.createElement("div");
+        overlay.id = "photo-inspect";
+        overlay.className = "photo-inspect";
+        overlay.innerHTML = '' +
+          '<div class="inspect-stage" id="inspect-stage">' +
+            '<button class="inspect-close" id="inspect-close" type="button" aria-label="Close inspect">X</button>' +
+            '<img class="inspect-img" id="inspect-img" alt="Inspect photo" />' +
+          "</div>";
+        document.body.appendChild(overlay);
+      }
+      return overlay;
+    }
+
+    function installInspectHandlers(imageEl, stageEl, closeOverlay) {
+      var state = { scale: 1, minScale: 1, originX: "50%", originY: "50%" };
+      function clamp() {
+        state.scale = Math.max(state.minScale, Math.min(state.scale, 6));
+      }
+      function render() {
+        imageEl.style.transformOrigin = state.originX + " " + state.originY;
+        imageEl.style.transform = "scale(" + state.scale + ")";
+      }
+      function reset() {
+        state.scale = 1;
+        state.minScale = 1;
+        state.originX = "50%";
+        state.originY = "50%";
+        render();
+      }
+      function onWheel(event) {
+        event.preventDefault();
+        var delta = event.deltaY < 0 ? 0.16 : -0.16;
+        state.scale += delta;
+        clamp();
+        render();
+      }
+      function onStageClick(event) {
+        if (event.target === imageEl) return;
+        closeOverlay();
+      }
+      function onImageClick(event) {
+        var rect = imageEl.getBoundingClientRect();
+        var clickX = event.clientX - rect.left;
+        var clickY = event.clientY - rect.top;
+        if (state.scale <= 1) {
+          state.originX = Math.max(0, Math.min(clickX, rect.width)) + "px";
+          state.originY = Math.max(0, Math.min(clickY, rect.height)) + "px";
+          state.scale = 2.5;
+          state.minScale = state.scale;
+        } else {
+          state.scale = 1;
+          state.minScale = 1;
+          state.originX = "50%";
+          state.originY = "50%";
+        }
+        render();
+      }
+      function onKey(event) {
+        if (event.key === "Escape") closeOverlay();
+      }
+      stageEl.addEventListener("wheel", onWheel, { passive: false });
+      stageEl.addEventListener("click", onStageClick);
+      imageEl.addEventListener("click", onImageClick);
+      window.addEventListener("keydown", onKey);
+      return {
+        reset: reset,
+        destroy: function () {
+          stageEl.removeEventListener("wheel", onWheel);
+          stageEl.removeEventListener("click", onStageClick);
+          imageEl.removeEventListener("click", onImageClick);
+          window.removeEventListener("keydown", onKey);
+        },
+      };
+    }
+
+    function openInspect(src, alt) {
+      var overlay = ensureInspectOverlay();
+      var image = overlay.querySelector("#inspect-img");
+      var stage = overlay.querySelector("#inspect-stage");
+      var close = overlay.querySelector("#inspect-close");
+      if (!image || !stage || !close) return;
+      if (inspectState && typeof inspectState.destroy === "function") inspectState.destroy();
+      image.src = String(src || "");
+      image.alt = String(alt || "Inspect photo");
+      overlay.classList.add("open");
+      document.body.style.overflow = "hidden";
+      function closeInspect() {
+        overlay.classList.remove("open");
+        document.body.style.overflow = "";
+        if (inspectState && typeof inspectState.destroy === "function") inspectState.destroy();
+        inspectState = null;
+      }
+      inspectState = installInspectHandlers(image, stage, closeInspect);
+      inspectState.reset();
+      close.onclick = closeInspect;
+      overlay.onclick = function (event) {
+        if (event.target !== overlay) return;
+        closeInspect();
+      };
+    }
 
     function updateShootPanel(d, n) {
       var pc = document.getElementById("sg-pc");
@@ -534,7 +748,8 @@
         cleanup = null;
       }
 
-      if (typeof window.setDotColor === "function") window.setDotColor(shoot.accent);
+      shootAccentLock = shoot.accent || currentAccentColor;
+      applyAccent(shootAccentLock);
       document.getElementById("page-shoot").style.setProperty("--a", shoot.accent || "#FF2D78");
 
       var photos = (Array.isArray(shoot.photos) ? shoot.photos : [])
@@ -592,7 +807,7 @@
         '<div class="sg-tile sg-title-tile" data-is-title="1" style="position:relative;overflow:hidden">' +
           '<div style="position:absolute;right:28px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;align-items:flex-end;gap:0;pointer-events:none;z-index:0;line-height:.82">' + mantraHtml + "</div>" +
           '<div style="position:relative;z-index:1;max-width:680px">' +
-            '<span data-page-target="index" style="font-family:\'IBM Plex Mono\',monospace;font-size:8.5px;letter-spacing:3px;text-transform:uppercase;color:var(--g4);cursor:pointer;margin-bottom:44px;display:inline-block;transition:color .2s" onmouseenter="this.style.color=\'#F0EFEB\'" onmouseleave="this.style.color=\'#505050\'">? Photography</span>' +
+            '<span data-page-target="index" style="font-family:\'IBM Plex Mono\',monospace;font-size:8.5px;letter-spacing:3px;text-transform:uppercase;color:var(--g4);cursor:pointer;margin-bottom:44px;display:inline-block;transition:color .2s" onmouseenter="this.style.color=\'#F0EFEB\'" onmouseleave="this.style.color=\'#505050\'">? Photos</span>' +
             '<div style="font-family:\'IBM Plex Mono\',monospace;font-size:9px;letter-spacing:5px;text-transform:uppercase;color:' + esc(shoot.accent) + ';margin-bottom:20px">' + esc(shoot.location || "") + " · " + esc(shoot.date || "") + "</div>" +
             '<h1 style="font-family:' + tFam + ';font-size:' + tFS + ';' + tExt + ';color:#F0EFEB;margin-bottom:28px">' + esc(shoot.title || "") + "</h1>" +
             '<p style="font-family:' + iFam + ';font-size:' + iSz + ';' + iIt + ';color:#505050;line-height:1.65;max-width:560px;margin-bottom:28px">' + esc(shoot.intro || "") + "</p>" +
@@ -628,8 +843,8 @@
             '<div style="font-family:\'Bebas Neue\',sans-serif;font-size:clamp(40px,6vw,80px);color:#F0EFEB;line-height:1;margin-bottom:8px">' + esc(shoot.title || "") + "</div>" +
             '<div style="font-family:\'Cormorant Garamond\',serif;font-size:15px;font-style:italic;color:#505050;margin-bottom:44px">' + esc(String(photos.length)) + " frames · " + esc(shoot.location || "") + "</div>" +
             '<div style="display:flex;gap:12px;justify-content:center">' +
-              '<button data-page-target="index" style="font-family:\'IBM Plex Mono\',monospace;font-size:9px;letter-spacing:3px;text-transform:uppercase;padding:12px 22px;background:' + esc(shoot.accent) + ';color:#080808;border:none;cursor:pointer">? All shoots</button>' +
-              '<button id="sg-restart" style="font-family:\'IBM Plex Mono\',monospace;font-size:9px;letter-spacing:3px;text-transform:uppercase;padding:12px 22px;background:transparent;border:1px solid #282828;color:#505050;cursor:pointer">? Back to start</button>' +
+              '<button data-page-target="index" style="font-family:\'IBM Plex Mono\',monospace;font-size:9px;letter-spacing:3px;text-transform:uppercase;padding:12px 22px;background:' + esc(shoot.accent) + ';color:#080808;border:none;cursor:pointer">&larr; All shoots</button>' +
+              '<button id="sg-restart" style="font-family:\'IBM Plex Mono\',monospace;font-size:9px;letter-spacing:3px;text-transform:uppercase;padding:12px 22px;background:transparent;border:1px solid #282828;color:#505050;cursor:pointer">&uarr; Back to start</button>' +
             "</div>" +
           "</div>" +
         "</div>";
@@ -665,15 +880,30 @@
       var total = allTiles.length;
       var current = 0;
       var snapping = false;
-      var accumulated = 0;
-      var threshold = 100;
-
+      var trackpadSpikeThreshold = 3;
+      var wheelRateThreshold = 1.0;
+      var minDeltaTrackpad = 2;
+      var minDeltaWheel = 20;
+      var lastWheelTs = 0;
+      var lastDeltaY = 0;
+      var prevRate = 0;
+      var wheelDebug = false;
+      try {
+        wheelDebug = String(new URL(window.location.href).searchParams.get("wheelDebug") || "") === "1";
+      } catch {
+        wheelDebug = false;
+      }
+      function logWheel(reason, extra) {
+        if (!wheelDebug) return;
+        var payload = Object.assign({ reason: reason }, extra || {});
+        console.log("[photo-wheel]", payload);
+      }
+      function isLikelyTrackpad(event) {
+        // Trackpads usually emit pixel-mode wheel deltas with relatively small increments.
+        return event.deltaMode === 0 && Math.abs(event.deltaY) < 60;
+      }
       function restartKB(tile) {
-        var image = tile.querySelector("img");
-        if (!image) return;
-        image.classList.remove("kb-play");
-        void image.offsetWidth;
-        image.classList.add("kb-play");
+        return;
       }
 
       function positionTiles(index, animate) {
@@ -742,31 +972,76 @@
       function onWheel(event) {
         event.preventDefault();
         if (snapping) return;
-        accumulated += event.deltaY;
-        if (accumulated > threshold) {
-          accumulated = 0;
-          snapTo(current + 1, true);
-        } else if (accumulated < -threshold) {
-          accumulated = 0;
-          snapTo(current - 1, true);
+
+        var now = performance.now();
+        var dt = Math.max(1, now - (lastWheelTs || now));
+        var deltaY = event.deltaY;
+        var absDelta = Math.abs(deltaY);
+        var rate = absDelta / dt;
+        var trackpad = isLikelyTrackpad(event);
+        var minDelta = trackpad ? minDeltaTrackpad : minDeltaWheel;
+
+        logWheel("wheel", {
+          dt: Number(dt.toFixed(2)),
+          rate: Number(rate.toFixed(3)),
+          prevRate: Number(prevRate.toFixed(3)),
+          trackpad: trackpad,
+        });
+
+        if (trackpad) {
+          if (absDelta >= minDelta && prevRate <= trackpadSpikeThreshold && rate > trackpadSpikeThreshold) {
+            if (deltaY > 0) {
+              logWheel("snap-next", { mode: "trackpad-derivative", threshold: trackpadSpikeThreshold });
+              snapTo(current + 1, true);
+            } else if (deltaY < 0) {
+              logWheel("snap-prev", { mode: "trackpad-derivative", threshold: trackpadSpikeThreshold });
+              snapTo(current - 1, true);
+            }
+          }
+        } else if (absDelta >= minDelta && prevRate <= wheelRateThreshold && rate > wheelRateThreshold) {
+          if (deltaY > 0) {
+            logWheel("snap-next", { mode: "wheel-derivative", threshold: wheelRateThreshold });
+            snapTo(current + 1, true);
+          } else if (deltaY < 0) {
+            logWheel("snap-prev", { mode: "wheel-derivative", threshold: wheelRateThreshold });
+            snapTo(current - 1, true);
+          }
         }
+
+        lastWheelTs = now;
+        lastDeltaY = deltaY;
+        prevRate = rate;
       }
 
       var touchStartY = null;
+      var touchMoved = false;
       function onTouchStart(event) {
         touchStartY = event.touches[0].clientY;
+        touchMoved = false;
+      }
+      function onTouchMove() {
+        touchMoved = true;
       }
       function onTouchEnd(event) {
         if (touchStartY === null) return;
         var deltaY = touchStartY - event.changedTouches[0].clientY;
-        if (Math.abs(deltaY) > 55) {
+        if (touchMoved && Math.abs(deltaY) > 55) {
           snapTo(deltaY > 0 ? current + 1 : current - 1, true);
         }
         touchStartY = null;
+        touchMoved = false;
       }
       function onKey(event) {
         var shootPage = document.getElementById("page-shoot");
         if (!shootPage || !shootPage.classList.contains("active")) return;
+        if (event.key === "Escape") {
+          var inspectOverlay = document.getElementById("photo-inspect");
+          if (inspectOverlay && inspectOverlay.classList.contains("open")) {
+            var inspectClose = inspectOverlay.querySelector("#inspect-close");
+            if (inspectClose) inspectClose.click();
+            return;
+          }
+        }
         if (event.key === "ArrowDown" || event.key === "ArrowRight") snapTo(current + 1, true);
         if (event.key === "ArrowUp" || event.key === "ArrowLeft") snapTo(current - 1, true);
         if (event.key === "Escape" && typeof window.showPage === "function") window.showPage("index");
@@ -774,14 +1049,29 @@
 
       photosEl.addEventListener("wheel", onWheel, { passive: false });
       photosEl.addEventListener("touchstart", onTouchStart, { passive: true });
+      photosEl.addEventListener("touchmove", onTouchMove, { passive: true });
       photosEl.addEventListener("touchend", onTouchEnd, { passive: true });
       window.addEventListener("keydown", onKey);
       var restart = document.getElementById("sg-restart");
       if (restart) restart.addEventListener("click", function () { snapTo(0, true); });
+      Array.from(document.querySelectorAll(".pdot")).forEach(function (dot) {
+        dot.style.cursor = "pointer";
+        dot.addEventListener("click", function () {
+          var target = parseInt(dot.getAttribute("data-i") || "-1", 10);
+          if (!Number.isFinite(target) || target < 0) return;
+          snapTo(target + 1, true);
+        });
+      });
+      Array.from(photosEl.querySelectorAll(".sg-photo-tile img")).forEach(function (img) {
+        img.addEventListener("click", function () {
+          openInspect(img.getAttribute("src") || "", img.getAttribute("alt") || "");
+        });
+      });
 
       cleanup = function () {
         photosEl.removeEventListener("wheel", onWheel);
         photosEl.removeEventListener("touchstart", onTouchStart);
+        photosEl.removeEventListener("touchmove", onTouchMove);
         photosEl.removeEventListener("touchend", onTouchEnd);
         window.removeEventListener("keydown", onKey);
       };
@@ -853,6 +1143,7 @@
       } else if (requestedShoot && !bySlug[requestedShoot]) {
         writeShootParam("");
       }
+      document.body.classList.remove("photo-loading");
     } catch (error) {
       applyEmptyState("Photography content could not be loaded right now.");
       console.warn("Photography live integration failed.", error);

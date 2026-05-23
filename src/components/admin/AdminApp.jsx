@@ -5,7 +5,7 @@ import { completeAdminSignIn, ensureAdminPersistence, getAdminSession, onAdminAu
 import { assignAdminClaim, publishDraft, repairCoordinates, scheduleDraft, unpublishDraft } from "../../lib/admin/functions";
 import { dispatchDraftToPublic, faceDraftToPublic, photographyDraftToPublic, slugify } from "../../lib/admin/contentAdapters";
 import { collectFeaturedPhotoOptions, mediaSummaryFromPhotos } from "../../lib/admin/photographyTemplates";
-import { createDraft, deleteDraft as deleteDraftRecord, deleteMediaAsset as deleteMediaAssetRecord, getDraft, listVersions, restoreVersion, saveDraft, savePhotographyFeaturedConfig, saveSectionMediaConfig, subscribeDraftList, subscribeMediaAssets, subscribePhotographyFeaturedConfig, subscribeSectionMediaConfig, updateMediaAsset, uploadMediaAsset } from "../../lib/admin/repository";
+import { createDraft, deleteDraft as deleteDraftRecord, deleteMediaAsset as deleteMediaAssetRecord, getDraft, listVersions, restoreVersion, saveDraft, savePhotographyFeaturedConfig, saveSectionMediaConfig, subscribeDraftList, subscribeMediaAssets, subscribePhotographyFeaturedConfig, subscribeSectionMediaConfig, subscribeSubscribers, updateMediaAsset, uploadMediaAsset } from "../../lib/admin/repository";
 import {
   AUDIENCE_LEVELS,
   CONTENT_LABELS,
@@ -28,6 +28,7 @@ const NAV_ITEMS = [
   { id: "papers", label: CONTENT_LABELS.papers },
   { id: "travel", label: CONTENT_LABELS.travel },
   { id: "photography", label: CONTENT_LABELS.photography },
+  { id: "subscribers", label: "Subscribers" },
   { id: "site-assets", label: "Site Assets" },
   { id: "media", label: "Media Library" },
 ];
@@ -41,6 +42,8 @@ const STATUS_TONES = {
 };
 
 const ADMIN_PREVIEW_STORAGE_KEY = "sfa-admin-preview-v1";
+const SUBSCRIBER_SEGMENTS = ["Articles & Op-Eds", "Photography", "Faces of the World", "Travel"];
+const TRAVEL_QUOTE_MAX_CHARS = 220;
 const base = import.meta.env.BASE_URL ?? "/";
 const basePath = base.endsWith("/") ? base : `${base}/`;
 
@@ -75,6 +78,28 @@ function formatRelative(value) {
   if (hours < 24) return `${hours}h ago`;
   const days = Math.round(hours / 24);
   return `${days}d ago`;
+}
+
+function normalizeSubscriberSegments(subscriber) {
+  const direct = Array.isArray(subscriber?.segmentTags)
+    ? subscriber.segmentTags.filter((item) => SUBSCRIBER_SEGMENTS.includes(item))
+    : [];
+  if (direct.length) return Array.from(new Set(direct));
+
+  const preferences = Array.isArray(subscriber?.preferences) ? subscriber.preferences : [];
+  if (preferences.includes("all")) return [...SUBSCRIBER_SEGMENTS];
+
+  const tags = [];
+  if (preferences.includes("articles") || preferences.includes("papers") || subscriber?.wantsPapers) tags.push("Articles & Op-Eds");
+  if (preferences.includes("photography") || subscriber?.wantsPhotography) tags.push("Photography");
+  if (preferences.includes("faces") || preferences.includes("stories") || subscriber?.wantsFaces) tags.push("Faces of the World");
+  if (preferences.includes("travel") || subscriber?.wantsTravel) tags.push("Travel");
+  if (subscriber?.wantsAllUpdates) return [...SUBSCRIBER_SEGMENTS];
+  return Array.from(new Set(tags));
+}
+
+function formatSubscriberSource(value) {
+  return String(value || "unknown").replace(/_/g, " ");
 }
 
 function formatBytes(value) {
@@ -590,6 +615,8 @@ function GalleryEditor({ label, items, onChange, onUpload, assets, kind }) {
 
 function SiteAssetsForm({ config, assets, onUpload, onChange, onSave, onRepairCoordinates, saving }) {
   const authorPortrait = config.papersAuthorPortrait || createMediaValue();
+  const papersTypewriterLinesValue = Array.isArray(config.papersTypewriterLines) ? config.papersTypewriterLines.join("\n") : "";
+  const papersWritingTypes = Array.isArray(config.papersWritingTypes) ? config.papersWritingTypes : [];
   return (
     <section className="admin-editor-grid single-panel">
       <section className="admin-panel admin-editor-panel">
@@ -621,6 +648,32 @@ function SiteAssetsForm({ config, assets, onUpload, onChange, onSave, onRepairCo
               <TextInput label="Email" type="email" value={config.email || ""} onChange={(next) => onChange({ ...config, email: next })} />
             </div>
           </section>
+          <section className="admin-card-section">
+            <div className="admin-section-head">
+              <div>
+                <h3>Selected Papers rotating lines</h3>
+                <p>One line per row. These lines power the typewriter text in the Papers hero.</p>
+              </div>
+            </div>
+            <TextArea
+              label="Hero typewriter lines"
+              rows={6}
+              value={papersTypewriterLinesValue}
+              placeholder={"Line one\nLine two\nLine three"}
+              onChange={(next) => onChange({
+                ...config,
+                papersTypewriterLines: String(next || "")
+                  .split(/\r?\n/)
+                  .filter((line, index, lines) => line.length > 0 || (index < lines.length - 1)),
+              })}
+            />
+          </section>
+          <StringListEditor
+            label="Selected Papers writing types"
+            values={papersWritingTypes}
+            onChange={(next) => onChange({ ...config, papersWritingTypes: next })}
+            addLabel="Add writing type"
+          />
           <AssetField
             label="Read the Story portrait"
             accept="image/*"
@@ -1422,6 +1475,152 @@ function Dashboard({ lists, onCreate, onJump }) {
   );
 }
 
+function SubscribersPanel({ subscribers }) {
+  const [queryText, setQueryText] = useState("");
+  const stats = useMemo(() => {
+    const now = Date.now();
+    const dayMs = 86400000;
+    const active = subscribers.filter((subscriber) => subscriber.status === "active");
+    const withName = active.filter((subscriber) => String(subscriber.name || "").trim()).length;
+    const segmentCounts = SUBSCRIBER_SEGMENTS.map((segment) => ({
+      segment,
+      count: active.filter((subscriber) => normalizeSubscriberSegments(subscriber).includes(segment)).length,
+    }));
+    const recent = active.filter((subscriber) => {
+      const created = toDate(subscriber.createdAt);
+      return created && now - created.getTime() <= 30 * dayMs;
+    }).length;
+    const week = active.filter((subscriber) => {
+      const created = toDate(subscriber.createdAt);
+      return created && now - created.getTime() <= 7 * dayMs;
+    }).length;
+    const newest = [...active].sort((left, right) => (toDate(right.createdAt)?.getTime() || 0) - (toDate(left.createdAt)?.getTime() || 0))[0];
+    return {
+      total: active.length,
+      recent,
+      week,
+      withName,
+      newestAt: newest?.createdAt,
+      segmentCounts,
+    };
+  }, [subscribers]);
+
+  const filteredSubscribers = useMemo(() => {
+    const needle = queryText.trim().toLowerCase();
+    const sorted = [...subscribers].sort((left, right) => (toDate(right.createdAt)?.getTime() || 0) - (toDate(left.createdAt)?.getTime() || 0));
+    if (!needle) return sorted;
+    return sorted.filter((subscriber) => {
+      const haystack = [
+        subscriber.email,
+        subscriber.name,
+        subscriber.source,
+        subscriber.status,
+        ...normalizeSubscriberSegments(subscriber),
+      ].join(" ").toLowerCase();
+      return haystack.includes(needle);
+    });
+  }, [queryText, subscribers]);
+
+  return (
+    <section className="admin-subscriber-layout">
+      <div className="admin-panel full-span">
+        <div className="admin-panel-head">
+          <div>
+            <h2>Subscriber Overview</h2>
+            <p>People who have confirmed through the Firebase email-link subscription flow.</p>
+          </div>
+        </div>
+        <div className="admin-stat-grid">
+          <article className="admin-stat-card"><strong>{stats.total}</strong><span>Active subscribers</span></article>
+          <article className="admin-stat-card"><strong>{stats.week}</strong><span>New in 7 days</span></article>
+          <article className="admin-stat-card"><strong>{stats.recent}</strong><span>New in 30 days</span></article>
+          <article className="admin-stat-card"><strong>{stats.withName}</strong><span>With names</span></article>
+        </div>
+      </div>
+
+      <div className="admin-panel">
+        <div className="admin-panel-head tight">
+          <div>
+            <h2>Segment Trends</h2>
+            <p>Current list size by newsletter segment.</p>
+          </div>
+        </div>
+        <div className="admin-segment-list">
+          {stats.segmentCounts.map((item) => (
+            <div className="admin-segment-row" key={item.segment}>
+              <span>{item.segment}</span>
+              <strong>{item.count}</strong>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="admin-panel">
+        <div className="admin-panel-head tight">
+          <div>
+            <h2>Recent Pulse</h2>
+            <p>Quick health checks for the list.</p>
+          </div>
+        </div>
+        <div className="admin-meta-list">
+          <div>
+            <dt>Newest signup</dt>
+            <dd>{stats.newestAt ? formatStamp(stats.newestAt) : "No subscribers yet"}</dd>
+          </div>
+          <div>
+            <dt>Completion rate</dt>
+            <dd>{stats.total ? `${Math.round((stats.withName / stats.total) * 100)}% include a name` : "No active subscribers yet"}</dd>
+          </div>
+        </div>
+      </div>
+
+      <div className="admin-panel full-span">
+        <div className="admin-panel-head">
+          <div>
+            <h2>All Subscribers</h2>
+            <p>{filteredSubscribers.length} shown of {subscribers.length} total records.</p>
+          </div>
+          <input className="admin-input admin-subscriber-search" type="search" value={queryText} placeholder="Search subscribers" onChange={(event) => setQueryText(event.target.value)} />
+        </div>
+        <div className="admin-subscriber-table-wrap">
+          <table className="admin-subscriber-table">
+            <thead>
+              <tr>
+                <th>Email</th>
+                <th>Name</th>
+                <th>Segments</th>
+                <th>Source</th>
+                <th>Joined</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredSubscribers.map((subscriber) => {
+                const segments = normalizeSubscriberSegments(subscriber);
+                return (
+                  <tr key={subscriber.id}>
+                    <td>{subscriber.email || subscriber.emailLower || "Unknown"}</td>
+                    <td>{subscriber.name || "Optional"}</td>
+                    <td>
+                      <div className="admin-tag-row">
+                        {segments.length ? segments.map((segment) => <span className="admin-chip" key={segment}>{segment}</span>) : <span className="admin-chip muted">Unsegmented</span>}
+                      </div>
+                    </td>
+                    <td>{formatSubscriberSource(subscriber.source)}</td>
+                    <td>{formatStamp(subscriber.createdAt, { dateOnly: true, empty: "Unknown" })}</td>
+                    <td><StatusPill status={subscriber.status || "active"} /></td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          {!filteredSubscribers.length ? <p className="admin-empty-inline">No subscribers match that search.</p> : null}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function CollectionList({ kind, items, selectedId, onSelect, onCreate }) {
   return (
     <section className="admin-panel admin-list-panel">
@@ -1525,7 +1724,7 @@ function FacesForm({ draft, onChange, onUpload, assets }) {
   );
 }
 
-function PapersForm({ draft, onChange, onUpload, assets }) {
+function PapersForm({ draft, onChange, onUpload, assets, paperTypeOptions }) {
   return (
     <div className="admin-form-stack">
       <section className="admin-panel">
@@ -1535,7 +1734,7 @@ function PapersForm({ draft, onChange, onUpload, assets }) {
           <SelectField label="Status" value={draft.status} onChange={(next) => onChange({ ...draft, status: next })} options={DRAFT_STATUSES} />
           <TextInput label="Title" value={draft.title} onChange={(next) => onChange({ ...draft, title: next, slug: draft.slug || slugify(next) })} />
           <TextInput label="Subtitle / deck" value={draft.subtitle} onChange={(next) => onChange({ ...draft, subtitle: next })} />
-          <SelectField label="Type" value={draft.type} onChange={(next) => onChange({ ...draft, type: next })} options={PAPER_TYPES} />
+          <SelectField label="Type" value={draft.type} onChange={(next) => onChange({ ...draft, type: next })} options={paperTypeOptions} />
           <TextInput label="Badge style" value={draft.badgeStyle} onChange={(next) => onChange({ ...draft, badgeStyle: next })} />
           <TextInput label="Publish date" type="date" value={draft.publishDate} onChange={(next) => onChange({ ...draft, publishDate: next })} />
           <TextInput label="Display date override" value={draft.customDisplayDate} onChange={(next) => onChange({ ...draft, customDisplayDate: next })} />
@@ -1606,13 +1805,23 @@ function TravelForm({ draft, onChange, onUpload, assets }) {
       <GalleryEditor label="Dispatch photos" items={draft.photos || []} onChange={(next) => onChange({ ...draft, photos: next })} onUpload={onUpload} assets={assets} kind="travel" />
       <section className="admin-card-section">
         <div className="admin-section-head">
-          <div><h3>Quote cards</h3><p>Each saved quote publishes into `scrap_sheet_quotes` for the current travel page experience.</p></div>
+          <div><h3>Quote cards</h3><p>Each saved quote publishes into `scrap_sheet_quotes` for the current travel page experience. Max {TRAVEL_QUOTE_MAX_CHARS} characters.</p></div>
           <button type="button" className="admin-mini-button" onClick={() => onChange({ ...draft, quotes: [...(draft.quotes || []), { id: createLocalId("travel-quote"), text: "" }] })}>Add quote</button>
         </div>
         <div className="admin-stack">
           {(draft.quotes || []).map((quote) => (
             <div className="admin-inline-row" key={quote.id}>
-              <textarea className="admin-textarea compact" rows={3} value={quote.text || ""} onChange={(event) => onChange({ ...draft, quotes: draft.quotes.map((item) => item.id === quote.id ? { ...item, text: event.target.value } : item) })} />
+              <textarea
+                className="admin-textarea compact"
+                rows={3}
+                maxLength={TRAVEL_QUOTE_MAX_CHARS}
+                value={quote.text || ""}
+                onChange={(event) => onChange({
+                  ...draft,
+                  quotes: draft.quotes.map((item) => item.id === quote.id ? { ...item, text: String(event.target.value || "").slice(0, TRAVEL_QUOTE_MAX_CHARS) } : item),
+                })}
+              />
+              <span className="admin-field-hint">{String((quote.text || "").length)}/{TRAVEL_QUOTE_MAX_CHARS}</span>
               <button type="button" className="admin-icon-button" onClick={() => onChange({ ...draft, quotes: draft.quotes.filter((item) => item.id !== quote.id) })}>Remove</button>
             </div>
           ))}
@@ -1627,10 +1836,13 @@ export default function AdminApp() {
   const [activeSection, setActiveSection] = useState("dashboard");
   const [lists, setLists] = useState({ faces: [], papers: [], travel: [], photography: [] });
   const [mediaAssets, setMediaAssets] = useState([]);
+  const [subscribers, setSubscribers] = useState([]);
   const [sectionMediaConfig, setSectionMediaConfig] = useState({
     readStoryPortrait: createMediaValue(),
     papersHeroImage: createMediaValue(),
     papersAuthorPortrait: createMediaValue(),
+    papersTypewriterLines: [],
+    papersWritingTypes: [],
     based: "",
     studying: "",
     shooting: "",
@@ -1735,11 +1947,14 @@ export default function AdminApp() {
       setLists((current) => ({ ...current, [kind]: items }));
     }, (error) => setNotice({ tone: "error", message: `${CONTENT_LABELS[kind]} failed to load: ${error.message}` })));
     const unsubscribeMedia = subscribeMediaAssets(setMediaAssets, (error) => setNotice({ tone: "error", message: `Media library failed to load: ${error.message}` }));
+    const unsubscribeSubscribers = subscribeSubscribers(setSubscribers, (error) => setNotice({ tone: "error", message: `Subscribers failed to load: ${error.message}` }));
     const unsubscribeSectionMedia = subscribeSectionMediaConfig((config) => {
       setSectionMediaConfig({
         readStoryPortrait: config?.readStoryPortrait || createMediaValue(),
         papersHeroImage: config?.papersHeroImage || createMediaValue(),
         papersAuthorPortrait: config?.papersAuthorPortrait || createMediaValue(),
+        papersTypewriterLines: Array.isArray(config?.papersTypewriterLines) ? config.papersTypewriterLines.filter((line) => String(line || "").trim()) : [],
+        papersWritingTypes: Array.isArray(config?.papersWritingTypes) ? config.papersWritingTypes.filter((type) => String(type || "").trim()) : [],
         based: String(config?.based || ""),
         studying: String(config?.studying || ""),
         shooting: String(config?.shooting || ""),
@@ -1750,7 +1965,7 @@ export default function AdminApp() {
     const unsubscribePhotographyFeatured = subscribePhotographyFeaturedConfig((config) => {
       setPhotographyFeaturedConfig({ items: Array.isArray(config?.items) ? config.items : [] });
     }, (error) => setNotice({ tone: "error", message: `Photography featured failed to load: ${error.message}` }));
-    unsubscribers.push(unsubscribeMedia, unsubscribeSectionMedia, unsubscribePhotographyFeatured);
+    unsubscribers.push(unsubscribeMedia, unsubscribeSubscribers, unsubscribeSectionMedia, unsubscribePhotographyFeatured);
     return () => unsubscribers.forEach((unsubscribe) => typeof unsubscribe === "function" && unsubscribe());
   }, [authState.isAdmin]);
 
@@ -1865,6 +2080,14 @@ export default function AdminApp() {
     }
     return collectFeaturedPhotoOptions(items.filter((item) => item.status === "published" || item.publishedRecord?.slug));
   }, [activeSection, draft, draftId, lists.photography]);
+
+  const paperTypeOptions = useMemo(() => {
+    const custom = Array.isArray(sectionMediaConfig?.papersWritingTypes)
+      ? sectionMediaConfig.papersWritingTypes.map((type) => String(type || "").trim()).filter(Boolean)
+      : [];
+    const merged = custom.length ? custom : PAPER_TYPES;
+    return Array.from(new Set(merged));
+  }, [sectionMediaConfig]);
 
   async function refreshSession(force = true) {
     if (!authState.user) return;
@@ -2066,6 +2289,8 @@ export default function AdminApp() {
         readStoryPortrait: saved?.readStoryPortrait || createMediaValue(),
         papersHeroImage: saved?.papersHeroImage || createMediaValue(),
         papersAuthorPortrait: saved?.papersAuthorPortrait || createMediaValue(),
+        papersTypewriterLines: Array.isArray(saved?.papersTypewriterLines) ? saved.papersTypewriterLines.filter((line) => String(line || "").trim()) : [],
+        papersWritingTypes: Array.isArray(saved?.papersWritingTypes) ? saved.papersWritingTypes.filter((type) => String(type || "").trim()) : [],
         based: String(saved?.based || ""),
         studying: String(saved?.studying || ""),
         shooting: String(saved?.shooting || ""),
@@ -2190,7 +2415,7 @@ export default function AdminApp() {
   function renderActiveForm() {
     if (!draft) return <p className="admin-empty-inline">Create or select a draft to start editing.</p>;
     if (activeSection === "faces") return <FacesForm draft={draft} onChange={(next) => setDraft(hydrateDraft("faces", next))} onUpload={handleUpload} assets={mediaAssets} />;
-    if (activeSection === "papers") return <PapersForm draft={draft} onChange={(next) => setDraft(hydrateDraft("papers", next))} onUpload={handleUpload} assets={mediaAssets} />;
+    if (activeSection === "papers") return <PapersForm draft={draft} onChange={(next) => setDraft(hydrateDraft("papers", next))} onUpload={handleUpload} assets={mediaAssets} paperTypeOptions={paperTypeOptions} />;
     if (activeSection === "travel") return <TravelForm draft={draft} onChange={(next) => setDraft(hydrateDraft("travel", next))} onUpload={handleUpload} assets={mediaAssets} />;
     if (activeSection === "photography") {
       return (
@@ -2271,7 +2496,7 @@ export default function AdminApp() {
         <header className="admin-topbar">
           <div>
             <p className="admin-topbar-kicker">Protected editorial workspace</p>
-            <h2>{activeSection === "dashboard" ? "Dashboard" : activeSection === "media" ? "Media Library" : activeSection === "site-assets" ? "Site Assets" : CONTENT_LABELS[activeSection]}</h2>
+            <h2>{activeSection === "dashboard" ? "Dashboard" : activeSection === "media" ? "Media Library" : activeSection === "site-assets" ? "Site Assets" : activeSection === "subscribers" ? "Subscribers" : CONTENT_LABELS[activeSection]}</h2>
           </div>
           <div className="admin-topbar-actions">
             {isContentSection && draft ? <StatusPill status={draft.status || "draft"} /> : null}
@@ -2286,6 +2511,7 @@ export default function AdminApp() {
         </header>
         <Notice notice={notice} onDismiss={() => setNotice(null)} />
         {activeSection === "dashboard" ? <Dashboard lists={lists} onCreate={handleCreate} onJump={(kind, id) => { setActiveSection(kind); setSelectedIds((current) => ({ ...current, [kind]: id })); }} /> : null}
+        {activeSection === "subscribers" ? <SubscribersPanel subscribers={subscribers} /> : null}
         {activeSection === "media" ? <MediaLibrary assets={mediaAssets} onUpload={handleUpload} onSaveMetadata={handleSaveMediaMetadata} onDeleteAsset={handleDeleteMediaAsset} /> : null}
         {activeSection === "site-assets" ? (
           <SiteAssetsForm

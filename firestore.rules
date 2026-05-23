@@ -24,6 +24,12 @@ service cloud.firestore {
       return data.keys().hasOnly(keys);
     }
 
+    function validSegmentTags(tags) {
+      return tags is list
+        && tags.size() <= 4
+        && tags.hasOnly(["Articles & Op-Eds", "Photography", "Faces of the World", "Travel"]);
+    }
+
     function validSubscriberData(uid) {
         return hasOnlyKeys(
           request.resource.data,
@@ -34,6 +40,7 @@ service cloud.firestore {
             "verified",
             "status",
             "preferences",
+            "segmentTags",
             "wantsAllUpdates",
             "wantsPapers",
             "wantsPhotography",
@@ -58,6 +65,7 @@ service cloud.firestore {
         && request.resource.data.source.size() <= 40
         && request.resource.data.preferences is list
         && request.resource.data.preferences.size() <= 10
+        && validSegmentTags(request.resource.data.segmentTags)
         && request.resource.data.wantsAllUpdates is bool
         && request.resource.data.wantsPapers is bool
         && request.resource.data.wantsPhotography is bool
@@ -152,7 +160,7 @@ service cloud.firestore {
     }
 
     match /subscribers/{uid} {
-      allow read: if isSelf(uid);
+      allow read: if isSelf(uid) || isAdmin();
       allow create, update: if isSelf(uid) && validSubscriberData(uid);
       allow delete: if false;
     }

@@ -243,7 +243,8 @@ body {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.admin-dashboard-grid .full-span {
+.admin-dashboard-grid .full-span,
+.admin-subscriber-layout .full-span {
   grid-column: 1 / -1;
 }
 
@@ -709,6 +710,68 @@ body {
   text-decoration: none;
 }
 
+.admin-chip.muted {
+  color: var(--admin-soft);
+}
+
+.admin-subscriber-layout {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.admin-segment-list {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.admin-segment-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 0;
+  border-bottom: 1px solid var(--admin-line);
+}
+
+.admin-segment-row span {
+  color: var(--admin-soft);
+}
+
+.admin-subscriber-search {
+  max-width: 18rem;
+}
+
+.admin-subscriber-table-wrap {
+  overflow-x: auto;
+}
+
+.admin-subscriber-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 760px;
+}
+
+.admin-subscriber-table th,
+.admin-subscriber-table td {
+  padding: 0.85rem 0.75rem;
+  border-top: 1px solid var(--admin-line);
+  text-align: left;
+  vertical-align: top;
+}
+
+.admin-subscriber-table th {
+  color: var(--admin-soft);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-tag-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
 .admin-sidebar-footer {
   display: grid;
   gap: 0.5rem;
@@ -851,6 +914,7 @@ body {
 
   .admin-editor-grid,
   .admin-dashboard-grid,
+  .admin-subscriber-layout,
   .admin-media-layout {
     grid-template-columns: 1fr;
   }
