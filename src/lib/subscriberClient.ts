@@ -9,9 +9,11 @@ import {
   type User,
 } from "firebase/auth";
 import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
-import { app, db, firestoreReady } from "./firebaseClient";
+import { firebaseConfig, functionsRegion, app, db, firestoreReady } from "./firebaseClient";
 
 const PENDING_KEY = "sfa-pending-subscriber-v1";
+const PROFILE_CACHE_KEY = "sfa-subscriber-profile-v1";
+const UI_STORAGE_KEY = "sfa-subscriber-ui-v1";
 export const SUBSCRIBER_SEGMENTS = [
   "Articles & Op-Eds",
   "Photography",
@@ -171,6 +173,26 @@ function preferencesFromFlags(flags: SubscriberFlags) {
   return next;
 }
 
+function sanitizeCachedProfile(profile: unknown, fallbackEmail = "") {
+  if (!profile || typeof profile !== "object") return null;
+  const source = profile as Record<string, unknown>;
+  const email = normalizeEmail(source.email || fallbackEmail);
+  const segmentTags = normalizeSubscriberSegments(source);
+  const preferences = toPreferenceList(source.preferences);
+  return {
+    email,
+    name: normalizeString(source.name).slice(0, 80),
+    preferences,
+    segmentTags,
+    status: normalizeString(source.status) || (segmentTags.length || preferences.length ? "active" : ""),
+    wantsAllUpdates: Boolean(source.wantsAllUpdates),
+    wantsPapers: Boolean(source.wantsPapers),
+    wantsPhotography: Boolean(source.wantsPhotography),
+    wantsFaces: Boolean(source.wantsFaces),
+    wantsTravel: Boolean(source.wantsTravel),
+  };
+}
+
 function readPendingSubscriber(): PendingSubscriber | null {
   if (typeof window === "undefined") return null;
   try {
@@ -190,6 +212,109 @@ function readPendingSubscriber(): PendingSubscriber | null {
   } catch (error) {
     return null;
   }
+}
+
+function readSubscriberStateFromUrl(): PendingSubscriber | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const params = new URL(window.location.href).searchParams;
+    const email = normalizeEmail(params.get("sfaSubEmail") || "");
+    if (!email) return null;
+    return {
+      email,
+      name: normalizeString(params.get("sfaSubName") || "").slice(0, 80),
+      preferences: toPreferenceList((params.get("sfaSubPrefs") || "").split(",")),
+      segmentTags: normalizeSegmentTags((params.get("sfaSubSegments") || "").split(",")),
+      source: normalizeString(params.get("sfaSubSource") || "").slice(0, 40) || "subscriber_modal",
+    };
+  } catch (error) {
+    return null;
+  }
+}
+
+function redirectWithSubscriberState(redirectUrl: string, pending: PendingSubscriber) {
+  try {
+    const url = new URL(redirectUrl, typeof window !== "undefined" ? window.location.origin : undefined);
+    url.searchParams.set("sfaSubEmail", pending.email);
+    if (pending.name) url.searchParams.set("sfaSubName", pending.name);
+    if (pending.preferences.length) url.searchParams.set("sfaSubPrefs", pending.preferences.join(","));
+    if (pending.segmentTags?.length) url.searchParams.set("sfaSubSegments", pending.segmentTags.join(","));
+    if (pending.source) url.searchParams.set("sfaSubSource", pending.source);
+    return url.toString();
+  } catch (error) {
+    return redirectUrl;
+  }
+}
+
+function getSubscriberEmailLinkEndpoint() {
+  const projectId = normalizeString(firebaseConfig?.projectId);
+  if (!projectId) return "";
+  const region = normalizeString(functionsRegion) || "us-central1";
+  return `https://${region}-${projectId}.cloudfunctions.net/sendSubscriberSignInLinkEmail`;
+}
+
+function getSubscriberSyncEndpoint() {
+  const projectId = normalizeString(firebaseConfig?.projectId);
+  if (!projectId) return "";
+  const region = normalizeString(functionsRegion) || "us-central1";
+  return `https://${region}-${projectId}.cloudfunctions.net/syncSubscriberByEmail`;
+}
+
+async function syncExistingSubscriberByEmail(pending: PendingSubscriber) {
+  const endpoint = getSubscriberSyncEndpoint();
+  if (!endpoint) return { ok: false as const, exists: false as const };
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      email: pending.email,
+      name: pending.name,
+      segmentTags: pending.segmentTags || [],
+      source: pending.source,
+    }),
+  });
+  if (!response.ok) {
+    return { ok: false as const, exists: false as const };
+  }
+  const payload = await response.json().catch(() => ({}));
+  const exists = Boolean(payload?.exists);
+  const updated = Boolean(payload?.updated);
+  const profile = payload?.profile && typeof payload.profile === "object" ? payload.profile : null;
+  return {
+    ok: true as const,
+    exists,
+    updated,
+    profile,
+  };
+}
+
+async function sendCustomSubscriberSignInEmail(pending: PendingSubscriber, redirectUrl: string) {
+  const endpoint = getSubscriberEmailLinkEndpoint();
+  if (!endpoint) return false;
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      email: pending.email,
+      name: pending.name,
+      redirectUrl: redirectWithSubscriberState(redirectUrl, pending),
+    }),
+  });
+  if (!response.ok) {
+    let message = "Custom sign-in email failed.";
+    try {
+      const payload = await response.json();
+      if (payload?.message) message = String(payload.message);
+    } catch (error) {
+      // Ignore response parsing errors.
+    }
+    throw new Error(message);
+  }
+  return true;
 }
 
 function writePendingSubscriber(next: PendingSubscriber) {
@@ -229,6 +354,102 @@ export function isSubscriberProfileActive(profile: unknown) {
   return Boolean(profile && typeof profile === "object" && (profile as { status?: string }).status === "active");
 }
 
+export function normalizeSubscriberSegments(profile: unknown) {
+  if (!profile || typeof profile !== "object") return [];
+  const source = profile as Record<string, unknown>;
+  const direct = normalizeSegmentTags(source.segmentTags);
+  if (direct.length) return direct;
+  return dedupeList([
+    ...segmentsFromPreferences(source.preferences),
+    ...segmentsFromLegacyFlags(source),
+  ]);
+}
+
+export function subscriberHasSegment(profile: unknown, segment: string) {
+  return isSubscriberProfileActive(profile) && normalizeSubscriberSegments(profile).includes(segment as any);
+}
+
+export function subscriberHasAnySegment(profile: unknown) {
+  return isSubscriberProfileActive(profile) && normalizeSubscriberSegments(profile).length > 0;
+}
+
+export function readCachedSubscriberProfile() {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(PROFILE_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    const rawProfile = parsed?.profile && typeof parsed.profile === "object" ? parsed.profile : parsed;
+    const profile = sanitizeCachedProfile(rawProfile, parsed?.email);
+    if (!profile?.email?.includes("@")) return null;
+    return {
+      email: profile.email,
+      profile,
+      segmentTags: profile.segmentTags,
+      updatedAt: Number((parsed as { updatedAt?: unknown }).updatedAt || 0) || 0,
+    };
+  } catch (error) {
+    return null;
+  }
+}
+
+export function cacheSubscriberProfile(input: { email?: unknown; user?: Partial<User> | null; profile?: unknown }) {
+  if (typeof window === "undefined") return null;
+  const user = input.user || null;
+  const profile = sanitizeCachedProfile(input.profile || {}, normalizeEmail(input.email || user?.email || ""));
+  const email = normalizeEmail(input.email || user?.email || profile?.email || "");
+  if (!email.includes("@")) return null;
+  const nextProfile = {
+    ...(profile || {}),
+    email,
+    name: normalizeString(profile?.name || user?.displayName || "").slice(0, 80),
+    status: profile?.status || "active",
+    segmentTags: normalizeSubscriberSegments(profile),
+    preferences: toPreferenceList(profile?.preferences),
+  };
+  const payload = {
+    email,
+    profile: nextProfile,
+    name: nextProfile.name,
+    preferences: nextProfile.preferences,
+    segmentTags: nextProfile.segmentTags,
+    updatedAt: Date.now(),
+  };
+  try {
+    window.localStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify(payload));
+    window.localStorage.setItem(UI_STORAGE_KEY, subscriberHasAnySegment(nextProfile) ? "profile" : "subscribe");
+  } catch (error) {
+    // Ignore storage errors.
+  }
+  emitSubscriberProfileMode(email, nextProfile);
+  return payload;
+}
+
+export function emitSubscriberProfileMode(emailInput: unknown, profile: unknown) {
+  if (typeof window === "undefined") return;
+  try {
+    window.dispatchEvent(new CustomEvent("sfa:subscriber-profile-mode", {
+      detail: {
+        email: normalizeEmail(emailInput || (profile as { email?: unknown } | null)?.email || ""),
+        profile: profile && typeof profile === "object" ? profile : null,
+      },
+    }));
+  } catch (error) {
+    // Ignore event errors.
+  }
+}
+
+export function setSubscriberUiModeFromProfile(profile: unknown) {
+  if (typeof window === "undefined") return;
+  const subscribed = subscriberHasAnySegment(profile);
+  try {
+    window.localStorage.setItem(UI_STORAGE_KEY, subscribed ? "profile" : "subscribe");
+  } catch (error) {
+    // Ignore storage errors.
+  }
+  document.documentElement.setAttribute("data-sfa-ui", subscribed ? "profile" : "subscribe");
+}
+
 export async function getSubscriberRecord(uid: string) {
   if (!firestoreReady || !db || !uid) return null;
   try {
@@ -246,6 +467,7 @@ export async function upsertSubscriberRecord(
     preferences?: string[];
     segmentTags?: string[];
     source?: string;
+    replaceSegments?: boolean;
   }
 ) {
   if (!firestoreReady || !db || !user?.uid || !user.email) return null;
@@ -268,13 +490,19 @@ export async function upsertSubscriberRecord(
     wantsFaces: Boolean((existing as { wantsFaces?: boolean } | null)?.wantsFaces),
     wantsTravel: Boolean((existing as { wantsTravel?: boolean } | null)?.wantsTravel),
   };
-  const segmentTags = dedupeList([
-    ...nextSegments,
-    ...segmentsFromPreferences(nextPreferences),
-    ...existingSegments,
-    ...segmentsFromLegacyFlags(existingFlags),
-    ...segmentsFromSource(source),
-  ]);
+  const replaceSegments = Boolean(options?.replaceSegments);
+  const segmentTags = replaceSegments
+    ? dedupeList([
+        ...nextSegments,
+        ...segmentsFromPreferences(nextPreferences),
+      ])
+    : dedupeList([
+        ...nextSegments,
+        ...segmentsFromPreferences(nextPreferences),
+        ...existingSegments,
+        ...segmentsFromLegacyFlags(existingFlags),
+        ...segmentsFromSource(source),
+      ]);
   const preferences = nextPreferences.length
     ? dedupeList(nextPreferences)
     : preferencesFromSegments(segmentTags).length
@@ -315,6 +543,7 @@ export async function sendSubscriberSignInLink(options: {
   segmentTags?: string[];
   source?: string;
   redirectUrl?: string;
+  forceEmailLink?: boolean;
 }) {
   const auth = await ensureAuthReady();
   const email = normalizeEmail(options.email);
@@ -328,13 +557,14 @@ export async function sendSubscriberSignInLink(options: {
 
   const existingUser = auth.currentUser;
   if (existingUser?.email && normalizeEmail(existingUser.email) === email) {
-    await upsertSubscriberRecord(existingUser, {
+    const profile = await upsertSubscriberRecord(existingUser, {
       name: options.name,
       preferences: options.preferences,
       segmentTags: options.segmentTags,
       source: options.source,
     });
-    return { ok: true, linked: true as const };
+    cacheSubscriberProfile({ user: existingUser, profile });
+    return { ok: true, linked: true as const, existing: true as const, updated: true as const, profile };
   }
 
   const redirectUrl =
@@ -344,20 +574,50 @@ export async function sendSubscriberSignInLink(options: {
     return { ok: false, reason: "missing_redirect" as const };
   }
 
-  await sendSignInLinkToEmail(auth, email, {
-    url: redirectUrl,
-    handleCodeInApp: true,
-  });
-
-  writePendingSubscriber({
+  const pending = {
     email,
     name: normalizeString(options.name).slice(0, 80),
     preferences: toPreferenceList(options.preferences),
     segmentTags: normalizeSegmentTags(options.segmentTags),
     source: normalizeString(options.source).slice(0, 40) || "subscriber_modal",
-  });
+  };
 
-  return { ok: true, linked: false as const };
+  if (!options.forceEmailLink) {
+    try {
+      const syncResult = await syncExistingSubscriberByEmail(pending);
+      if (syncResult.ok && syncResult.exists) {
+        if (syncResult.profile) {
+          cacheSubscriberProfile({ email, profile: syncResult.profile });
+        }
+        return {
+          ok: true,
+          linked: false as const,
+          existing: true as const,
+          updated: syncResult.updated,
+          profile: syncResult.profile,
+        };
+      }
+    } catch (error) {
+      // Fall through to normal email-link flow.
+    }
+  }
+
+  let sentViaCustomService = false;
+  try {
+    sentViaCustomService = await sendCustomSubscriberSignInEmail(pending, redirectUrl);
+  } catch (error) {
+    sentViaCustomService = false;
+  }
+  if (!sentViaCustomService) {
+    await sendSignInLinkToEmail(auth, email, {
+      url: redirectWithSubscriberState(redirectUrl, pending),
+      handleCodeInApp: true,
+    });
+  }
+
+  writePendingSubscriber(pending);
+
+  return { ok: true, linked: false as const, existing: false as const, updated: false as const };
 }
 
 export async function completeSubscriberSignInFromLink() {
@@ -371,7 +631,7 @@ export async function completeSubscriberSignInFromLink() {
     return { completed: false as const };
   }
 
-  const pending = readPendingSubscriber();
+  const pending = readPendingSubscriber() || readSubscriberStateFromUrl();
   const pendingEmail = normalizeEmail(pending?.email);
   const fallbackEmail = normalizeEmail(window.localStorage.getItem("sfa-last-email-link") || "");
   const email = pendingEmail || fallbackEmail || normalizeEmail(window.prompt("Confirm your email to finish sign-in:") || "");
@@ -398,12 +658,13 @@ export async function completeSubscriberSignInFromLink() {
   }
   window.localStorage.setItem("sfa-last-email-link", email);
 
-  await upsertSubscriberRecord(credential.user, {
+  const profile = await upsertSubscriberRecord(credential.user, {
     name: pending?.name,
     preferences: pending?.preferences,
     segmentTags: pending?.segmentTags,
     source: pending?.source || "subscriber_modal",
   });
+  cacheSubscriberProfile({ user: credential.user, profile });
 
   clearPendingSubscriber();
 
@@ -431,4 +692,30 @@ export async function onSubscriberAuthChange(callback: (user: User | null) => vo
   const auth = await ensureAuthReady();
   if (!auth) return () => {};
   return onAuthStateChanged(auth, callback);
+}
+
+export async function lookupSubscriberByEmail(emailInput: string) {
+  const email = normalizeEmail(emailInput);
+  if (!email.includes("@")) return { ok: false as const, exists: false as const, profile: null };
+  const pending: PendingSubscriber = {
+    email,
+    name: "",
+    preferences: [],
+    segmentTags: [],
+    source: "subscriber_lookup",
+  };
+  try {
+    const result = await syncExistingSubscriberByEmail(pending);
+    return {
+      ok: result.ok,
+      exists: Boolean(result.exists),
+      profile: result.profile || null,
+    };
+  } catch (error) {
+    return {
+      ok: false as const,
+      exists: false as const,
+      profile: null,
+    };
+  }
 }

@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Email Verified — Stories From Abroad</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,500;1,600&family=Lora:ital,wght@0,400;0,500;1,400;1,500&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --cream:  #F2F0EB;
+      --cream2: #EAE7E1;
+      --ink:    #1A1A18;
+      --ink2:   #3A3832;
+      --ink3:   #7A7570;
+      --green:  #1C4A2E;
+      --green2: #162820;
+      --gold:   #C4922A;
+      --border: rgba(26,26,24,0.12);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      background-color: var(--cream);
+      font-family: 'Lora', Georgia, serif;
+      color: var(--ink);
+      -webkit-font-smoothing: antialiased;
+      min-height: 100vh;
+      display: flex; flex-direction: column;
+    }
+
+    /* ── Main ── */
+    .main {
+      flex: 1;
+      display: flex; align-items: center; justify-content: center;
+      padding: 90px 24px;
+    }
+    .card { max-width: 580px; width: 100%; text-align: center; }
+
+    /* Animated check mark */
+    .check-wrap {
+      margin-bottom: 40px;
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; animation: fade-up 0.6s ease 0.05s forwards;
+    }
+    .check-outer {
+      width: 72px; height: 72px;
+      border: 1px solid rgba(28,74,46,0.35);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      animation: pulse-ring 3.2s ease-in-out infinite;
+    }
+    .check-inner {
+      width: 52px; height: 52px;
+      background: var(--green); border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .check-inner svg { width: 22px; height: 22px; }
+    @keyframes pulse-ring {
+      0%,100% { box-shadow: 0 0 0 0 rgba(28,74,46,0); }
+      50%      { box-shadow: 0 0 0 12px rgba(28,74,46,0.08); }
+    }
+
+    /* Est. kicker — matches site's "EST. 2024 · DISPATCHES FROM THE WORLD" */
+    .kicker {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 10px; letter-spacing: 0.46em; text-transform: uppercase;
+      color: var(--ink3);
+      display: block; margin-bottom: 20px;
+      opacity: 0; animation: fade-up 0.6s ease 0.18s forwards;
+    }
+
+    /* Headline — "Stories" style in ink, italic green for secondary */
+    .headline {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: clamp(48px, 8vw, 70px); font-weight: 400;
+      line-height: 1.04; letter-spacing: -0.01em;
+      color: var(--ink); margin-bottom: 4px;
+      opacity: 0; animation: fade-up 0.7s ease 0.28s forwards;
+    }
+    .headline-green {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: clamp(48px, 8vw, 70px); font-weight: 400;
+      font-style: italic; line-height: 1.04; letter-spacing: -0.01em;
+      color: var(--green); display: block;
+      opacity: 0; animation: fade-up 0.7s ease 0.36s forwards;
+    }
+
+    /* ✦ ornament with rules — matches site's divider exactly */
+    .ornament-row {
+      display: flex; align-items: center; justify-content: center;
+      gap: 16px; margin: 32px auto;
+      opacity: 0; animation: fade-up 0.6s ease 0.44s forwards;
+    }
+    .ornament-rule { width: 60px; height: 1px; background: var(--ink3); opacity: 0.35; }
+    .ornament-star { font-size: 14px; color: var(--ink); }
+
+    .message {
+      font-family: 'Lora', serif; font-style: italic;
+      font-size: 16px; line-height: 1.86;
+      color: var(--ink2); max-width: 440px; margin: 0 auto 48px;
+      opacity: 0; animation: fade-up 0.7s ease 0.52s forwards;
+    }
+
+    /* Buttons — match site's READ THE STORY / SUBSCRIBE pair */
+    .btn-row {
+      display: flex; flex-wrap: wrap; gap: 14px; justify-content: center;
+      opacity: 0; animation: fade-up 0.7s ease 0.62s forwards;
+    }
+    .btn-primary {
+      display: inline-flex; align-items: center; gap: 10px;
+      background: var(--green); color: var(--cream);
+      text-decoration: none;
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 10px; letter-spacing: 0.38em; text-transform: uppercase;
+      padding: 16px 38px; border: 1px solid var(--green);
+      transition: background 0.2s;
+    }
+    .btn-primary:hover { background: #245f38; border-color: #245f38; }
+    .btn-ghost {
+      display: inline-flex; align-items: center; gap: 10px;
+      background: transparent; color: var(--ink);
+      text-decoration: none;
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 10px; letter-spacing: 0.38em; text-transform: uppercase;
+      padding: 15px 38px; border: 1px solid var(--ink);
+      transition: background 0.2s, color 0.2s;
+    }
+    .btn-ghost:hover { background: var(--ink); color: var(--cream); }
+
+    /* ── Site Footer — dark green, centered, exact match ── */
+    .site-footer {
+      background: var(--green2);
+      padding: 48px 48px 36px;
+      text-align: center;
+    }
+    .footer-wordmark {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 11px; letter-spacing: 0.38em; text-transform: uppercase;
+      color: rgba(242,240,235,0.7); display: block; margin-bottom: 18px;
+      text-decoration: none;
+    }
+    .footer-links {
+      display: flex; align-items: center; justify-content: center;
+      gap: 28px; list-style: none; margin-bottom: 20px;
+    }
+    .footer-links a {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 9.5px; letter-spacing: 0.3em; text-transform: uppercase;
+      color: rgba(242,240,235,0.45); text-decoration: none;
+      transition: color 0.18s;
+    }
+    .footer-links a:hover { color: rgba(242,240,235,0.8); }
+    .footer-rule {
+      width: 300px; height: 1px;
+      background: rgba(242,240,235,0.15);
+      margin: 0 auto 20px;
+    }
+    .footer-copy {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 10px; letter-spacing: 0.14em;
+      color: rgba(242,240,235,0.3);
+    }
+
+    @keyframes fade-up {
+      from { opacity: 0; transform: translateY(14px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Main -->
+  <main class="main">
+    <div class="card">
+
+      <div class="check-wrap">
+        <div class="check-outer">
+          <div class="check-inner">
+            <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <span class="kicker">Est. 2024 &nbsp;·&nbsp; Subscription Confirmed</span>
+
+      <h1 class="headline">Email</h1>
+      <span class="headline-green">Verified.</span>
+
+      <div class="ornament-row">
+        <div class="ornament-rule"></div>
+        <span class="ornament-star">✦</span>
+        <div class="ornament-rule"></div>
+      </div>
+
+      <p class="message">
+        Thanks so much for subscribing to Stories from Abroad.<br>
+        I am incredibly excited to have you along for the journey.
+      </p>
+
+      <div class="btn-row">
+        <a href="https://birkleyg.github.io/stories-from-abroad/" class="btn-primary">Visit the Site</a>
+        <a href="subscriber-settings.html" class="btn-ghost">Adjust Settings</a>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Site Footer -->
+  <footer class="site-footer">
+    <a href="https://birkleyg.github.io/stories-from-abroad/" class="footer-wordmark">Stories From Abroad</a>
+    <ul class="footer-links">
+      <li><a href="https://birkleyg.github.io/stories-from-abroad/">Home</a></li>
+      <li><a href="https://birkleyg.github.io/stories-from-abroad/selected-papers/">Selected Papers</a></li>
+      <li><a href="https://birkleyg.github.io/stories-from-abroad/photography/">Photography</a></li>
+    </ul>
+    <div class="footer-rule"></div>
+    <div class="footer-copy">© 2026 Stories From Abroad. All rights reserved.</div>
+  </footer>
+
+</body>
+</html>

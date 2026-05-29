@@ -1,0 +1,291 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+
+const base = import.meta.env.BASE_URL ?? "/";
+const basePath = base.endsWith("/") ? base : `${base}/`;
+---
+
+<BaseLayout title="Unsubscribe" description="Remove subscriber updates" navMode="single" navLabel="Unsubscribe" showSubscribe={false}>
+  <section class="unsub-shell">
+    <div class="unsub-card" id="unsub-confirm">
+      <p class="unsub-kicker">Leaving Dispatches</p>
+      <h1>Unsubscribe <em>from Abroad.</em></h1>
+      <p class="unsub-copy">This removes your subscriber preferences from all dispatch lists.</p>
+
+      <div class="unsub-signin" id="unsub-signin" hidden>
+        <p>Sign in with your subscriber email to continue.</p>
+        <div class="unsub-row">
+          <input id="unsub-email" type="email" placeholder="you@example.com" />
+          <button id="unsub-send" class="btn-solid" type="button">Send Link</button>
+        </div>
+        <p class="unsub-status" id="unsub-signin-status" aria-live="polite"></p>
+      </div>
+
+      <div class="unsub-actions">
+        <button id="unsub-confirm-btn" class="btn-solid" type="button">Yes, Unsubscribe</button>
+        <a class="btn-ghost" href={`${basePath}subscriber-settings/`} id="unsub-cancel-link">Keep Me Subscribed</a>
+      </div>
+      <p class="unsub-status" id="unsub-status" aria-live="polite"></p>
+    </div>
+
+    <div class="unsub-card" id="unsub-success" hidden>
+      <p class="unsub-kicker">All Done</p>
+      <h1>Successfully <em>Unsubscribed.</em></h1>
+      <p class="unsub-copy">You are now off all dispatch lists. You can subscribe again any time.</p>
+      <a class="btn-solid" href={basePath}>Return to the Site</a>
+    </div>
+  </section>
+
+  <script>
+    import { doc, serverTimestamp, setDoc } from "firebase/firestore";
+    import { db, firestoreReady } from "../lib/firebaseClient";
+    import {
+      completeSubscriberSignInFromLink,
+      getCurrentAuthUser,
+      getSubscriberRecord,
+      normalizeEmail,
+      onSubscriberAuthChange,
+      sendSubscriberSignInLink,
+    } from "../lib/subscriberClient";
+
+    const confirmCard = document.getElementById("unsub-confirm");
+    const successCard = document.getElementById("unsub-success");
+    const confirmBtn = document.getElementById("unsub-confirm-btn");
+    const statusEl = document.getElementById("unsub-status");
+    const signInWrap = document.getElementById("unsub-signin");
+    const signInEmail = document.getElementById("unsub-email");
+    const signInBtn = document.getElementById("unsub-send");
+    const signInStatus = document.getElementById("unsub-signin-status");
+    const cancelLink = document.getElementById("unsub-cancel-link");
+    const url = new URL(window.location.href);
+    const emailFromQuery = normalizeEmail(url.searchParams.get("email") || "");
+
+    let authUser = null;
+    let subscriberProfile = null;
+
+    function setStatus(el, message, tone = "muted") {
+      if (!el) return;
+      el.textContent = message;
+      el.dataset.tone = tone;
+    }
+
+    function setAuthState(user) {
+      authUser = user;
+      if (authUser?.email && signInEmail instanceof HTMLInputElement) {
+        signInEmail.value = normalizeEmail(authUser.email);
+      }
+      const signedIn = Boolean(authUser?.uid);
+      signInWrap.hidden = signedIn;
+      confirmBtn.disabled = !signedIn;
+      if (signedIn) {
+        setStatus(statusEl, "");
+      } else {
+        setStatus(statusEl, "Sign in first to unsubscribe.");
+      }
+      if (cancelLink instanceof HTMLAnchorElement && authUser?.email) {
+        const next = new URL(cancelLink.href, window.location.origin);
+        next.searchParams.set("email", normalizeEmail(authUser.email));
+        cancelLink.href = next.toString();
+      }
+    }
+
+    signInBtn?.addEventListener("click", async () => {
+      const email = normalizeEmail(signInEmail?.value || "");
+      if (!email.includes("@")) {
+        setStatus(signInStatus, "Enter a valid email.", "error");
+        return;
+      }
+      signInBtn.disabled = true;
+      setStatus(signInStatus, "");
+      try {
+        const result = await sendSubscriberSignInLink({
+          email,
+          source: "unsubscribe_page",
+          redirectUrl: window.location.href,
+          forceEmailLink: true,
+        });
+        if (!result.ok) {
+          setStatus(signInStatus, "Could not send link. Please retry.", "error");
+        } else if (result.linked) {
+          setStatus(signInStatus, "Signed in. You can unsubscribe now.", "ok");
+        } else {
+          setStatus(signInStatus, "Check your inbox for the sign-in link.", "ok");
+        }
+      } catch {
+        setStatus(signInStatus, "Sign-in request failed. Please retry.", "error");
+      } finally {
+        signInBtn.disabled = false;
+      }
+    });
+
+    confirmBtn?.addEventListener("click", async () => {
+      if (!authUser?.uid || !authUser.email) {
+        setStatus(statusEl, "Sign in first to unsubscribe.", "error");
+        setAuthState(null);
+        return;
+      }
+      if (!db || !firestoreReady) {
+        setStatus(statusEl, "Subscriber data is not configured.", "error");
+        return;
+      }
+
+      confirmBtn.disabled = true;
+      setStatus(statusEl, "");
+      try {
+        const payload = {
+          email: authUser.email,
+          emailLower: normalizeEmail(authUser.email),
+          name: String(subscriberProfile?.name || "").slice(0, 80),
+          verified: true,
+          status: "active",
+          preferences: [],
+          segmentTags: [],
+          wantsAllUpdates: false,
+          wantsPapers: false,
+          wantsPhotography: false,
+          wantsFaces: false,
+          wantsTravel: false,
+          source: "unsubscribe_page",
+          updatedAt: serverTimestamp(),
+          ...(subscriberProfile?.createdAt ? {} : { createdAt: serverTimestamp() }),
+        };
+        await setDoc(doc(db, "subscribers", authUser.uid), payload, { merge: true });
+        try {
+          window.localStorage.setItem("sfa-subscriber-ui-v1", "profile");
+          window.localStorage.setItem("sfa-subscriber-profile-v1", JSON.stringify({
+            email: normalizeEmail(authUser.email || ""),
+            name: String(payload.name || "").trim(),
+            preferences: [],
+            segmentTags: [],
+            updatedAt: Date.now(),
+          }));
+        } catch {}
+        confirmCard.hidden = true;
+        successCard.hidden = false;
+      } catch {
+        setStatus(statusEl, "Could not unsubscribe right now. Please retry.", "error");
+        confirmBtn.disabled = false;
+      }
+    });
+
+    (async () => {
+      if (emailFromQuery && signInEmail instanceof HTMLInputElement) {
+        signInEmail.value = emailFromQuery;
+      }
+      try {
+        await completeSubscriberSignInFromLink();
+      } catch {}
+      const user = await getCurrentAuthUser();
+      if (user?.uid) {
+        subscriberProfile = await getSubscriberRecord(user.uid);
+      }
+      setAuthState(user);
+      const unsubscribe = await onSubscriberAuthChange(async (nextUser) => {
+        subscriberProfile = nextUser?.uid ? await getSubscriberRecord(nextUser.uid) : null;
+        setAuthState(nextUser);
+      });
+      window.addEventListener("pagehide", () => {
+        if (typeof unsubscribe === "function") unsubscribe();
+      }, { once: true });
+    })();
+  </script>
+
+  <style>
+    .unsub-shell {
+      min-height: calc(100vh - var(--nav-h));
+      display: grid;
+      place-items: center;
+      padding: 3rem 1.2rem;
+      background: radial-gradient(circle at top, rgba(20, 42, 31, 0.09), transparent 52%);
+    }
+
+    .unsub-card {
+      width: min(680px, 100%);
+      border: 1px solid rgba(20, 42, 31, 0.14);
+      background: rgba(255, 252, 246, 0.75);
+      padding: clamp(2rem, 5vw, 3rem);
+      text-align: center;
+    }
+
+    .unsub-kicker {
+      font-family: var(--font-sc);
+      font-size: 0.62rem;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 0.8rem;
+    }
+
+    .unsub-card h1 {
+      font-family: var(--font-title);
+      font-weight: 400;
+      font-size: clamp(2rem, 5vw, 3.4rem);
+      line-height: 1.1;
+      margin-bottom: 0.8rem;
+    }
+
+    .unsub-card h1 em {
+      color: var(--green-mid);
+      font-style: italic;
+    }
+
+    .unsub-copy {
+      color: var(--text-mid);
+      max-width: 38ch;
+      margin: 0 auto 1rem;
+    }
+
+    .unsub-signin {
+      margin: 1rem auto;
+      border: 1px solid rgba(20, 42, 31, 0.14);
+      padding: 1rem;
+      max-width: 540px;
+      background: rgba(255, 255, 255, 0.56);
+    }
+
+    .unsub-row {
+      display: flex;
+      gap: 0.65rem;
+      flex-wrap: wrap;
+    }
+
+    .unsub-row input {
+      flex: 1 1 250px;
+      border: 1px solid var(--rule-dark);
+      background: var(--white);
+      color: var(--text);
+      font-family: var(--font-body);
+      font-size: 1rem;
+      padding: 0.72rem 0.8rem;
+    }
+
+    .unsub-actions {
+      margin-top: 1rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.6rem;
+      justify-content: center;
+    }
+
+    .unsub-actions .btn-solid,
+    .unsub-actions .btn-ghost {
+      flex: 1 1 240px;
+      text-align: center;
+    }
+
+    .unsub-status {
+      min-height: 1.4rem;
+      margin-top: 0.6rem;
+      color: var(--text-muted);
+      font-size: 0.95rem;
+    }
+
+    .unsub-status[data-tone="ok"] {
+      color: var(--green-mid);
+    }
+
+    .unsub-status[data-tone="error"] {
+      color: #7f1f1f;
+    }
+  </style>
+</BaseLayout>

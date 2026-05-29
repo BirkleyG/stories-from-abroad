@@ -25,7 +25,13 @@ const copy = siteCopy.home;
     </p>
     <div class="hero-cta">
       <a class="btn-solid" href={`${basePath}read-the-story/`}>{copy.hero.ctaPrimary}</a>
-      <button class="btn-ghost" type="button" data-modal-open="subscribe">{copy.hero.ctaSecondary}</button>
+      <button class="btn-ghost" type="button" data-modal-open="subscribe" data-global-subscribe-control>{copy.hero.ctaSecondary}</button>
+      <a class="hero-profile-link" href={`${basePath}subscriber-settings/`} data-global-profile-control aria-label="Subscriber settings" hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4 20a8 8 0 0 1 16 0"></path>
+          <circle cx="12" cy="8" r="4.2"></circle>
+        </svg>
+      </a>
     </div>
   </section>
 

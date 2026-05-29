@@ -1,0 +1,524 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+
+const base = import.meta.env.BASE_URL ?? "/";
+const basePath = base.endsWith("/") ? base : `${base}/`;
+---
+
+<BaseLayout title="Subscriber Settings" description="Manage your subscriber preferences" navMode="single" navLabel="Subscriber Settings" showSubscribe={false}>
+  <section class="settings-hero">
+    <p class="settings-kicker">Subscriber Settings</p>
+    <h1>Your <em>Preferences.</em></h1>
+    <p>Update your name and choose the dispatches you want to receive.</p>
+  </section>
+
+  <section class="settings-wrap">
+    <div class="settings-signin" id="settings-signin" hidden>
+      <h2>Sign In to Edit Settings</h2>
+      <p>Enter your subscriber email and we will send you a secure sign-in link.</p>
+      <div class="settings-row">
+        <input id="signin-email" type="email" placeholder="you@example.com" />
+        <button id="signin-send" class="btn-solid" type="button">Send Link</button>
+      </div>
+      <p class="settings-status" id="signin-status" aria-live="polite"></p>
+    </div>
+
+    <form class="settings-form" id="settings-form">
+      <div class="settings-card">
+        <h2>Name &amp; Email</h2>
+        <label>
+          <span>Display Name</span>
+          <input id="settings-name" type="text" maxlength="80" />
+        </label>
+        <label>
+          <span>Email Address</span>
+          <input id="settings-email" type="email" disabled />
+        </label>
+      </div>
+
+      <div class="settings-card">
+        <h2>Preferences</h2>
+        <label class="check-row">
+          <input id="pref-all" type="checkbox" />
+          <span>General Updates</span>
+        </label>
+        <label class="check-row">
+          <input id="pref-articles" type="checkbox" />
+          <span>Articles &amp; Op-Eds</span>
+        </label>
+        <label class="check-row">
+          <input id="pref-photo" type="checkbox" />
+          <span>Photography</span>
+        </label>
+        <label class="check-row">
+          <input id="pref-faces" type="checkbox" />
+          <span>Faces of the World</span>
+        </label>
+        <label class="check-row">
+          <input id="pref-travel" type="checkbox" />
+          <span>Travel</span>
+        </label>
+
+        <div class="settings-actions">
+          <button id="settings-save" class="btn-solid" type="submit">Save Preferences</button>
+          <a class="btn-ghost" href={`${basePath}unsubscribe/`} id="settings-unsub-link">Unsubscribe</a>
+        </div>
+        <p class="settings-status" id="settings-status" aria-live="polite"></p>
+      </div>
+    </form>
+  </section>
+
+  <script>
+    import {
+      completeSubscriberSignInFromLink,
+      cacheSubscriberProfile,
+      getCurrentAuthUser,
+      getSubscriberRecord,
+      lookupSubscriberByEmail,
+      normalizeEmail,
+      normalizeSubscriberSegments,
+      onSubscriberAuthChange,
+      readCachedSubscriberProfile,
+      sendSubscriberSignInLink,
+      upsertSubscriberRecord,
+    } from "../lib/subscriberClient";
+
+    const SEGMENTS = ["Articles & Op-Eds", "Photography", "Faces of the World", "Travel"];
+    const prefAll = document.getElementById("pref-all");
+    const prefArticles = document.getElementById("pref-articles");
+    const prefPhoto = document.getElementById("pref-photo");
+    const prefFaces = document.getElementById("pref-faces");
+    const prefTravel = document.getElementById("pref-travel");
+    const settingsForm = document.getElementById("settings-form");
+    const settingsName = document.getElementById("settings-name");
+    const settingsEmail = document.getElementById("settings-email");
+    const settingsSave = document.getElementById("settings-save");
+    const settingsStatus = document.getElementById("settings-status");
+    const settingsSignin = document.getElementById("settings-signin");
+    const signInEmail = document.getElementById("signin-email");
+    const signInSend = document.getElementById("signin-send");
+    const signInStatus = document.getElementById("signin-status");
+    const unsubLink = document.getElementById("settings-unsub-link");
+    const settingsUrl = new URL(window.location.href);
+    const emailFromQuery = normalizeEmail(settingsUrl.searchParams.get("email") || "");
+    const navBack = document.querySelector(".nav-back");
+    const fallbackReturnHref = navBack instanceof HTMLAnchorElement ? navBack.getAttribute("href") || "/" : "/";
+    const returnHref = safeReturnHref(settingsUrl.searchParams.get("from") || "");
+
+    let authUser = null;
+    let subscriberProfile = null;
+    let authResolved = false;
+
+    function safeReturnHref(value) {
+      if (!value) return fallbackReturnHref;
+      try {
+        const url = new URL(value, window.location.origin);
+        if (url.origin !== window.location.origin) return fallbackReturnHref;
+        return `${url.pathname}${url.search}${url.hash}` || fallbackReturnHref;
+      } catch {
+        return fallbackReturnHref;
+      }
+    }
+
+    if (navBack instanceof HTMLAnchorElement) {
+      navBack.href = returnHref;
+    }
+
+    function setStatus(el, message, tone = "muted") {
+      if (!el) return;
+      el.textContent = message;
+      el.dataset.tone = tone;
+    }
+
+    function segmentsFromProfile(profile) {
+      return normalizeSubscriberSegments(profile);
+    }
+
+    function syncAllToggle() {
+      const lock = Boolean(prefAll?.checked);
+      [prefArticles, prefPhoto, prefFaces, prefTravel].forEach((el) => {
+        if (!el) return;
+        el.disabled = lock;
+        if (lock) el.checked = false;
+      });
+    }
+
+    function selectedSegments() {
+      if (prefAll?.checked) return [...SEGMENTS];
+      const out = [];
+      if (prefArticles?.checked) out.push("Articles & Op-Eds");
+      if (prefPhoto?.checked) out.push("Photography");
+      if (prefFaces?.checked) out.push("Faces of the World");
+      if (prefTravel?.checked) out.push("Travel");
+      return out;
+    }
+
+    function selectedPreferences(segments) {
+      if (prefAll?.checked) return ["all"];
+      const map = {
+        "Articles & Op-Eds": "articles",
+        Photography: "photography",
+        "Faces of the World": "faces",
+        Travel: "travel",
+      };
+      return segments.map((segment) => map[segment]).filter(Boolean);
+    }
+
+    function setAuthedUI(enabled) {
+      settingsForm?.toggleAttribute("aria-disabled", !enabled);
+      settingsSave.disabled = !enabled;
+      if (settingsName instanceof HTMLInputElement) settingsName.disabled = !enabled;
+      [prefAll, prefArticles, prefPhoto, prefFaces, prefTravel].forEach((el) => {
+        if (el) el.disabled = !enabled;
+      });
+      settingsSignin.hidden = enabled || !authResolved;
+      if (unsubLink instanceof HTMLAnchorElement) {
+        const activeEmail = normalizeEmail(
+          authUser?.email || (settingsEmail instanceof HTMLInputElement ? settingsEmail.value : "")
+        );
+        if (activeEmail) {
+          const next = new URL(unsubLink.href, window.location.origin);
+          next.searchParams.set("email", activeEmail);
+          unsubLink.href = next.toString();
+        }
+      }
+    }
+
+    function hydrateForm(profile, user) {
+      const segments = segmentsFromProfile(profile);
+      if (settingsName instanceof HTMLInputElement) {
+        settingsName.value = String(profile?.name || user?.displayName || "").slice(0, 80);
+      }
+      if (settingsEmail instanceof HTMLInputElement) {
+        settingsEmail.value = user?.email || "";
+      }
+      if (prefAll instanceof HTMLInputElement) prefAll.checked = segments.length === SEGMENTS.length;
+      if (prefArticles instanceof HTMLInputElement) prefArticles.checked = segments.includes("Articles & Op-Eds");
+      if (prefPhoto instanceof HTMLInputElement) prefPhoto.checked = segments.includes("Photography");
+      if (prefFaces instanceof HTMLInputElement) prefFaces.checked = segments.includes("Faces of the World");
+      if (prefTravel instanceof HTMLInputElement) prefTravel.checked = segments.includes("Travel");
+      syncAllToggle();
+    }
+
+    function hydrateLookupProfile(profile, email) {
+      const segments = segmentsFromProfile(profile || {});
+      if (settingsName instanceof HTMLInputElement) {
+        settingsName.value = String(profile?.name || "").slice(0, 80);
+      }
+      if (settingsEmail instanceof HTMLInputElement) {
+        settingsEmail.value = email || "";
+      }
+      if (prefAll instanceof HTMLInputElement) prefAll.checked = segments.length === SEGMENTS.length;
+      if (prefArticles instanceof HTMLInputElement) prefArticles.checked = segments.includes("Articles & Op-Eds");
+      if (prefPhoto instanceof HTMLInputElement) prefPhoto.checked = segments.includes("Photography");
+      if (prefFaces instanceof HTMLInputElement) prefFaces.checked = segments.includes("Faces of the World");
+      if (prefTravel instanceof HTMLInputElement) prefTravel.checked = segments.includes("Travel");
+      syncAllToggle();
+      setAuthedUI(false);
+    }
+
+    async function refreshProfile(user) {
+      authUser = user;
+      subscriberProfile = null;
+      authResolved = true;
+      if (!user?.uid) {
+        setAuthedUI(false);
+        return;
+      }
+      const profile = await getSubscriberRecord(user.uid);
+      subscriberProfile = profile;
+      hydrateForm(profile, user);
+      setAuthedUI(true);
+      if (!profile) {
+        setStatus(settingsStatus, "No subscriber document found yet for this account.", "error");
+      }
+    }
+
+    if (prefAll) {
+      prefAll.addEventListener("change", syncAllToggle);
+    }
+
+    [prefArticles, prefPhoto, prefFaces, prefTravel].forEach((el) => {
+      if (!el) return;
+      el.addEventListener("change", () => {
+        if (!(prefAll instanceof HTMLInputElement)) return;
+        if (el.checked) prefAll.checked = false;
+      });
+    });
+
+    signInSend?.addEventListener("click", async () => {
+      const email = normalizeEmail(signInEmail?.value || "");
+      if (!email.includes("@")) {
+        setStatus(signInStatus, "Enter a valid email.", "error");
+        signInEmail?.focus();
+        return;
+      }
+      signInSend.disabled = true;
+      setStatus(signInStatus, "");
+      try {
+        const lookup = await lookupSubscriberByEmail(email);
+        if (lookup.ok && lookup.exists) {
+          hydrateLookupProfile(lookup.profile || {}, email);
+          cacheSubscriberProfile({ email, profile: lookup.profile || {} });
+          setStatus(signInStatus, "You are already following the journey! Sending a sign-in link so you can edit settings.", "ok");
+        }
+        if (!lookup.ok) {
+          const cached = readCachedSubscriberProfile();
+          if (cached?.email === email) {
+            hydrateLookupProfile(cached.profile, email);
+            setStatus(signInStatus, "Loaded your remembered profile. Sign in to save any edits.", "ok");
+          } else {
+            setStatus(signInStatus, "Could not reach subscriber lookup right now. You can still request a sign-in link.", "error");
+          }
+        }
+
+        const result = await sendSubscriberSignInLink({
+          email,
+          source: "subscriber_settings_page",
+          redirectUrl: window.location.href,
+          forceEmailLink: true,
+        });
+        if (!result.ok) {
+          setStatus(signInStatus, "Could not send link. Please retry.", "error");
+        } else if (result.existing) {
+          setStatus(signInStatus, "You are already following the journey!", "ok");
+          hydrateLookupProfile(result.profile || {}, email);
+        } else if (result.linked) {
+          setStatus(signInStatus, "Signed in. You can edit settings now.", "ok");
+        } else {
+          setStatus(signInStatus, "Check your inbox for the sign-in link.", "ok");
+        }
+      } catch {
+        setStatus(signInStatus, "Sign-in request failed. Please retry.", "error");
+      } finally {
+        signInSend.disabled = false;
+      }
+    });
+
+    settingsForm?.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      if (!authUser?.uid || !authUser.email) {
+        setStatus(settingsStatus, "Sign in first to save settings.", "error");
+        setAuthedUI(false);
+        return;
+      }
+
+      const segments = selectedSegments();
+      const preferences = selectedPreferences(segments);
+
+      settingsSave.disabled = true;
+      setStatus(settingsStatus, "");
+      try {
+        subscriberProfile = await upsertSubscriberRecord(authUser, {
+          name: String(settingsName?.value || "").trim().slice(0, 80),
+          preferences,
+          segmentTags: segments,
+          source: "subscriber_settings_page",
+          replaceSegments: true,
+        });
+        subscriberProfile = subscriberProfile || await getSubscriberRecord(authUser.uid);
+        hydrateForm(subscriberProfile, authUser);
+        cacheSubscriberProfile({ user: authUser, profile: subscriberProfile });
+        if (segments.length) {
+          setStatus(settingsStatus, "Preferences saved.", "ok");
+        } else {
+          setStatus(settingsStatus, "Preferences saved. You are currently on no dispatch lists.", "ok");
+        }
+      } catch {
+        setStatus(settingsStatus, "Could not save settings. Please retry.", "error");
+      } finally {
+        settingsSave.disabled = false;
+      }
+    });
+
+    (async () => {
+      setAuthedUI(false);
+      setStatus(settingsStatus, "Loading subscriber profile...");
+      const cached = readCachedSubscriberProfile();
+      const seedEmail = emailFromQuery || cached?.email || "";
+      if (seedEmail && signInEmail instanceof HTMLInputElement) {
+        signInEmail.value = seedEmail;
+        try {
+          const lookup = await lookupSubscriberByEmail(seedEmail);
+          if (lookup.ok && lookup.exists) {
+            hydrateLookupProfile(lookup.profile || {}, seedEmail);
+            cacheSubscriberProfile({ email: seedEmail, profile: lookup.profile || {} });
+            setStatus(signInStatus, "Profile loaded from Firestore. Sign in to save changes.");
+          } else if (cached?.email === seedEmail) {
+            hydrateLookupProfile(cached.profile, seedEmail);
+            setStatus(signInStatus, "Loaded your remembered profile. Sign in to save changes.");
+          }
+        } catch {
+          if (cached?.email === seedEmail) {
+            hydrateLookupProfile(cached.profile, seedEmail);
+            setStatus(signInStatus, "Loaded your remembered profile. Sign in to save changes.");
+          }
+        }
+      }
+      try {
+        await completeSubscriberSignInFromLink();
+      } catch {}
+      const user = await getCurrentAuthUser();
+      await refreshProfile(user);
+      if (user?.uid && subscriberProfile) {
+        setStatus(settingsStatus, "");
+      }
+      const unsubscribe = await onSubscriberAuthChange(async (nextUser) => {
+        await refreshProfile(nextUser);
+        if (!nextUser?.uid) {
+          setStatus(settingsStatus, "");
+          return;
+        }
+        if (subscriberProfile) {
+          setStatus(settingsStatus, "");
+        }
+      });
+      window.addEventListener("pagehide", () => {
+        if (typeof unsubscribe === "function") unsubscribe();
+      }, { once: true });
+    })();
+  </script>
+
+  <style>
+    .settings-hero {
+      text-align: center;
+      padding: 3.2rem 1.2rem 1.9rem;
+      border-bottom: 1px solid var(--rule);
+    }
+
+    .settings-kicker {
+      font-family: var(--font-sc);
+      font-size: 0.62rem;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 0.7rem;
+    }
+
+    .settings-hero h1 {
+      font-family: var(--font-title);
+      font-weight: 400;
+      font-size: clamp(2rem, 5vw, 3.2rem);
+      line-height: 1.1;
+      margin-bottom: 0.6rem;
+    }
+
+    .settings-hero h1 em {
+      color: var(--green-mid);
+      font-style: italic;
+    }
+
+    .settings-hero p {
+      color: var(--text-muted);
+      max-width: 40ch;
+      margin: 0 auto;
+    }
+
+    .settings-wrap {
+      max-width: 740px;
+      margin: 0 auto;
+      padding: 2rem 1.2rem 3.2rem;
+      display: grid;
+      gap: 1rem;
+    }
+
+    .settings-signin,
+    .settings-card {
+      border: 1px solid rgba(20, 42, 31, 0.14);
+      background: rgba(255, 252, 246, 0.7);
+      padding: 1.3rem;
+    }
+
+    .settings-signin h2,
+    .settings-card h2 {
+      font-family: var(--font-title);
+      font-weight: 500;
+      font-size: clamp(1.2rem, 3vw, 1.7rem);
+      margin-bottom: 0.5rem;
+    }
+
+    .settings-signin p {
+      color: var(--text-muted);
+      margin-bottom: 0.7rem;
+    }
+
+    .settings-row {
+      display: flex;
+      gap: 0.7rem;
+      flex-wrap: wrap;
+    }
+
+    .settings-row input {
+      flex: 1 1 260px;
+    }
+
+    .settings-form {
+      display: grid;
+      gap: 1rem;
+    }
+
+    .settings-card label span {
+      display: block;
+      margin: 0.3rem 0;
+      font-family: var(--font-sc);
+      font-size: 0.58rem;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    .settings-card input[type="text"],
+    .settings-card input[type="email"],
+    .settings-row input {
+      width: 100%;
+      border: 1px solid var(--rule-dark);
+      background: var(--white);
+      color: var(--text);
+      font-family: var(--font-body);
+      font-size: 1rem;
+      padding: 0.72rem 0.8rem;
+    }
+
+    .check-row {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      padding: 0.35rem 0;
+      font-size: 1.02rem;
+    }
+
+    .check-row input[type="checkbox"] {
+      width: 1rem;
+      height: 1rem;
+      accent-color: var(--green);
+    }
+
+    .settings-actions {
+      margin-top: 0.9rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.6rem;
+    }
+
+    .settings-actions .btn-solid,
+    .settings-actions .btn-ghost {
+      flex: 1 1 240px;
+      text-align: center;
+    }
+
+    .settings-status {
+      min-height: 1.4rem;
+      margin-top: 0.5rem;
+      font-size: 0.95rem;
+      color: var(--text-muted);
+    }
+
+    .settings-status[data-tone="ok"] {
+      color: var(--green-mid);
+    }
+
+    .settings-status[data-tone="error"] {
+      color: #7f1f1f;
+    }
+  </style>
+</BaseLayout>

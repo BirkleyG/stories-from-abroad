@@ -14,7 +14,12 @@ const firebaseConfig = {
 };
 
 const functionsRegion = import.meta.env.PUBLIC_FIREBASE_FUNCTIONS_REGION || "us-central1";
-const firebaseReady = Object.values(firebaseConfig).every(Boolean);
+const firebaseReady = Boolean(
+  firebaseConfig.apiKey
+  && firebaseConfig.authDomain
+  && firebaseConfig.projectId
+  && firebaseConfig.appId
+);
 const firestoreReady = firebaseReady;
 
 let app = null;

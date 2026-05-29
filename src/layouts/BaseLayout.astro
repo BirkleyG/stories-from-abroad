@@ -38,7 +38,9 @@ const publicFirebaseConfigJson = JSON.stringify({
   authDomain: import.meta.env.PUBLIC_FIREBASE_AUTH_DOMAIN ?? "",
   projectId: import.meta.env.PUBLIC_FIREBASE_PROJECT_ID ?? "",
   appId: import.meta.env.PUBLIC_FIREBASE_APP_ID ?? "",
+  functionsRegion: import.meta.env.PUBLIC_FIREBASE_FUNCTIONS_REGION ?? "us-central1",
 });
+const publicFirebaseApiKey = import.meta.env.PUBLIC_FIREBASE_API_KEY ?? "";
 ---
 
 <!DOCTYPE html>
@@ -54,6 +56,52 @@ const publicFirebaseConfigJson = JSON.stringify({
       href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=EB+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=Cormorant+SC:wght@300;400;500&family=Cormorant:ital,wght@0,300;0,400;0,600;1,300;1,400;1,600&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400;1,500&family=Lora:ital,wght@0,400;0,500;1,400;1,500&display=swap"
       rel="stylesheet"
     />
+    <script is:inline data-firebase-api-key={publicFirebaseApiKey}>
+      (() => {
+        const uiKey = "sfa-subscriber-ui-v1";
+        const apiKey = document.currentScript?.dataset?.firebaseApiKey || "";
+        const authPrefix = "firebase:authUser:" + apiKey + ":";
+        let hasSession = false;
+        try {
+          if (authPrefix !== "firebase:authUser::") {
+            for (let i = 0; i < window.localStorage.length; i += 1) {
+              const key = window.localStorage.key(i) || "";
+              if (!key.startsWith(authPrefix)) continue;
+              const value = window.localStorage.getItem(key);
+              if (value && value !== "null") {
+                hasSession = true;
+                break;
+              }
+            }
+          }
+        } catch (error) {}
+        let mode = "subscribe";
+        try {
+          const stored = window.localStorage.getItem(uiKey) === "profile" ? "profile" : "subscribe";
+          const cached = JSON.parse(window.localStorage.getItem("sfa-subscriber-profile-v1") || "null");
+          const profile = cached?.profile && typeof cached.profile === "object" ? cached.profile : cached;
+          const tags = Array.isArray(profile?.segmentTags) ? profile.segmentTags : [];
+          const prefs = Array.isArray(profile?.preferences) ? profile.preferences : [];
+          const hasSoftProfile = profile?.status === "active" && (
+            tags.length > 0 ||
+            prefs.includes("all") ||
+            prefs.includes("articles") ||
+            prefs.includes("photography") ||
+            prefs.includes("faces") ||
+            prefs.includes("travel")
+          );
+          mode = hasSoftProfile || (hasSession && stored === "profile") ? "profile" : "subscribe";
+        } catch (error) {}
+        document.documentElement.setAttribute("data-sfa-ui", mode);
+        const style = document.createElement("style");
+        if (mode === "profile") {
+          style.textContent = "[data-global-subscribe-control],[data-subscribe-control]{display:none !important;}[data-global-profile-control],[data-profile-control]{display:inline-flex !important;}";
+        } else {
+          style.textContent = "[data-global-profile-control],[data-profile-control]{display:none !important;}[data-global-subscribe-control]{display:inline-flex !important;}[data-subscribe-control]{display:initial !important;}";
+        }
+        document.head.appendChild(style);
+      })();
+    </script>
   </head>
   <body class={bodyClass}>
     <header class="site-nav" id="site-nav">
@@ -63,7 +111,15 @@ const publicFirebaseConfigJson = JSON.stringify({
           <div class="nav-single-right">
             <span class="nav-single-label">{navLabel || copy.nav.items[0]?.label}</span>
             {showSubscribe ? (
-              <button class="nav-cta" type="button" data-modal-open="subscribe">{copy.nav.cta}</button>
+              <>
+                <button class="nav-cta" type="button" data-modal-open="subscribe" data-global-subscribe-control>{copy.nav.cta}</button>
+                <a class="nav-profile-link" href={`${basePath}subscriber-settings/`} data-global-profile-control aria-label="Subscriber settings" hidden>
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M4 20a8 8 0 0 1 16 0"></path>
+                    <circle cx="12" cy="8" r="4.2"></circle>
+                  </svg>
+                </a>
+              </>
             ) : null}
           </div>
         </>
@@ -82,7 +138,15 @@ const publicFirebaseConfigJson = JSON.stringify({
             </ul>
           </nav>
           {showSubscribe ? (
-            <button class="nav-cta" type="button" data-modal-open="subscribe">{copy.nav.cta}</button>
+            <>
+              <button class="nav-cta" type="button" data-modal-open="subscribe" data-global-subscribe-control>{copy.nav.cta}</button>
+              <a class="nav-profile-link" href={`${basePath}subscriber-settings/`} data-global-profile-control aria-label="Subscriber settings" hidden>
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M4 20a8 8 0 0 1 16 0"></path>
+                  <circle cx="12" cy="8" r="4.2"></circle>
+                </svg>
+              </a>
+            </>
           ) : null}
         </>
       )}
@@ -155,24 +219,30 @@ const publicFirebaseConfigJson = JSON.stringify({
             <div class="modal-check">{copy.subscribeModal.success.title}</div>
             <h3 id="modal-success-title">{copy.subscribeModal.success.subtitle}</h3>
             <p id="modal-success-body">{copy.subscribeModal.success.body}</p>
+            <a id="modal-success-settings" class="btn-ghost modal-submit" href={`${basePath}subscriber-settings/`} style="display:none; margin-top:1rem;">
+              Subscriber Settings
+            </a>
           </div>
         </div>
       </div>
     </div>
 
     <script id="public-firebase-config" type="application/json" set:html={publicFirebaseConfigJson}></script>
-    <script type="module">
-      import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+    <script>
       import {
-        browserLocalPersistence,
-        getAuth,
-        isSignInWithEmailLink,
-        onAuthStateChanged,
-        sendSignInLinkToEmail,
-        setPersistence,
-        signInWithEmailLink,
-      } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
-      import { doc, getDoc, getFirestore, serverTimestamp, setDoc } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+        SUBSCRIBER_SEGMENTS,
+        cacheSubscriberProfile,
+        completeSubscriberSignInFromLink,
+        getSubscriberRecord,
+        normalizeEmail,
+        normalizeSubscriberSegments,
+        onSubscriberAuthChange,
+        readCachedSubscriberProfile,
+        sendSubscriberSignInLink,
+        subscriberHasAnySegment,
+        upsertSubscriberRecord,
+      } from "../lib/subscriberClient";
+      import { firebaseReady } from "../lib/firebaseClient";
 
       const nav = document.getElementById("site-nav");
       if (nav) {
@@ -192,35 +262,12 @@ const publicFirebaseConfigJson = JSON.stringify({
       const nameInput = document.getElementById("sub-name");
       const successTitle = document.getElementById("modal-success-title");
       const successBody = document.getElementById("modal-success-body");
+      const successSettingsLink = document.getElementById("modal-success-settings");
       const prefAll = document.getElementById("pref-all");
       const prefArticles = document.getElementById("pref-articles");
       const prefPhoto = document.getElementById("pref-photo");
       const prefFaces = document.getElementById("pref-faces");
       const prefTravel = document.getElementById("pref-travel");
-      const configEl = document.getElementById("public-firebase-config");
-
-      let firebaseConfig = {};
-      try {
-        firebaseConfig = JSON.parse(configEl?.textContent || "{}");
-      } catch (error) {
-        firebaseConfig = {};
-      }
-
-      const firebaseReady = Boolean(firebaseConfig.apiKey && firebaseConfig.authDomain && firebaseConfig.projectId && firebaseConfig.appId);
-      const firebaseApp = firebaseReady ? (getApps().length ? getApp() : initializeApp(firebaseConfig)) : null;
-      const auth = firebaseApp ? getAuth(firebaseApp) : null;
-      const db = firebaseApp ? getFirestore(firebaseApp) : null;
-      const pendingKey = "sfa-pending-subscriber-v2";
-      const segmentLabels = ["Articles & Op-Eds", "Photography", "Faces of the World", "Travel"];
-      const preferenceToSegment = {
-        articles: "Articles & Op-Eds",
-        papers: "Articles & Op-Eds",
-        photography: "Photography",
-        photo: "Photography",
-        faces: "Faces of the World",
-        stories: "Faces of the World",
-        travel: "Travel",
-      };
       const segmentToPreference = {
         "Articles & Op-Eds": "articles",
         Photography: "photography",
@@ -231,16 +278,43 @@ const publicFirebaseConfigJson = JSON.stringify({
       let authUser = null;
       let subscriberProfile = null;
 
-      if (auth) {
-        setPersistence(auth, browserLocalPersistence).catch(() => undefined);
+      function updateGlobalSubscribeControls(profile) {
+        const subscribed = subscriberHasAnySegment(profile);
+        const mode = subscribed ? "profile" : "subscribe";
+        document.documentElement.setAttribute("data-sfa-ui", mode);
+        try {
+          window.localStorage.setItem("sfa-subscriber-ui-v1", mode);
+        } catch (error) {}
+        document.querySelectorAll("[data-global-subscribe-control]").forEach((el) => {
+          el.hidden = subscribed;
+          if (el instanceof HTMLElement) {
+            if (subscribed) {
+              el.style.setProperty("display", "none", "important");
+            } else {
+              el.style.setProperty("display", "inline-flex", "important");
+            }
+          }
+        });
+        document.querySelectorAll("[data-global-profile-control]").forEach((el) => {
+          el.hidden = !subscribed;
+          if (el instanceof HTMLElement) {
+            if (subscribed) {
+              el.style.setProperty("display", "inline-flex", "important");
+            } else {
+              el.style.setProperty("display", "none", "important");
+            }
+          }
+          if (subscribed && el instanceof HTMLAnchorElement) {
+            el.href = settingsHrefWithReturn(el.getAttribute("href") || el.href, profile?.email || subscriberProfile?.email || "");
+          }
+        });
+        if (successSettingsLink instanceof HTMLAnchorElement) {
+          successSettingsLink.href = settingsHrefWithReturn(successSettingsLink.getAttribute("href") || successSettingsLink.href, profile?.email || subscriberProfile?.email || "");
+        }
       }
 
       function normalizeString(value) {
         return String(value ?? "").trim();
-      }
-
-      function normalizeEmail(value) {
-        return normalizeString(value).toLowerCase();
       }
 
       function unique(items) {
@@ -257,36 +331,20 @@ const publicFirebaseConfigJson = JSON.stringify({
         return out;
       }
 
-      function normalizeSegments(value) {
-        if (!Array.isArray(value)) return [];
-        return unique(value.map(normalizeString).filter((item) => segmentLabels.includes(item)));
-      }
-
       function segmentsFromPreferences(preferences) {
         const list = Array.isArray(preferences) ? preferences.map(normalizeString) : [];
-        if (list.includes("all")) return [...segmentLabels];
-        return unique(list.map((item) => preferenceToSegment[item]));
-      }
-
-      function segmentsFromFlags(profile) {
-        if (!profile || typeof profile !== "object") return [];
-        const out = [];
-        if (profile.wantsAllUpdates) out.push(...segmentLabels);
-        if (profile.wantsPapers) out.push("Articles & Op-Eds");
-        if (profile.wantsPhotography) out.push("Photography");
-        if (profile.wantsFaces) out.push("Faces of the World");
-        if (profile.wantsTravel) out.push("Travel");
-        return unique(out);
+        if (list.includes("all")) return [...SUBSCRIBER_SEGMENTS];
+        return unique(list.map((item) => {
+          if (item === "articles" || item === "papers") return "Articles & Op-Eds";
+          if (item === "photography" || item === "photo") return "Photography";
+          if (item === "faces" || item === "stories") return "Faces of the World";
+          if (item === "travel") return "Travel";
+          return "";
+        }));
       }
 
       function segmentsFromProfile(profile) {
-        if (!profile || typeof profile !== "object") return [];
-        const direct = normalizeSegments(profile.segmentTags);
-        if (direct.length) return direct;
-        return unique([
-          ...segmentsFromPreferences(profile.preferences),
-          ...segmentsFromFlags(profile),
-        ]);
+        return normalizeSubscriberSegments(profile);
       }
 
       function segmentsFromPath(pathname) {
@@ -300,6 +358,41 @@ const publicFirebaseConfigJson = JSON.stringify({
 
       function preferencesFromSegments(segments) {
         return unique(segments.map((segment) => segmentToPreference[segment]));
+      }
+
+      function currentReturnPath() {
+        if (typeof window === "undefined") return "/";
+        return `${window.location.pathname}${window.location.search}${window.location.hash}`;
+      }
+
+      function settingsHrefWithReturn(rawHref, email = "") {
+        if (typeof window === "undefined") return rawHref;
+        try {
+          const url = new URL(rawHref || "/subscriber-settings/", window.location.origin);
+          url.searchParams.set("from", currentReturnPath());
+          const normalized = normalizeEmail(email || "");
+          if (normalized) url.searchParams.set("email", normalized);
+          return `${url.pathname}${url.search}${url.hash}`;
+        } catch (error) {
+          return rawHref;
+        }
+      }
+
+      function mergeSubscriberProfile(baseProfile, fallback) {
+        const profile = baseProfile && typeof baseProfile === "object" ? baseProfile : {};
+        const baseSegments = segmentsFromProfile(profile);
+        const fallbackSegments = Array.isArray(fallback?.segmentTags) ? fallback.segmentTags : [];
+        const segmentTags = unique([...baseSegments, ...fallbackSegments]);
+        return {
+          ...profile,
+          email: normalizeEmail(profile.email || fallback?.email || ""),
+          name: normalizeString(profile.name || fallback?.name || "").slice(0, 80),
+          status: normalizeString(profile.status || fallback?.status || "active"),
+          preferences: Array.isArray(profile.preferences) && profile.preferences.length
+            ? profile.preferences
+            : (Array.isArray(fallback?.preferences) && fallback.preferences.length ? fallback.preferences : preferencesFromSegments(segmentTags)),
+          segmentTags,
+        };
       }
 
       function defaultSegmentsForCurrentPage() {
@@ -320,7 +413,7 @@ const publicFirebaseConfigJson = JSON.stringify({
         const selected = segmentsFromPreferences(preferences);
         if (selected.length) return selected;
         const pageSegments = defaultSegmentsForCurrentPage();
-        return pageSegments.length ? pageSegments : [...segmentLabels];
+        return pageSegments.length ? pageSegments : [...SUBSCRIBER_SEGMENTS];
       }
 
       function profileHasSegments(profile, segments) {
@@ -362,82 +455,12 @@ const publicFirebaseConfigJson = JSON.stringify({
         const segments = collectSegmentTags(preferences);
         const segmentSet = new Set(segments);
         return {
-          wantsAllUpdates: set.has("all") || segments.length === segmentLabels.length,
+          wantsAllUpdates: set.has("all") || segments.length === SUBSCRIBER_SEGMENTS.length,
           wantsPapers: set.has("articles") || set.has("papers") || segmentSet.has("Articles & Op-Eds"),
           wantsPhotography: set.has("photography") || segmentSet.has("Photography"),
           wantsFaces: set.has("faces") || set.has("stories") || segmentSet.has("Faces of the World"),
           wantsTravel: set.has("travel") || segmentSet.has("Travel"),
         };
-      }
-
-      function writePendingSubscriber(next) {
-        try {
-          window.localStorage.setItem(pendingKey, JSON.stringify(next));
-        } catch (error) {}
-      }
-
-      function readPendingSubscriber() {
-        try {
-          return JSON.parse(window.localStorage.getItem(pendingKey) || "null");
-        } catch (error) {
-          return null;
-        }
-      }
-
-      function clearPendingSubscriber() {
-        try {
-          window.localStorage.removeItem(pendingKey);
-        } catch (error) {}
-      }
-
-      async function getSubscriberRecord(uid) {
-        if (!db || !uid) return null;
-        try {
-          const snap = await getDoc(doc(db, "subscribers", uid));
-          return snap.exists() ? snap.data() : null;
-        } catch (error) {
-          return null;
-        }
-      }
-
-      async function upsertSubscriberRecord(user, options = {}) {
-        if (!db || !user?.uid || !user?.email) return null;
-        const existing = await getSubscriberRecord(user.uid);
-        const preferences = Array.isArray(options.preferences) && options.preferences.length
-          ? options.preferences
-          : Array.isArray(existing?.preferences)
-            ? existing.preferences
-            : [];
-        const segmentTags = unique([
-          ...normalizeSegments(options.segmentTags),
-          ...segmentsFromPreferences(preferences),
-          ...normalizeSegments(existing?.segmentTags),
-          ...segmentsFromFlags(existing),
-          ...defaultSegmentsForCurrentPage(),
-        ]);
-        const normalizedPreferences = preferences.length
-          ? unique(preferences)
-          : preferencesFromSegments(segmentTags);
-        const flags = flagsFromPreferences(normalizedPreferences);
-        const payload = {
-          email: user.email,
-          emailLower: normalizeEmail(user.email),
-          name: normalizeString(options.name) || normalizeString(existing?.name),
-          verified: true,
-          status: "active",
-          preferences: normalizedPreferences,
-          segmentTags: segmentTags.length ? segmentTags : [...segmentLabels],
-          wantsAllUpdates: flags.wantsAllUpdates,
-          wantsPapers: flags.wantsPapers,
-          wantsPhotography: flags.wantsPhotography,
-          wantsFaces: flags.wantsFaces,
-          wantsTravel: flags.wantsTravel,
-          source: normalizeString(options.source) || normalizeString(existing?.source) || sourceForCurrentPage(),
-          updatedAt: serverTimestamp(),
-        };
-        if (!existing) payload.createdAt = serverTimestamp();
-        await setDoc(doc(db, "subscribers", user.uid), payload, { merge: true });
-        return payload;
       }
 
       function setStatus(message, tone = "muted") {
@@ -455,6 +478,9 @@ const publicFirebaseConfigJson = JSON.stringify({
       function showSuccess(title, body) {
         if (successTitle) successTitle.textContent = title;
         if (successBody) successBody.textContent = body;
+        if (successSettingsLink instanceof HTMLElement) {
+          successSettingsLink.style.display = "none";
+        }
         if (formView && successView) {
           formView.style.display = "none";
           successView.style.display = "block";
@@ -516,59 +542,44 @@ const publicFirebaseConfigJson = JSON.stringify({
         });
       });
 
-      if (auth) {
-        onAuthStateChanged(auth, async (user) => {
-          authUser = user;
-          subscriberProfile = null;
-          if (!user?.uid || !(nameInput instanceof HTMLInputElement)) return;
+      const cached = readCachedSubscriberProfile();
+      if (cached?.profile) {
+        subscriberProfile = cached.profile;
+        updateGlobalSubscribeControls(subscriberProfile);
+        if (cached.email && emailInput instanceof HTMLInputElement && !emailInput.value) emailInput.value = cached.email;
+        if (cached.profile.name && nameInput instanceof HTMLInputElement && !nameInput.value) nameInput.value = cached.profile.name;
+      } else {
+        updateGlobalSubscribeControls(null);
+      }
+
+      completeSubscriberSignInFromLink()
+        .then(async ({ completed, user }) => {
+          if (!completed || !user?.uid) return;
           const profile = await getSubscriberRecord(user.uid);
+          authUser = user;
           subscriberProfile = profile;
-          const preferredName = profile?.name || "";
-          if (preferredName && !nameInput.value.trim()) nameInput.value = preferredName;
-        });
-      }
+          cacheSubscriberProfile({ user, profile });
+          updateGlobalSubscribeControls(profile);
+          const title = profile?.name ? "Subscription received" : "Subscription confirmed";
+          showSuccess(title, "Your subscriber account is active and ready for comments.");
+        })
+        .catch(() => {});
 
-      async function completeSubscriberSignInFromLink() {
-        if (!auth || !window || !isSignInWithEmailLink(auth, window.location.href)) return { completed: false };
-        const pending = readPendingSubscriber();
-        const email = normalizeEmail(pending?.email || window.localStorage.getItem("sfa-last-email-link") || window.prompt("Confirm your email to finish sign-in:") || "");
-        if (!email) return { completed: false, error: "missing_email" };
-        let credential;
-        try {
-          credential = await signInWithEmailLink(auth, email, window.location.href);
-        } catch (error) {
-          if (error?.code === "auth/invalid-action-code" || error?.code === "auth/expired-action-code") {
-            try {
-              const clean = new URL(window.location.href);
-              clean.search = "";
-              window.history.replaceState({}, document.title, clean.pathname + clean.hash);
-            } catch (innerError) {}
-            return { completed: false, error: "invalid_action_code" };
-          }
-          throw error;
+      onSubscriberAuthChange(async (user) => {
+        authUser = user;
+        if (!user?.uid) {
+          const cachedProfile = readCachedSubscriberProfile()?.profile || null;
+          subscriberProfile = cachedProfile;
+          updateGlobalSubscribeControls(cachedProfile);
+          return;
         }
-        window.localStorage.setItem("sfa-last-email-link", email);
-        await upsertSubscriberRecord(credential.user, {
-          name: pending?.name,
-          preferences: Array.isArray(pending?.preferences) ? pending.preferences : [],
-          segmentTags: normalizeSegments(pending?.segmentTags),
-          source: pending?.source || "global_modal",
-        });
-        clearPendingSubscriber();
-        try {
-          const clean = new URL(window.location.href);
-          clean.search = "";
-          window.history.replaceState({}, document.title, clean.pathname + clean.hash);
-        } catch (error) {}
-        return { completed: true, user: credential.user };
-      }
-
-      completeSubscriberSignInFromLink().then(async ({ completed, user }) => {
-        if (!completed || !user?.uid) return;
         const profile = await getSubscriberRecord(user.uid);
-        const title = profile?.name ? "Subscription received" : "Subscription confirmed";
-        showSuccess(title, "Your subscriber account is active and ready for comments.");
-      }).catch(() => {});
+        subscriberProfile = profile;
+        cacheSubscriberProfile({ user, profile });
+        updateGlobalSubscribeControls(profile);
+        const preferredName = profile?.name || "";
+        if (preferredName && nameInput instanceof HTMLInputElement && !nameInput.value.trim()) nameInput.value = preferredName;
+      }).catch(() => undefined);
 
       if (modalSubmit) {
         modalSubmit.addEventListener("click", async () => {
@@ -584,7 +595,7 @@ const publicFirebaseConfigJson = JSON.stringify({
           emailInput.classList.remove("input-error");
           setStatus("");
 
-          if (!firebaseReady || !auth || !db) {
+          if (!firebaseReady) {
             setStatus("Subscriber services are not configured yet.", "error");
             return;
           }
@@ -600,33 +611,57 @@ const publicFirebaseConfigJson = JSON.stringify({
 
           try {
             if (authUser?.uid && profileHasSegments(subscriberProfile, segmentTags)) {
-              showSuccess("Already subscribed", "This subscriber account is already on that list.");
+              showSuccess("You are already following the journey!", "Use Subscriber Settings to manage your preferences.");
               return;
             }
 
             if (authUser?.uid && normalizeEmail(authUser.email) === normalizedEmail) {
-              await upsertSubscriberRecord(authUser, {
+              subscriberProfile = await upsertSubscriberRecord(authUser, {
                 name,
                 preferences,
                 segmentTags,
                 source,
               });
-              subscriberProfile = await getSubscriberRecord(authUser.uid);
+              cacheSubscriberProfile({ user: authUser, profile: subscriberProfile });
+              updateGlobalSubscribeControls(subscriberProfile);
               showSuccess("Subscription confirmed", "Your subscriber account is active.");
               return;
             }
 
-            await sendSignInLinkToEmail(auth, normalizedEmail, {
-              url: window.location.href,
-              handleCodeInApp: true,
-            });
-            writePendingSubscriber({
+            const result = await sendSubscriberSignInLink({
               email: normalizedEmail,
-              name: normalizeString(name).slice(0, 80),
+              name,
               preferences,
               segmentTags,
               source,
+              redirectUrl: window.location.href,
             });
+
+            if (!result.ok) {
+              setStatus("Could not send the confirmation link. Please retry.", "error");
+              return;
+            }
+
+            if (result.existing) {
+              const profile = mergeSubscriberProfile(result.profile, {
+                email: normalizedEmail,
+                name: normalizeString(name).slice(0, 80),
+                status: "active",
+                preferences,
+                segmentTags,
+              });
+              subscriberProfile = profile;
+              cacheSubscriberProfile({ email: normalizedEmail, profile });
+              updateGlobalSubscribeControls(profile);
+              showSuccess("You are already following the journey!", result.updated
+                ? "Your subscription has been updated successfully."
+                : "Use Subscriber Settings to manage your preferences.");
+              if (successSettingsLink instanceof HTMLElement) {
+                successSettingsLink.style.display = "inline-block";
+              }
+              return;
+            }
+
             showSuccess("Check your inbox", "Use the sign-in link to confirm your subscription.");
           } catch (error) {
             setStatus("Subscription failed. Please retry in a moment.", "error");

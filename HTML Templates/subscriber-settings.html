@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Subscriber Settings — Stories From Abroad</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,500;1,600&family=Lora:ital,wght@0,400;0,500;1,400;1,500&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --cream:  #F2F0EB;
+      --cream2: #EAE7E1;
+      --ink:    #1A1A18;
+      --ink2:   #3A3832;
+      --ink3:   #7A7570;
+      --green:  #1C4A2E;
+      --green2: #162820;
+      --gold:   #C4922A;
+      --border: rgba(26,26,24,0.12);
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      background-color: var(--cream);
+      font-family: 'Lora', Georgia, serif;
+      color: var(--ink);
+      -webkit-font-smoothing: antialiased;
+      min-height: 100vh;
+      display: flex; flex-direction: column;
+    }
+
+    /* ── Page Hero ── */
+    .page-hero {
+      padding: 64px 48px 52px;
+      text-align: center;
+      border-bottom: 1px solid var(--border);
+    }
+    .hero-kicker {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 10px; letter-spacing: 0.46em; text-transform: uppercase;
+      color: var(--ink3); display: block; margin-bottom: 18px;
+    }
+    .hero-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: clamp(38px, 5vw, 54px); font-weight: 400;
+      line-height: 1.06; color: var(--ink); margin-bottom: 4px;
+    }
+    .hero-title-green {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: clamp(38px, 5vw, 54px); font-weight: 400;
+      font-style: italic; color: var(--green); display: block;
+    }
+    .ornament-row {
+      display: flex; align-items: center; justify-content: center;
+      gap: 16px; margin: 24px auto 20px;
+    }
+    .ornament-rule { width: 50px; height: 1px; background: var(--ink3); opacity: 0.3; }
+    .ornament-star { font-size: 13px; color: var(--ink); }
+    .hero-sub {
+      font-family: 'Lora', serif; font-style: italic;
+      font-size: 15px; line-height: 1.75; color: var(--ink2); opacity: 0.7;
+    }
+
+    /* ── Main ── */
+    .main { flex: 1; padding: 48px 24px 80px; }
+    .container { max-width: 640px; margin: 0 auto; }
+
+    /* ── Section Cards ── */
+    .section-card {
+      background: #FAFAF7;
+      border: 1px solid var(--border);
+      padding: 38px 42px; margin-bottom: 18px;
+      animation: fade-up 0.6s ease both;
+    }
+    .section-card:nth-child(1) { animation-delay: 0.06s; }
+    .section-card:nth-child(2) { animation-delay: 0.14s; }
+
+    .section-label {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 9.5px; letter-spacing: 0.52em; text-transform: uppercase;
+      color: var(--ink3); display: block; margin-bottom: 6px;
+    }
+    .section-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 26px; font-weight: 400; color: var(--ink);
+      margin-bottom: 26px; letter-spacing: -0.01em;
+    }
+
+    /* ── Inputs ── */
+    .field { margin-bottom: 20px; }
+    .field-label {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 9.5px; letter-spacing: 0.38em; text-transform: uppercase;
+      color: var(--ink3); display: block; margin-bottom: 8px;
+    }
+    .field-input {
+      width: 100%; padding: 12px 16px;
+      background: var(--cream);
+      border: 1px solid var(--border);
+      color: var(--ink);
+      font-family: 'Lora', serif; font-size: 15px;
+      outline: none; transition: border-color 0.18s;
+    }
+    .field-input:focus { border-color: var(--green); }
+    .field-input::placeholder { color: var(--ink3); font-style: italic; }
+
+    /* ── Checkboxes ── */
+    .pref-list { list-style: none; }
+    .pref-wrap { border-top: 1px solid var(--border); }
+    .pref-wrap:last-of-type { border-bottom: 1px solid var(--border); }
+    .pref-label {
+      display: flex; align-items: center; gap: 18px;
+      padding: 16px 0; cursor: pointer; transition: opacity 0.15s;
+    }
+    .pref-label:hover { opacity: 0.72; }
+    .pref-box {
+      width: 20px; height: 20px;
+      border: 1.5px solid rgba(26,26,24,0.2);
+      flex-shrink: 0; position: relative;
+      transition: border-color 0.18s, background 0.18s;
+    }
+    .pref-box.checked { border-color: var(--green) !important; background: var(--green) !important; }
+    .pref-box::after {
+      content: ''; position: absolute; inset: 0;
+      background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpolyline points='3 8 6.5 11.5 13 5' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/14px no-repeat;
+      opacity: 0; transition: opacity 0.15s;
+    }
+    .pref-box.checked::after { opacity: 1; }
+    .pref-name {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 17px; font-weight: 400; color: var(--ink2);
+    }
+    .pref-desc {
+      font-family: 'Lora', serif; font-size: 12px;
+      font-style: italic; color: var(--ink3); margin-top: 2px;
+    }
+
+    /* ── Buttons ── */
+    .btn-save {
+      display: flex; align-items: center; justify-content: center;
+      width: 100%; margin-top: 28px;
+      background: var(--green); color: var(--cream);
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 10px; letter-spacing: 0.38em; text-transform: uppercase;
+      padding: 16px 32px; border: 1px solid var(--green); cursor: pointer;
+      transition: background 0.18s;
+    }
+    .btn-save:hover { background: #245f38; border-color: #245f38; }
+    .btn-unsub {
+      display: flex; align-items: center; justify-content: center;
+      width: 100%; margin-top: 12px;
+      background: transparent; color: var(--ink3);
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 10px; letter-spacing: 0.38em; text-transform: uppercase;
+      padding: 15px 32px; border: 1px solid var(--border); cursor: pointer;
+      transition: color 0.18s, border-color 0.18s;
+    }
+    .btn-unsub:hover { color: #9B2020; border-color: rgba(155,32,32,0.3); }
+
+    /* ── Toast ── */
+    .toast {
+      position: fixed; bottom: 32px; left: 50%;
+      transform: translateX(-50%) translateY(16px);
+      background: var(--green); color: var(--cream);
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 10px; letter-spacing: 0.3em; text-transform: uppercase;
+      padding: 13px 28px; z-index: 999;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.25s, transform 0.25s;
+    }
+    .toast.visible { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* ── Popup ── */
+    .popup-overlay {
+      position: fixed; inset: 0; z-index: 200;
+      background: rgba(26,26,24,0.5);
+      backdrop-filter: blur(6px);
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none; transition: opacity 0.25s;
+    }
+    .popup-overlay.visible { opacity: 1; pointer-events: all; }
+    .popup {
+      background: var(--cream);
+      border: 1px solid var(--border);
+      max-width: 420px; width: 90%;
+      padding: 48px 44px; text-align: center;
+      transform: translateY(20px); transition: transform 0.3s ease;
+    }
+    .popup-overlay.visible .popup { transform: translateY(0); }
+    .popup-ornament {
+      display: flex; align-items: center; justify-content: center;
+      gap: 14px; margin-bottom: 20px;
+    }
+    .popup-ornament-rule { width: 36px; height: 1px; background: var(--ink3); opacity: 0.3; }
+    .popup-ornament-star { font-size: 13px; color: var(--ink); }
+    .popup-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 24px; font-weight: 400; font-style: italic;
+      color: var(--ink); line-height: 1.25; margin-bottom: 12px;
+    }
+    .popup-body {
+      font-family: 'Lora', serif; font-size: 14px;
+      font-style: italic; line-height: 1.75; color: var(--ink3); margin-bottom: 30px;
+    }
+    .popup-btns { display: flex; flex-direction: column; gap: 10px; }
+    .popup-btn-unsub {
+      display: block; width: 100%;
+      background: var(--ink); color: var(--cream); text-decoration: none;
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 10px; letter-spacing: 0.36em; text-transform: uppercase;
+      padding: 15px; border: none; cursor: pointer;
+      transition: background 0.18s;
+    }
+    .popup-btn-unsub:hover { background: #2e2c28; }
+    .popup-btn-cancel {
+      display: block; width: 100%; background: transparent;
+      color: var(--ink3);
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 10px; letter-spacing: 0.36em; text-transform: uppercase;
+      padding: 14px; border: 1px solid var(--border); cursor: pointer;
+      transition: border-color 0.18s, color 0.18s;
+    }
+    .popup-btn-cancel:hover { border-color: var(--ink3); color: var(--ink); }
+
+    /* ── Site Footer ── */
+    .site-footer {
+      background: var(--green2);
+      padding: 48px 48px 36px; text-align: center;
+    }
+    .footer-wordmark {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 11px; letter-spacing: 0.38em; text-transform: uppercase;
+      color: rgba(242,240,235,0.7); display: block; margin-bottom: 18px;
+      text-decoration: none;
+    }
+    .footer-links {
+      display: flex; align-items: center; justify-content: center;
+      gap: 28px; list-style: none; margin-bottom: 20px;
+    }
+    .footer-links a {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 9.5px; letter-spacing: 0.3em; text-transform: uppercase;
+      color: rgba(242,240,235,0.45); text-decoration: none;
+      transition: color 0.18s;
+    }
+    .footer-links a:hover { color: rgba(242,240,235,0.8); }
+    .footer-rule { width: 300px; height: 1px; background: rgba(242,240,235,0.15); margin: 0 auto 20px; }
+    .footer-copy {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 10px; letter-spacing: 0.14em; color: rgba(242,240,235,0.3);
+    }
+
+    @keyframes fade-up {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Popup -->
+  <div class="popup-overlay" id="popup-overlay">
+    <div class="popup">
+      <div class="popup-ornament">
+        <div class="popup-ornament-rule"></div>
+        <span class="popup-ornament-star">✦</span>
+        <div class="popup-ornament-rule"></div>
+      </div>
+      <h2 class="popup-title">Looks like you do not want any updates.</h2>
+      <p class="popup-body">Unsubscribe entirely from Stories From Abroad?</p>
+      <div class="popup-btns">
+        <a href="unsubscribe.html" class="popup-btn-unsub">Yes, Unsubscribe</a>
+        <button class="popup-btn-cancel" onclick="closePopup()">Keep me subscribed</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast">✦ &nbsp; Settings Saved</div>
+
+  <!-- Page Hero -->
+  <div class="page-hero">
+    <span class="hero-kicker">Est. 2024 &nbsp;·&nbsp; Subscriber Settings</span>
+    <h1 class="hero-title">Your</h1>
+    <span class="hero-title-green">Preferences.</span>
+    <div class="ornament-row">
+      <div class="ornament-rule"></div>
+      <span class="ornament-star">✦</span>
+      <div class="ornament-rule"></div>
+    </div>
+    <p class="hero-sub">Update your name and choose which dispatches you receive.</p>
+  </div>
+
+  <!-- Main -->
+  <main class="main">
+    <div class="container">
+
+      <!-- Name Card -->
+      <div class="section-card">
+        <span class="section-label">Your Details</span>
+        <h2 class="section-title">Name &amp; Email</h2>
+        <div class="field">
+          <label class="field-label" for="name-input">Display Name</label>
+          <input class="field-input" id="name-input" type="text" placeholder="Your name…"/>
+        </div>
+        <div class="field">
+          <label class="field-label" for="email-input">Email Address</label>
+          <input class="field-input" id="email-input" type="email" placeholder="your@email.com"/>
+        </div>
+      </div>
+
+      <!-- Preferences Card -->
+      <div class="section-card">
+        <span class="section-label">What You Receive</span>
+        <h2 class="section-title">Preferences</h2>
+        <ul class="pref-list" id="pref-list">
+          <li class="pref-wrap">
+            <label class="pref-label" onclick="togglePref(this)">
+              <div class="pref-box checked"></div>
+              <div><div class="pref-name">General Updates</div><div class="pref-desc">Main dispatches and announcements from BTG</div></div>
+            </label>
+          </li>
+          <li class="pref-wrap">
+            <label class="pref-label" onclick="togglePref(this)">
+              <div class="pref-box checked"></div>
+              <div><div class="pref-name">Articles &amp; Op-Eds</div><div class="pref-desc">Selected papers, essays, and opinion pieces</div></div>
+            </label>
+          </li>
+          <li class="pref-wrap">
+            <label class="pref-label" onclick="togglePref(this)">
+              <div class="pref-box checked"></div>
+              <div><div class="pref-name">Photography</div><div class="pref-desc">New shoots from Seen Felt Kept</div></div>
+            </label>
+          </li>
+          <li class="pref-wrap">
+            <label class="pref-label" onclick="togglePref(this)">
+              <div class="pref-box checked"></div>
+              <div><div class="pref-name">Faces of the World</div><div class="pref-desc">Portrait series and field notes</div></div>
+            </label>
+          </li>
+          <li class="pref-wrap">
+            <label class="pref-label" onclick="togglePref(this)">
+              <div class="pref-box checked"></div>
+              <div><div class="pref-name">Travel</div><div class="pref-desc">Dispatches from The Scrap Sheet</div></div>
+            </label>
+          </li>
+        </ul>
+        <button class="btn-save" onclick="saveSettings()">Save Preferences</button>
+        <button class="btn-unsub" onclick="window.location.href='unsubscribe.html'">Unsubscribe</button>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Site Footer -->
+  <footer class="site-footer">
+    <a href="https://birkleyg.github.io/stories-from-abroad/" class="footer-wordmark">Stories From Abroad</a>
+    <ul class="footer-links">
+      <li><a href="https://birkleyg.github.io/stories-from-abroad/">Home</a></li>
+      <li><a href="https://birkleyg.github.io/stories-from-abroad/selected-papers/">Selected Papers</a></li>
+      <li><a href="https://birkleyg.github.io/stories-from-abroad/photography/">Photography</a></li>
+    </ul>
+    <div class="footer-rule"></div>
+    <div class="footer-copy">© 2026 Stories From Abroad. All rights reserved.</div>
+  </footer>
+
+  <script>
+    function togglePref(label) {
+      label.querySelector('.pref-box').classList.toggle('checked');
+      const anyChecked = [...document.querySelectorAll('.pref-box')].some(b => b.classList.contains('checked'));
+      if (!anyChecked) document.getElementById('popup-overlay').classList.add('visible');
+    }
+    function closePopup() {
+      document.querySelectorAll('.pref-box')[0].classList.add('checked');
+      document.getElementById('popup-overlay').classList.remove('visible');
+    }
+    function saveSettings() {
+      const t = document.getElementById('toast');
+      t.classList.add('visible');
+      setTimeout(() => t.classList.remove('visible'), 2800);
+    }
+  </script>
+</body>
+</html>

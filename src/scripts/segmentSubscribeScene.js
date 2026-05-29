@@ -1,35 +1,26 @@
 import {
   completeSubscriberSignInFromLink,
+  cacheSubscriberProfile,
   getSubscriberRecord,
   isSubscriberProfileActive,
   normalizeEmail,
+  normalizeSubscriberSegments,
   onSubscriberAuthChange,
+  readCachedSubscriberProfile,
   sendSubscriberSignInLink,
+  subscriberHasAnySegment,
+  subscriberHasSegment,
   upsertSubscriberRecord,
 } from "../lib/subscriberClient";
 
-const SEGMENTS = ["Articles & Op-Eds", "Photography", "Faces of the World", "Travel"];
+const UI_STORAGE_KEY = "sfa-subscriber-ui-v1";
 
 function normalizeSegments(profile) {
-  if (!profile || typeof profile !== "object") return [];
-  const direct = Array.isArray(profile.segmentTags)
-    ? profile.segmentTags.filter((segment) => SEGMENTS.includes(segment))
-    : [];
-  if (direct.length) return Array.from(new Set(direct));
-
-  const preferences = Array.isArray(profile.preferences) ? profile.preferences : [];
-  if (preferences.includes("all") || profile.wantsAllUpdates) return [...SEGMENTS];
-
-  const next = [];
-  if (preferences.includes("articles") || preferences.includes("papers") || profile.wantsPapers) next.push("Articles & Op-Eds");
-  if (preferences.includes("photography") || profile.wantsPhotography) next.push("Photography");
-  if (preferences.includes("faces") || preferences.includes("stories") || profile.wantsFaces) next.push("Faces of the World");
-  if (preferences.includes("travel") || profile.wantsTravel) next.push("Travel");
-  return Array.from(new Set(next));
+  return normalizeSubscriberSegments(profile);
 }
 
 function hasSegment(profile, segment) {
-  return isSubscriberProfileActive(profile) && normalizeSegments(profile).includes(segment);
+  return subscriberHasSegment(profile, segment);
 }
 
 function setSceneStatus(scene, message, tone = "muted") {
@@ -37,6 +28,82 @@ function setSceneStatus(scene, message, tone = "muted") {
   if (!status) return;
   status.textContent = message;
   status.dataset.tone = tone;
+}
+
+function setControlVisibility(root, segment, profile) {
+  const subscribed = hasSegment(profile, segment);
+  const mode = subscriberHasAnySegment(profile) ? "profile" : "subscribe";
+  document.documentElement.setAttribute("data-sfa-ui", mode);
+  try {
+    window.localStorage.setItem(UI_STORAGE_KEY, mode);
+  } catch (error) {}
+  root.querySelectorAll(`[data-subscribe-control][data-subscribe-segment="${segment}"]`).forEach((el) => {
+    el.hidden = subscribed;
+    if (el instanceof HTMLElement) {
+      if (subscribed) {
+        el.style.setProperty("display", "none", "important");
+      } else {
+        el.style.setProperty("display", "initial", "important");
+      }
+    }
+  });
+  root.querySelectorAll(`[data-profile-control][data-subscribe-segment="${segment}"]`).forEach((el) => {
+    el.hidden = !subscribed;
+    if (el instanceof HTMLElement) {
+      if (subscribed) {
+        el.style.setProperty("display", "inline-flex", "important");
+      } else {
+        el.style.setProperty("display", "none", "important");
+      }
+    }
+    if (subscribed && el instanceof HTMLAnchorElement) {
+      el.href = settingsHrefWithReturn(el.getAttribute("href") || el.href, profile?.email || "");
+    }
+  });
+}
+
+function currentReturnPath() {
+  if (typeof window === "undefined") return "/";
+  return `${window.location.pathname}${window.location.search}${window.location.hash}`;
+}
+
+function settingsHrefWithReturn(rawHref, email = "") {
+  if (typeof window === "undefined") return rawHref;
+  try {
+    const url = new URL(rawHref || "/subscriber-settings/", window.location.origin);
+    url.searchParams.set("from", currentReturnPath());
+    const normalized = normalizeEmail(email || "");
+    if (normalized) url.searchParams.set("email", normalized);
+    return `${url.pathname}${url.search}${url.hash}`;
+  } catch (error) {
+    return rawHref;
+  }
+}
+
+function mergeSubscriberProfile(baseProfile, fallback) {
+  const profile = baseProfile && typeof baseProfile === "object" ? baseProfile : {};
+  const baseSegments = normalizeSegments(profile);
+  const fallbackSegments = normalizeSegments(fallback);
+  return {
+    ...profile,
+    email: normalizeEmail(profile.email || fallback?.email || ""),
+    name: String(profile.name || fallback?.name || "").trim().slice(0, 80),
+    status: String(profile.status || fallback?.status || "active").trim(),
+    segmentTags: Array.from(new Set([...baseSegments, ...fallbackSegments])),
+  };
+}
+
+function cacheSubscriberDraft(user, profile) {
+  cacheSubscriberProfile({ email: user?.email, user, profile });
+}
+
+function applyAllControlVisibility(root, scenes, profilesByScene) {
+  scenes.forEach((scene) => {
+    const segment = scene.dataset.segmentSubscribe || "";
+    const profile = profilesByScene.get(scene) || null;
+    if (!segment) return;
+    setControlVisibility(root, segment, profile);
+  });
 }
 
 function openScene(scene) {
@@ -111,8 +178,17 @@ function resetAvailable(scene, user, profile) {
 async function hydrateSceneState(scene, user) {
   const segment = scene.dataset.segmentSubscribe || "";
   if (!user?.uid) {
-    resetAvailable(scene, null, null);
-    return null;
+    const cached = readCachedSubscriberProfile();
+    const profile = cached?.profile || null;
+    if (hasSegment(profile, segment)) {
+      setAlreadySubscribed(scene, { email: cached.email });
+    } else {
+      resetAvailable(scene, cached ? { email: cached.email } : null, profile);
+      if (isSubscriberProfileActive(profile)) {
+        setSceneStatus(scene, `You are following other updates. Add ${segment} to your subscriber profile.`, "muted");
+      }
+    }
+    return profile;
   }
 
   const profile = await getSubscriberRecord(user.uid);
@@ -178,10 +254,47 @@ export async function attachSegmentSubscribeScenes(root = document) {
       const profile = await hydrateSceneState(scene, user);
       activeProfiles.set(scene, profile);
     }));
+    const firstProfile = scenes.length ? activeProfiles.get(scenes[0]) : null;
+    if (user?.uid) cacheSubscriberDraft(user, firstProfile || null);
+    applyAllControlVisibility(root, scenes, activeProfiles);
   });
+
+  const handleExternalProfileMode = (event) => {
+    const detail = event?.detail && typeof event.detail === "object" ? event.detail : {};
+    const email = normalizeEmail(detail.email || "");
+    const incomingProfile = detail.profile && typeof detail.profile === "object" ? detail.profile : null;
+    const incomingSegments = normalizeSegments(incomingProfile);
+    if (!incomingSegments.length) return;
+
+    scenes.forEach((scene) => {
+      const segment = scene.dataset.segmentSubscribe || "";
+      if (!segment || !incomingSegments.includes(segment)) return;
+
+      const emailInput = scene.querySelector("[data-subscribe-email]");
+      if (emailInput instanceof HTMLInputElement && email && !emailInput.value) {
+        emailInput.value = email;
+      }
+
+      const currentProfile = activeProfiles.get(scene);
+      const nextProfile = {
+        ...(currentProfile && typeof currentProfile === "object" ? currentProfile : {}),
+        ...(incomingProfile || {}),
+        email: email || incomingProfile?.email || currentProfile?.email || "",
+        status: "active",
+        segmentTags: incomingSegments,
+      };
+      activeProfiles.set(scene, nextProfile);
+      cacheSubscriberDraft({ email }, nextProfile);
+      setControlVisibility(root, segment, nextProfile);
+      setSceneStatus(scene, "You are already following the journey! Open Subscriber Settings to edit preferences.", "ok");
+    });
+  };
+
+  window.addEventListener("sfa:subscriber-profile-mode", handleExternalProfileMode);
 
   window.addEventListener("pagehide", () => {
     if (typeof unsubscribe === "function") unsubscribe();
+    window.removeEventListener("sfa:subscriber-profile-mode", handleExternalProfileMode);
   }, { once: true });
 
   scenes.forEach((scene) => {
@@ -217,6 +330,8 @@ export async function attachSegmentSubscribeScenes(root = document) {
           await upsertSubscriberRecord(authUser, { name, segmentTags: [segment], source });
           const nextProfile = await getSubscriberRecord(authUser.uid);
           activeProfiles.set(scene, nextProfile);
+          cacheSubscriberDraft(authUser, nextProfile);
+          setControlVisibility(root, segment, nextProfile);
           if (hasSegment(nextProfile, segment)) {
             setAlreadySubscribed(scene, authUser);
           } else {
@@ -238,9 +353,30 @@ export async function attachSegmentSubscribeScenes(root = document) {
           return;
         }
 
+        if (result.existing) {
+          const nextProfile = mergeSubscriberProfile(result.profile, {
+            status: "active",
+            email,
+            name: name || profile?.name || "",
+            segmentTags: [segment],
+          });
+          cacheSubscriberDraft({ email }, nextProfile);
+          activeProfiles.set(scene, nextProfile);
+          setControlVisibility(root, segment, nextProfile);
+          if (result.updated) {
+            setSceneStatus(scene, "Subscription updated.", "ok");
+          } else {
+            setSceneStatus(scene, "You are already following the journey! Open Subscriber Settings to edit preferences.", "ok");
+          }
+          return;
+        }
+
         if (result.linked) {
           setSceneStatus(scene, "Subscription updated.", "ok");
-          await hydrateSceneState(scene, authUser);
+          const nextProfile = await hydrateSceneState(scene, authUser);
+          activeProfiles.set(scene, nextProfile);
+          cacheSubscriberDraft(authUser, nextProfile);
+          setControlVisibility(root, segment, nextProfile);
         } else {
           setSceneStatus(scene, "Check your inbox to confirm this subscription.", "ok");
         }

@@ -8,6 +8,7 @@ const publicFirestoreConfigJson = JSON.stringify({
   projectId: import.meta.env.PUBLIC_FIREBASE_PROJECT_ID ?? "",
   apiKey: import.meta.env.PUBLIC_FIREBASE_API_KEY ?? "",
 });
+const publicFirebaseApiKey = import.meta.env.PUBLIC_FIREBASE_API_KEY ?? "";
 const initialFeatCounter = copy.featured.counterTemplate
   .replace("{current}", "01")
   .replace("{total}", "03");
@@ -23,6 +24,42 @@ const initialFeatCounter = copy.featured.counterTemplate
       href="https://fonts.googleapis.com/css2?family=Cormorant:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,500;1,600&family=Lora:ital,wght@0,400;0,500;1,400;1,500&display=swap"
       rel="stylesheet"
     />
+    <script is:inline data-firebase-api-key={publicFirebaseApiKey}>
+      (() => {
+        const apiKey = document.currentScript?.dataset?.firebaseApiKey || "";
+        const authPrefix = "firebase:authUser:" + apiKey + ":";
+        let hasSession = false;
+        try {
+          if (authPrefix !== "firebase:authUser::") {
+            for (let i = 0; i < window.localStorage.length; i += 1) {
+              const key = window.localStorage.key(i) || "";
+              if (!key.startsWith(authPrefix)) continue;
+              const value = window.localStorage.getItem(key);
+              if (value && value !== "null") {
+                hasSession = true;
+                break;
+              }
+            }
+          }
+        } catch (error) {}
+        let mode = "subscribe";
+        try {
+          const cached = JSON.parse(window.localStorage.getItem("sfa-subscriber-profile-v1") || "null");
+          const profile = cached?.profile && typeof cached.profile === "object" ? cached.profile : cached;
+          const tags = Array.isArray(profile?.segmentTags) ? profile.segmentTags : [];
+          const prefs = Array.isArray(profile?.preferences) ? profile.preferences : [];
+          mode = profile?.status === "active" && (tags.includes("Articles & Op-Eds") || prefs.includes("all") || prefs.includes("articles") || prefs.includes("papers")) ? "profile" : "subscribe";
+        } catch (error) {}
+        document.documentElement.setAttribute("data-sfa-ui", mode);
+        const style = document.createElement("style");
+        if (mode === "profile") {
+          style.textContent = "[data-subscribe-control]{display:none !important;}[data-profile-control]{display:inline-flex !important;}";
+        } else {
+          style.textContent = "[data-profile-control]{display:none !important;}[data-subscribe-control]{display:initial !important;}";
+        }
+        document.head.appendChild(style);
+      })();
+    </script>
     <style is:global>
       :root {
         --white: #fafaf7;
@@ -44,6 +81,9 @@ const initialFeatCounter = copy.featured.counterTemplate
         margin: 0;
         padding: 0;
         box-sizing: border-box;
+      }
+      [hidden] {
+        display: none !important;
       }
       html {
         scroll-behavior: smooth;
@@ -113,6 +153,28 @@ const initialFeatCounter = copy.featured.counterTemplate
       .footer-subscribe:hover {
         border-color: var(--gold);
         color: var(--gold);
+      }
+      .subscriber-profile-link {
+        width: 34px;
+        height: 34px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid var(--border);
+        color: var(--ink3);
+        text-decoration: none;
+        transition: color 0.2s, border-color 0.2s, background 0.2s;
+      }
+      .subscriber-profile-link:hover {
+        border-color: var(--gold);
+        color: var(--gold);
+      }
+      .subscriber-profile-link svg {
+        width: 15px;
+        height: 15px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.7;
       }
 
       #hero {
@@ -1035,6 +1097,14 @@ const initialFeatCounter = copy.featured.counterTemplate
         border-color: rgba(255, 255, 255, 0.14);
         color: rgba(255, 255, 255, 0.34);
       }
+      footer .subscriber-profile-link {
+        border-color: rgba(255, 255, 255, 0.14);
+        color: rgba(255, 255, 255, 0.34);
+      }
+      footer .subscriber-profile-link:hover {
+        border-color: var(--gold);
+        color: var(--gold);
+      }
 
       #overlay {
         position: fixed;
@@ -1566,7 +1636,10 @@ const initialFeatCounter = copy.featured.counterTemplate
     <nav id="nav">
       <a class="nav-back" href={basePath}>{copy.nav.backLabel}</a>
       <span class="nav-label">{copy.nav.label}</span>
-      <button class="nav-subscribe" type="button" data-subscribe-open="papers">Subscribe</button>
+      <button class="nav-subscribe" type="button" data-subscribe-open="papers" data-subscribe-control data-subscribe-segment="Articles & Op-Eds">Subscribe</button>
+      <a class="subscriber-profile-link" href={`${basePath}subscriber-settings/`} data-profile-control data-subscribe-segment="Articles & Op-Eds" aria-label="Subscriber settings" hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20a8 8 0 0 1 16 0"/><circle cx="12" cy="8" r="4.2"/></svg>
+      </a>
     </nav>
 
     <section id="hero">
@@ -1947,7 +2020,10 @@ const initialFeatCounter = copy.featured.counterTemplate
 
     <footer>
       <p>{copy.footer.left}</p>
-      <button class="footer-subscribe" type="button" data-subscribe-open="papers">Subscribe</button>
+      <button class="footer-subscribe" type="button" data-subscribe-open="papers" data-subscribe-control data-subscribe-segment="Articles & Op-Eds">Subscribe</button>
+      <a class="subscriber-profile-link" href={`${basePath}subscriber-settings/`} data-profile-control data-subscribe-segment="Articles & Op-Eds" aria-label="Subscriber settings" hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20a8 8 0 0 1 16 0"/><circle cx="12" cy="8" r="4.2"/></svg>
+      </a>
       <p>{copy.footer.right}</p>
     </footer>
 
@@ -2675,7 +2751,15 @@ const initialFeatCounter = copy.featured.counterTemplate
           writeRequestedPaperToken("");
         }
 
+        function applyMobileInkCrop() {
+          const mobileCrop = window.matchMedia("(max-width: 760px)").matches;
+          document.querySelectorAll(".hero-ink, .feat-ink").forEach(function (svg) {
+            svg.setAttribute("preserveAspectRatio", mobileCrop ? "xMidYMid slice" : "xMaxYMid slice");
+          });
+        }
+
         async function boot() {
+          applyMobileInkCrop();
           const settled = await Promise.allSettled([
             publicFirestore.getDocument(publicConfig, "site_config/section_media"),
             publicFirestore.listCollection(publicConfig, "papers"),
@@ -2739,6 +2823,7 @@ const initialFeatCounter = copy.featured.counterTemplate
         document.getElementById("f-yr").addEventListener("change", doFilter);
         document.getElementById("f-tp").addEventListener("change", doFilter);
         window.addEventListener("resize", applyAdaptiveMasks);
+        window.addEventListener("resize", applyMobileInkCrop);
         const subscribeScene = document.querySelector(".papers-subscribe");
         if (subscribeScene && typeof MutationObserver !== "undefined") {
           const observer = new MutationObserver(function () {

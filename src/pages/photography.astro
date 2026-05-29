@@ -5,6 +5,7 @@ const publicFirestoreConfigJson = JSON.stringify({
   projectId: import.meta.env.PUBLIC_FIREBASE_PROJECT_ID ?? "",
   apiKey: import.meta.env.PUBLIC_FIREBASE_API_KEY ?? "",
 });
+const publicFirebaseApiKey = import.meta.env.PUBLIC_FIREBASE_API_KEY ?? "";
 ---
 <!DOCTYPE html>
 <html lang="en">
@@ -15,8 +16,45 @@ const publicFirestoreConfigJson = JSON.stringify({
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<script is:inline data-firebase-api-key={publicFirebaseApiKey}>
+(() => {
+  const apiKey = document.currentScript?.dataset?.firebaseApiKey || "";
+  const authPrefix = "firebase:authUser:" + apiKey + ":";
+  let hasSession = false;
+  try {
+    if (authPrefix !== "firebase:authUser::") {
+      for (let i = 0; i < window.localStorage.length; i += 1) {
+        const key = window.localStorage.key(i) || "";
+        if (!key.startsWith(authPrefix)) continue;
+        const value = window.localStorage.getItem(key);
+        if (value && value !== "null") {
+          hasSession = true;
+          break;
+        }
+      }
+    }
+  } catch (error) {}
+  let mode = "subscribe";
+  try {
+    const cached = JSON.parse(window.localStorage.getItem("sfa-subscriber-profile-v1") || "null");
+    const profile = cached?.profile && typeof cached.profile === "object" ? cached.profile : cached;
+    const tags = Array.isArray(profile?.segmentTags) ? profile.segmentTags : [];
+    const prefs = Array.isArray(profile?.preferences) ? profile.preferences : [];
+    mode = profile?.status === "active" && (tags.includes("Photography") || prefs.includes("all") || prefs.includes("photography")) ? "profile" : "subscribe";
+  } catch (error) {}
+  document.documentElement.setAttribute("data-sfa-ui", mode);
+  const style = document.createElement("style");
+  if (mode === "profile") {
+    style.textContent = "[data-subscribe-control]{display:none !important;}[data-profile-control]{display:inline-flex !important;}";
+  } else {
+    style.textContent = "[data-profile-control]{display:none !important;}[data-subscribe-control]{display:initial !important;}";
+  }
+  document.head.appendChild(style);
+})();
+</script>
 <style is:global>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+[hidden]{display:none !important}
 :root{
   --k:#080808;--w:#F0EFEB;
   --g1:#111;--g2:#1A1A1A;--g3:#282828;--g4:#505050;--g5:#888;
@@ -64,6 +102,9 @@ img{display:block}
   cursor:pointer;
 }
 .nav-subscribe:hover,.foot-subscribe:hover{color:var(--dot-color)}
+.subscriber-profile-link{width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--dot-color);color:var(--dot-color);text-decoration:none;transition:transform .2s,color .2s,border-color .2s}
+.subscriber-profile-link:hover{transform:translateY(-1px)}
+.subscriber-profile-link svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.7}
 /* FIX 1: dot color driven by CSS var, transitions smoothly */
 .nav-dot{
   width:5px;height:5px;border-radius:50%;
@@ -406,7 +447,8 @@ body.segment-subscribe-open{overflow:hidden}
   <div class="nav-right">
     <span class="nav-link cur" id="nav-photo" onclick="showPage('index')">Photos</span>
     <span class="nav-link" id="nav-about" onclick="showPage('about')">About</span>
-    <button class="nav-subscribe" type="button" data-subscribe-open="photography">Subscribe</button>
+    <button class="nav-subscribe" type="button" data-subscribe-open="photography" data-subscribe-control data-subscribe-segment="Photography">Subscribe</button>
+    <a class="subscriber-profile-link" href={`${basePath}subscriber-settings/`} data-profile-control data-subscribe-segment="Photography" aria-label="Subscriber settings" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20a8 8 0 0 1 16 0"/><circle cx="12" cy="8" r="4.2"/></svg></a>
     <!-- FIX 1: dot color changes via --dot-color CSS var -->
     <div class="nav-dot" id="nav-dot"></div>
   </div>
@@ -509,7 +551,7 @@ body.segment-subscribe-open{overflow:hidden}
       <div class="sc" style="--accent:#5f5f5f" onclick="showShoot('desert')"><div class="sc-img-w"><img class="sc-img" src="" loading="lazy"/></div><div class="sc-body"><div class="sc-top"><span class="sc-date">Mar 2024</span><span class="sc-ct">5 frames</span></div><div class="sc-title">Desert Bloom</div><div class="sc-desc">Silence, scale, and impossible colour.</div><div class="sc-tags"><span class="sc-tag">landscape</span></div><div class="sc-loc">Mojave, USA</div></div><div class="sc-bar"></div></div>
     </div>
   </section>
-  <footer class="footer"><div class="foot-l">BIRKLEY</div><button class="foot-subscribe" type="button" data-subscribe-open="photography">SUBSCRIBE</button><div class="foot-r">© 2026 — All rights reserved</div></footer>
+  <footer class="footer"><div class="foot-l">BIRKLEY</div><button class="foot-subscribe" type="button" data-subscribe-open="photography" data-subscribe-control data-subscribe-segment="Photography">SUBSCRIBE</button><a class="subscriber-profile-link" href={`${basePath}subscriber-settings/`} data-profile-control data-subscribe-segment="Photography" aria-label="Subscriber settings" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20a8 8 0 0 1 16 0"/><circle cx="12" cy="8" r="4.2"/></svg></a><div class="foot-r">© 2026 — All rights reserved</div></footer>
 </div>
 
 <!-- ═══════════════════════════
@@ -604,7 +646,7 @@ body.segment-subscribe-open{overflow:hidden}
       <div class="deco-bar" style="background:#FF6500;height:28%"></div>
     </div>
   </section>
-  <footer class="footer"><div class="foot-l">BIRKLEY</div><button class="foot-subscribe" type="button" data-subscribe-open="photography">SUBSCRIBE</button><div class="foot-r">© 2026 — All rights reserved</div></footer>
+  <footer class="footer"><div class="foot-l">BIRKLEY</div><button class="foot-subscribe" type="button" data-subscribe-open="photography" data-subscribe-control data-subscribe-segment="Photography">SUBSCRIBE</button><a class="subscriber-profile-link" href={`${basePath}subscriber-settings/`} data-profile-control data-subscribe-segment="Photography" aria-label="Subscriber settings" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20a8 8 0 0 1 16 0"/><circle cx="12" cy="8" r="4.2"/></svg></a><div class="foot-r">© 2026 — All rights reserved</div></footer>
 </div>
 
 <section class="photo-subscribe" data-segment-subscribe="Photography" data-subscribe-source="photography_scene" data-subscribe-id="photography" data-subscribe-modal="true">

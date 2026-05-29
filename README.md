@@ -165,6 +165,50 @@ firebase deploy --only firestore:rules,firestore:indexes,storage,functions
 4. If Firebase Storage has not been initialized yet, first open `https://console.firebase.google.com/project/stories-from-abroad/storage` and click `Get started`. This is the one remaining manual step because the bucket region choice is permanent.
 5. Open `/admin`, request an email sign-in link, then use the `Claim admin access` button once the signed-in email matches the bootstrap allowlist.
 
+## Custom subscriber email delivery (Provider + Firebase Auth links)
+
+Subscriber verification/sign-in links can be sent through your own email provider instead of Firebase's default sender.
+
+Implemented flow:
+
+- Frontend requests a custom email from `sendSubscriberSignInLinkEmail`.
+- Function generates a Firebase email-link sign-in URL via Admin SDK.
+- Function sends that link through the configured email provider (`gmail_smtp` or `resend`).
+- Frontend falls back to Firebase client `sendSignInLinkToEmail` if the custom function is unavailable.
+
+### Required config
+
+Set these Firebase Functions secrets before deploying functions:
+
+```bash
+firebase functions:secrets:set GMAIL_SMTP_APP_PASSWORD
+# Optional when using resend:
+# firebase functions:secrets:set RESEND_API_KEY
+```
+
+Then set parameterized values in `functions/.env.<your-project-id>` (or let deploy prompts generate it):
+
+```dotenv
+AUTH_EMAIL_PROVIDER=gmail_smtp
+AUTH_EMAIL_FROM=hello.stranger.birkley@gmail.com
+AUTH_EMAIL_REPLY_TO=hello.stranger.birkley@gmail.com
+AUTH_EMAIL_SENDER_NAME=Stories from Abroad
+GMAIL_SMTP_USER=hello.stranger.birkley@gmail.com
+
+# Optional for future resend switch:
+# AUTH_EMAIL_PROVIDER=resend
+# AUTH_EMAIL_FROM=auth@yourdomain.com
+# AUTH_EMAIL_REPLY_TO=hello@yourdomain.com
+```
+
+### Gmail note
+
+Gmail SMTP uses a Google App Password and is fine for small lists, but has strict sending limits. For larger campaigns and deliverability, use a domain-based provider.
+
+### Resend note
+
+Resend production sending requires a verified domain. A `@gmail.com` address is not supported as the authenticated `from` sender for Resend production traffic.
+
 ## Security debt (deferred major upgrades)
 
 `npm audit --omit=dev` currently reports advisories that require major-version upgrades:

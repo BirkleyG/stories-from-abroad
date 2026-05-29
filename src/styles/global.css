@@ -29,6 +29,10 @@
   padding: 0;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 html {
   scroll-behavior: smooth;
   font-size: 16px;
@@ -215,6 +219,31 @@ body.theme-papers .site-nav.scrolled {
   color: var(--bg);
 }
 
+.nav-profile-link {
+  width: 2rem;
+  height: 2rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--green);
+  color: var(--green);
+  text-decoration: none;
+  transition: background 0.3s, color 0.3s;
+}
+
+.nav-profile-link svg {
+  width: 0.95rem;
+  height: 0.95rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+}
+
+.nav-profile-link:hover {
+  background: var(--green);
+  color: var(--bg);
+}
+
 .container {
   max-width: 780px;
   margin: 0 auto;
@@ -397,6 +426,33 @@ body.theme-papers .site-nav.scrolled {
   flex-wrap: wrap;
   justify-content: center;
   animation: fadeUp 1s var(--transition) 0.65s both;
+}
+
+.hero-profile-link {
+  min-width: 52px;
+  min-height: 46px;
+  padding: 0.75rem 1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--green);
+  color: var(--green);
+  background: transparent;
+  text-decoration: none;
+  transition: background 0.3s, color 0.3s;
+}
+
+.hero-profile-link svg {
+  width: 1.05rem;
+  height: 1.05rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+}
+
+.hero-profile-link:hover {
+  background: var(--green);
+  color: var(--bg);
 }
 
 .home-previews {
@@ -762,6 +818,11 @@ body.theme-papers .site-nav.scrolled {
 
   .nav-cta {
     display: none;
+  }
+
+  .nav-profile-link {
+    width: 1.9rem;
+    height: 1.9rem;
   }
 
   .nav-single-right {

@@ -1,0 +1,166 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+
+const base = import.meta.env.BASE_URL ?? "/";
+const basePath = base.endsWith("/") ? base : `${base}/`;
+---
+
+<BaseLayout title="Email Verified" description="Subscription confirmation" navMode="single" navLabel="Email Verified" showSubscribe={false}>
+  <section class="verify-shell">
+    <div class="verify-card">
+      <div class="verify-check" aria-hidden="true">
+        <div class="verify-check-inner">
+          <svg viewBox="0 0 24 24">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+        </div>
+      </div>
+      <p class="verify-kicker">Subscription Confirmed</p>
+      <h1>Email <em>Verified.</em></h1>
+      <p class="verify-copy" id="verify-copy">
+        Thanks for subscribing to Stories from Abroad.
+      </p>
+      <p class="verify-status" id="verify-status" aria-live="polite"></p>
+      <div class="verify-actions">
+        <a class="btn-solid" href={basePath}>Visit the Site</a>
+        <a class="btn-ghost" href={`${basePath}subscriber-settings/`}>Adjust Settings</a>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    import { completeSubscriberSignInFromLink, getCurrentAuthUser, getSubscriberRecord } from "../lib/subscriberClient";
+
+    const statusEl = document.getElementById("verify-status");
+    const copyEl = document.getElementById("verify-copy");
+
+    function setStatus(message, tone = "muted") {
+      if (!statusEl) return;
+      statusEl.textContent = message;
+      statusEl.dataset.tone = tone;
+    }
+
+    (async () => {
+      try {
+        const result = await completeSubscriberSignInFromLink();
+        if (result?.completed && result.user?.uid) {
+          const profile = await getSubscriberRecord(result.user.uid);
+          if (copyEl && profile?.name) {
+            copyEl.textContent = `Thanks for subscribing, ${profile.name}.`;
+          }
+          setStatus("Your subscriber account is active.", "ok");
+          return;
+        }
+
+        const user = await getCurrentAuthUser();
+        if (user?.uid) {
+          setStatus("You are already signed in.", "ok");
+        } else {
+          setStatus("Your email is verified. Sign in any time to edit your preferences.");
+        }
+      } catch (error) {
+        setStatus("That sign-in link may be expired. Request a fresh link from Subscribe.", "error");
+      }
+    })();
+  </script>
+
+  <style>
+    .verify-shell {
+      min-height: calc(100vh - var(--nav-h));
+      display: grid;
+      place-items: center;
+      padding: 3rem 1.2rem;
+      background: radial-gradient(circle at top, rgba(20, 42, 31, 0.09), transparent 52%);
+    }
+
+    .verify-card {
+      width: min(680px, 100%);
+      text-align: center;
+      border: 1px solid rgba(20, 42, 31, 0.14);
+      background: rgba(255, 252, 246, 0.75);
+      padding: clamp(2rem, 5vw, 3.2rem);
+    }
+
+    .verify-check {
+      width: 76px;
+      height: 76px;
+      margin: 0 auto 1.2rem;
+      border: 1px solid rgba(20, 42, 31, 0.26);
+      border-radius: 999px;
+      display: grid;
+      place-items: center;
+    }
+
+    .verify-check-inner {
+      width: 54px;
+      height: 54px;
+      border-radius: 999px;
+      background: var(--green);
+      color: var(--bg);
+      display: grid;
+      place-items: center;
+    }
+
+    .verify-check svg {
+      width: 24px;
+      height: 24px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2.2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .verify-kicker {
+      font-family: var(--font-sc);
+      font-size: 0.62rem;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 0.9rem;
+    }
+
+    .verify-card h1 {
+      font-family: var(--font-title);
+      font-weight: 400;
+      font-size: clamp(2.1rem, 6vw, 3.6rem);
+      line-height: 1.1;
+      margin-bottom: 1rem;
+    }
+
+    .verify-card h1 em {
+      color: var(--green-mid);
+      font-style: italic;
+    }
+
+    .verify-copy {
+      max-width: 36ch;
+      margin: 0 auto;
+      color: var(--text-mid);
+      font-size: 1.05rem;
+    }
+
+    .verify-status {
+      margin-top: 1rem;
+      min-height: 1.4rem;
+      font-size: 0.95rem;
+      color: var(--text-muted);
+    }
+
+    .verify-status[data-tone="ok"] {
+      color: var(--green-mid);
+    }
+
+    .verify-status[data-tone="error"] {
+      color: #7f1f1f;
+    }
+
+    .verify-actions {
+      margin-top: 1.6rem;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 0.8rem;
+    }
+  </style>
+</BaseLayout>

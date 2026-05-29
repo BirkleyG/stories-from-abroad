@@ -38,7 +38,8 @@ const publicFirestoreConfigJson = JSON.stringify({
             <p>{paragraph}</p>
           ))}
           <div class="about-cta">
-            <button class="btn-ghost" type="button" data-modal-open="subscribe">{copy.buttons.primary}</button>
+            <button class="btn-ghost" type="button" data-modal-open="subscribe" data-global-subscribe-control>{copy.buttons.primary}</button>
+            <a class="btn-ghost" href={`${basePath}subscriber-settings/`} data-global-profile-control aria-label="Subscriber settings" hidden>Profile Settings</a>
             <a class="btn-solid" href={`${basePath}selected-papers/`}>{copy.buttons.secondary}</a>
           </div>
         </div>

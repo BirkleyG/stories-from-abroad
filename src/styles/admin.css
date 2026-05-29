@@ -748,7 +748,7 @@ body {
 .admin-subscriber-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 760px;
+  min-width: 900px;
 }
 
 .admin-subscriber-table th,
@@ -763,6 +763,16 @@ body {
   color: var(--admin-soft);
   font-size: 0.72rem;
   letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-subscriber-group-row td {
+  background: var(--admin-accent-soft);
+  color: var(--admin-accent-dark);
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 

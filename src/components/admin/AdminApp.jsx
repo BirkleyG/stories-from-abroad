@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import "../../styles/admin.css";
 import { firebaseReady } from "../../lib/firebaseClient";
 import { completeAdminSignIn, ensureAdminPersistence, getAdminSession, onAdminAuthChange, sendAdminSignInLink, signOutAdmin } from "../../lib/admin/adminAuth";
@@ -6,6 +6,7 @@ import { assignAdminClaim, publishDraft, repairCoordinates, scheduleDraft, unpub
 import { dispatchDraftToPublic, faceDraftToPublic, photographyDraftToPublic, slugify } from "../../lib/admin/contentAdapters";
 import { collectFeaturedPhotoOptions, mediaSummaryFromPhotos } from "../../lib/admin/photographyTemplates";
 import { createDraft, deleteDraft as deleteDraftRecord, deleteMediaAsset as deleteMediaAssetRecord, getDraft, listVersions, restoreVersion, saveDraft, savePhotographyFeaturedConfig, saveSectionMediaConfig, subscribeDraftList, subscribeMediaAssets, subscribePhotographyFeaturedConfig, subscribeSectionMediaConfig, subscribeSubscribers, updateMediaAsset, uploadMediaAsset } from "../../lib/admin/repository";
+import { sendSubscriberSignInLink } from "../../lib/subscriberClient";
 import {
   AUDIENCE_LEVELS,
   CONTENT_LABELS,
@@ -39,6 +40,8 @@ const STATUS_TONES = {
   scheduled: "scheduled",
   published: "published",
   archived: "archived",
+  verified: "published",
+  "not verified": "review",
 };
 
 const ADMIN_PREVIEW_STORAGE_KEY = "sfa-admin-preview-v1";
@@ -100,6 +103,10 @@ function normalizeSubscriberSegments(subscriber) {
 
 function formatSubscriberSource(value) {
   return String(value || "unknown").replace(/_/g, " ");
+}
+
+function isSubscriberVerified(subscriber) {
+  return subscriber?.verified === true && (subscriber?.status || "active") === "active";
 }
 
 function formatBytes(value) {
@@ -1475,28 +1482,30 @@ function Dashboard({ lists, onCreate, onJump }) {
   );
 }
 
-function SubscribersPanel({ subscribers }) {
+function SubscribersPanel({ subscribers, onPromptVerify, promptingId }) {
   const [queryText, setQueryText] = useState("");
   const stats = useMemo(() => {
     const now = Date.now();
     const dayMs = 86400000;
-    const active = subscribers.filter((subscriber) => subscriber.status === "active");
-    const withName = active.filter((subscriber) => String(subscriber.name || "").trim()).length;
+    const verified = subscribers.filter(isSubscriberVerified);
+    const unverified = subscribers.filter((subscriber) => !isSubscriberVerified(subscriber));
+    const withName = verified.filter((subscriber) => String(subscriber.name || "").trim()).length;
     const segmentCounts = SUBSCRIBER_SEGMENTS.map((segment) => ({
       segment,
-      count: active.filter((subscriber) => normalizeSubscriberSegments(subscriber).includes(segment)).length,
+      count: verified.filter((subscriber) => normalizeSubscriberSegments(subscriber).includes(segment)).length,
     }));
-    const recent = active.filter((subscriber) => {
+    const recent = verified.filter((subscriber) => {
       const created = toDate(subscriber.createdAt);
       return created && now - created.getTime() <= 30 * dayMs;
     }).length;
-    const week = active.filter((subscriber) => {
+    const week = verified.filter((subscriber) => {
       const created = toDate(subscriber.createdAt);
       return created && now - created.getTime() <= 7 * dayMs;
     }).length;
-    const newest = [...active].sort((left, right) => (toDate(right.createdAt)?.getTime() || 0) - (toDate(left.createdAt)?.getTime() || 0))[0];
+    const newest = [...verified].sort((left, right) => (toDate(right.createdAt)?.getTime() || 0) - (toDate(left.createdAt)?.getTime() || 0))[0];
     return {
-      total: active.length,
+      total: verified.length,
+      unverified: unverified.length,
       recent,
       week,
       withName,
@@ -1505,20 +1514,26 @@ function SubscribersPanel({ subscribers }) {
     };
   }, [subscribers]);
 
-  const filteredSubscribers = useMemo(() => {
+  const groupedSubscribers = useMemo(() => {
     const needle = queryText.trim().toLowerCase();
     const sorted = [...subscribers].sort((left, right) => (toDate(right.createdAt)?.getTime() || 0) - (toDate(left.createdAt)?.getTime() || 0));
-    if (!needle) return sorted;
-    return sorted.filter((subscriber) => {
+    const filtered = !needle ? sorted : sorted.filter((subscriber) => {
       const haystack = [
         subscriber.email,
+        subscriber.emailLower,
         subscriber.name,
         subscriber.source,
         subscriber.status,
+        isSubscriberVerified(subscriber) ? "verified" : "unverified pending",
         ...normalizeSubscriberSegments(subscriber),
       ].join(" ").toLowerCase();
       return haystack.includes(needle);
     });
+    return {
+      verified: filtered.filter(isSubscriberVerified),
+      unverified: filtered.filter((subscriber) => !isSubscriberVerified(subscriber)),
+      total: filtered.length,
+    };
   }, [queryText, subscribers]);
 
   return (
@@ -1531,11 +1546,11 @@ function SubscribersPanel({ subscribers }) {
           </div>
         </div>
         <div className="admin-stat-grid">
-          <article className="admin-stat-card"><strong>{stats.total}</strong><span>Active subscribers</span></article>
-          <article className="admin-stat-card"><strong>{stats.week}</strong><span>New in 7 days</span></article>
-          <article className="admin-stat-card"><strong>{stats.recent}</strong><span>New in 30 days</span></article>
-          <article className="admin-stat-card"><strong>{stats.withName}</strong><span>With names</span></article>
-        </div>
+	          <article className="admin-stat-card"><strong>{stats.total}</strong><span>Verified subscribers</span></article>
+	          <article className="admin-stat-card"><strong>{stats.unverified}</strong><span>Not verified</span></article>
+	          <article className="admin-stat-card"><strong>{stats.week}</strong><span>New in 7 days</span></article>
+	          <article className="admin-stat-card"><strong>{stats.recent}</strong><span>New in 30 days</span></article>
+	        </div>
       </div>
 
       <div className="admin-panel">
@@ -1567,19 +1582,23 @@ function SubscribersPanel({ subscribers }) {
             <dt>Newest signup</dt>
             <dd>{stats.newestAt ? formatStamp(stats.newestAt) : "No subscribers yet"}</dd>
           </div>
-          <div>
-            <dt>Completion rate</dt>
-            <dd>{stats.total ? `${Math.round((stats.withName / stats.total) * 100)}% include a name` : "No active subscribers yet"}</dd>
-          </div>
-        </div>
+	          <div>
+	            <dt>Completion rate</dt>
+	            <dd>{stats.total ? `${Math.round((stats.withName / stats.total) * 100)}% include a name` : "No active subscribers yet"}</dd>
+	          </div>
+	          <div>
+	            <dt>Verification queue</dt>
+	            <dd>{stats.unverified ? `${stats.unverified} pending verification` : "No pending verifications"}</dd>
+	          </div>
+	        </div>
       </div>
 
       <div className="admin-panel full-span">
         <div className="admin-panel-head">
-          <div>
-            <h2>All Subscribers</h2>
-            <p>{filteredSubscribers.length} shown of {subscribers.length} total records.</p>
-          </div>
+	          <div>
+	            <h2>All Subscribers</h2>
+	            <p>{groupedSubscribers.total} shown of {subscribers.length} total records, grouped by verification.</p>
+	          </div>
           <input className="admin-input admin-subscriber-search" type="search" value={queryText} placeholder="Search subscribers" onChange={(event) => setQueryText(event.target.value)} />
         </div>
         <div className="admin-subscriber-table-wrap">
@@ -1590,32 +1609,60 @@ function SubscribersPanel({ subscribers }) {
                 <th>Name</th>
                 <th>Segments</th>
                 <th>Source</th>
-                <th>Joined</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredSubscribers.map((subscriber) => {
-                const segments = normalizeSubscriberSegments(subscriber);
-                return (
-                  <tr key={subscriber.id}>
-                    <td>{subscriber.email || subscriber.emailLower || "Unknown"}</td>
-                    <td>{subscriber.name || "Optional"}</td>
-                    <td>
-                      <div className="admin-tag-row">
-                        {segments.length ? segments.map((segment) => <span className="admin-chip" key={segment}>{segment}</span>) : <span className="admin-chip muted">Unsegmented</span>}
-                      </div>
-                    </td>
-                    <td>{formatSubscriberSource(subscriber.source)}</td>
-                    <td>{formatStamp(subscriber.createdAt, { dateOnly: true, empty: "Unknown" })}</td>
-                    <td><StatusPill status={subscriber.status || "active"} /></td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          {!filteredSubscribers.length ? <p className="admin-empty-inline">No subscribers match that search.</p> : null}
-        </div>
+	                <th>Joined</th>
+	                <th>Verification</th>
+	                <th>Actions</th>
+	              </tr>
+	            </thead>
+	            <tbody>
+	              {[
+	                { key: "unverified", label: "Not verified", items: groupedSubscribers.unverified },
+	                { key: "verified", label: "Verified", items: groupedSubscribers.verified },
+	              ].map((group) => (
+	                group.items.length ? (
+	                  <Fragment key={group.key}>
+	                    <tr className="admin-subscriber-group-row" key={`${group.key}-heading`}>
+	                      <td colSpan={7}>{group.label} ({group.items.length})</td>
+	                    </tr>
+	                    {group.items.map((subscriber) => {
+	                      const segments = normalizeSubscriberSegments(subscriber);
+	                      const email = subscriber.email || subscriber.emailLower || "";
+	                      const verified = isSubscriberVerified(subscriber);
+	                      const rowActionKey = subscriber.id || email;
+	                      return (
+	                        <tr key={subscriber.id}>
+	                          <td>{email || "Unknown"}</td>
+	                          <td>{subscriber.name || "Optional"}</td>
+	                          <td>
+	                            <div className="admin-tag-row">
+	                              {segments.length ? segments.map((segment) => <span className="admin-chip" key={segment}>{segment}</span>) : <span className="admin-chip muted">Unsegmented</span>}
+	                            </div>
+	                          </td>
+	                          <td>{formatSubscriberSource(subscriber.source)}</td>
+	                          <td>{formatStamp(subscriber.createdAt, { dateOnly: true, empty: "Unknown" })}</td>
+	                          <td><StatusPill status={verified ? "verified" : "not verified"} /></td>
+	                          <td>
+	                            {!verified ? (
+	                              <button
+	                                type="button"
+	                                className="admin-mini-button"
+	                                disabled={!email || promptingId === rowActionKey}
+	                                onClick={() => onPromptVerify(subscriber)}
+	                              >
+	                                {promptingId === rowActionKey ? "Sending..." : "Prompt verify"}
+	                              </button>
+	                            ) : <span className="admin-empty-inline">Verified</span>}
+	                          </td>
+	                        </tr>
+	                      );
+	                    })}
+	                  </Fragment>
+	                ) : null
+	              ))}
+	            </tbody>
+	          </table>
+	          {!groupedSubscribers.total ? <p className="admin-empty-inline">No subscribers match that search.</p> : null}
+	        </div>
       </div>
     </section>
   );
@@ -1858,6 +1905,7 @@ export default function AdminApp() {
   const [notice, setNotice] = useState(null);
   const [emailInput, setEmailInput] = useState("");
   const [working, setWorking] = useState(false);
+  const [promptingSubscriberId, setPromptingSubscriberId] = useState("");
   const [saveState, setSaveState] = useState("Idle");
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
   const baselineRef = useRef("");
@@ -1924,7 +1972,7 @@ export default function AdminApp() {
           return;
         }
         try {
-          const session = await getAdminSession(user, false);
+          const session = await getAdminSession(user, true);
           if (!active) return;
           setAuthState({ loading: false, ...session, error: "" });
         } catch (error) {
@@ -1947,7 +1995,19 @@ export default function AdminApp() {
       setLists((current) => ({ ...current, [kind]: items }));
     }, (error) => setNotice({ tone: "error", message: `${CONTENT_LABELS[kind]} failed to load: ${error.message}` })));
     const unsubscribeMedia = subscribeMediaAssets(setMediaAssets, (error) => setNotice({ tone: "error", message: `Media library failed to load: ${error.message}` }));
-    const unsubscribeSubscribers = subscribeSubscribers(setSubscribers, (error) => setNotice({ tone: "error", message: `Subscribers failed to load: ${error.message}` }));
+    const unsubscribeSubscribers = subscribeSubscribers(setSubscribers, async (error) => {
+      const code = String(error?.code || "");
+      if (code.includes("permission-denied")) {
+        try {
+          await refreshSession(true);
+          setNotice({ tone: "warning", message: "Refreshing admin session for subscribers..." });
+          return;
+        } catch {
+          // fall through to explicit error notice below
+        }
+      }
+      setNotice({ tone: "error", message: `Subscribers failed to load: ${error.message}` });
+    });
     const unsubscribeSectionMedia = subscribeSectionMediaConfig((config) => {
       setSectionMediaConfig({
         readStoryPortrait: config?.readStoryPortrait || createMediaValue(),
@@ -1967,7 +2027,7 @@ export default function AdminApp() {
     }, (error) => setNotice({ tone: "error", message: `Photography featured failed to load: ${error.message}` }));
     unsubscribers.push(unsubscribeMedia, unsubscribeSubscribers, unsubscribeSectionMedia, unsubscribePhotographyFeatured);
     return () => unsubscribers.forEach((unsubscribe) => typeof unsubscribe === "function" && unsubscribe());
-  }, [authState.isAdmin]);
+  }, [authState.isAdmin, authState.user?.uid, authState.claims?.iat]);
 
   useEffect(() => {
     if (!isContentSection) return undefined;
@@ -2114,6 +2174,39 @@ export default function AdminApp() {
       setNotice({ tone: "error", message: error.message || "Admin claim could not be assigned." });
     } finally {
       setWorking(false);
+    }
+  }
+
+  async function handlePromptSubscriberVerify(subscriber) {
+    const email = String(subscriber?.email || subscriber?.emailLower || "").trim();
+    if (!email) {
+      setNotice({ tone: "error", message: "This subscriber does not have an email address to prompt." });
+      return;
+    }
+    const confirmed = window.confirm(`Send a verification prompt to ${email}?`);
+    if (!confirmed) return;
+
+    try {
+      setPromptingSubscriberId(subscriber.id || email);
+      const redirectUrl = typeof window !== "undefined"
+        ? `${window.location.origin}${basePath}selected-papers/`
+        : "";
+      const result = await sendSubscriberSignInLink({
+        email,
+        name: subscriber.name || "",
+        preferences: Array.isArray(subscriber.preferences) ? subscriber.preferences : [],
+        segmentTags: normalizeSubscriberSegments(subscriber),
+        source: subscriber.source || "admin_verify_prompt",
+        redirectUrl,
+      });
+      if (!result.ok) {
+        throw new Error("Could not send verification prompt.");
+      }
+      setNotice({ tone: "success", message: `Verification prompt sent to ${email}.` });
+    } catch (error) {
+      setNotice({ tone: "error", message: error.message || "Could not send verification prompt." });
+    } finally {
+      setPromptingSubscriberId("");
     }
   }
 
@@ -2511,7 +2604,7 @@ export default function AdminApp() {
         </header>
         <Notice notice={notice} onDismiss={() => setNotice(null)} />
         {activeSection === "dashboard" ? <Dashboard lists={lists} onCreate={handleCreate} onJump={(kind, id) => { setActiveSection(kind); setSelectedIds((current) => ({ ...current, [kind]: id })); }} /> : null}
-        {activeSection === "subscribers" ? <SubscribersPanel subscribers={subscribers} /> : null}
+        {activeSection === "subscribers" ? <SubscribersPanel subscribers={subscribers} onPromptVerify={handlePromptSubscriberVerify} promptingId={promptingSubscriberId} /> : null}
         {activeSection === "media" ? <MediaLibrary assets={mediaAssets} onUpload={handleUpload} onSaveMetadata={handleSaveMediaMetadata} onDeleteAsset={handleDeleteMediaAsset} /> : null}
         {activeSection === "site-assets" ? (
           <SiteAssetsForm

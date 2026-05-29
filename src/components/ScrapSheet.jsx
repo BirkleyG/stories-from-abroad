@@ -9,16 +9,20 @@ import {
   runTransaction,
   serverTimestamp,
 } from "firebase/firestore";
-import { db, firestoreReady } from "../lib/firebaseClient";
+import { db, firebaseConfig, firestoreReady } from "../lib/firebaseClient";
 import {
   completeSubscriberSignInFromLink,
+  cacheSubscriberProfile,
   fallbackNameFromEmail,
   getCurrentAuthUser,
   getSubscriberRecord,
   isSubscriberProfileActive,
   normalizeEmail,
+  normalizeSubscriberSegments,
   onSubscriberAuthChange,
+  readCachedSubscriberProfile,
   sendSubscriberSignInLink,
+  subscriberHasSegment as profileHasSegment,
   upsertSubscriberRecord,
 } from "../lib/subscriberClient";
 import * as THREE from "three";
@@ -32,8 +36,8 @@ const RED = "#CC1111";
 const POSTS = copy.posts;
 const CATS = copy.categories;
 const INITIAL_COMMENTS = copy.defaultComments;
-const SUBSCRIBER_SEGMENTS = ["Articles & Op-Eds", "Photography", "Faces of the World", "Travel"];
 const QUICK_REACTIONS = ["❤️", "🔥", "😂", "😮", "✈️", "🌍", "👏", "✨", "🥳", "💯"];
+const UI_STORAGE_KEY = "sfa-subscriber-ui-v1";
 
 // ── HELPERS ───────────────────────────────────────────────────────────────────
 
@@ -66,24 +70,49 @@ function matchesSearch(post, q) {
 }
 
 function subscriberSegments(profile) {
-  if (!profile || typeof profile !== "object") return [];
-  var direct = Array.isArray(profile.segmentTags)
-    ? profile.segmentTags.filter(function(segment){ return SUBSCRIBER_SEGMENTS.includes(segment); })
-    : [];
-  if (direct.length) return Array.from(new Set(direct));
-  var preferences = Array.isArray(profile.preferences) ? profile.preferences : [];
-  if (preferences.includes("all") || profile.wantsAllUpdates) return SUBSCRIBER_SEGMENTS.slice();
-  var next = [];
-  if (preferences.includes("articles") || preferences.includes("papers") || profile.wantsPapers) next.push("Articles & Op-Eds");
-  if (preferences.includes("photography") || profile.wantsPhotography) next.push("Photography");
-  if (preferences.includes("faces") || preferences.includes("stories") || profile.wantsFaces) next.push("Faces of the World");
-  if (preferences.includes("travel") || profile.wantsTravel) next.push("Travel");
-  return Array.from(new Set(next));
+  return normalizeSubscriberSegments(profile);
 }
 
 function subscriberHasSegment(profile, segment) {
-  return isSubscriberProfileActive(profile) && subscriberSegments(profile).includes(segment);
+  return profileHasSegment(profile, segment);
 }
+
+function persistSubscriberUiMode(isProfileVisible) {
+  if (typeof document !== "undefined") {
+    document.documentElement.setAttribute("data-sfa-ui", isProfileVisible ? "profile" : "subscribe");
+  }
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(UI_STORAGE_KEY, isProfileVisible ? "profile" : "subscribe");
+  } catch (error) {}
+}
+
+function cacheSubscriberDraft(user, profile) {
+  cacheSubscriberProfile({ email: user?.email, user, profile });
+}
+
+function mergeTravelSubscriberProfile(profile, fallbackEmail, fallbackName) {
+  var source = profile && typeof profile === "object" ? profile : {};
+  var segments = Array.from(new Set(subscriberSegments(source).concat(["Travel"])));
+  return Object.assign({}, source, {
+    email: normalizeEmail(source.email || fallbackEmail || ""),
+    name: String(source.name || fallbackName || "").trim().slice(0, 80),
+    status: String(source.status || "active").trim(),
+    segmentTags: segments,
+  });
+}
+
+function settingsHrefWithReturn(baseHref) {
+  if (typeof window === "undefined") return baseHref;
+  try {
+    var url = new URL(baseHref, window.location.origin);
+    url.searchParams.set("from", window.location.pathname + window.location.search + window.location.hash);
+    return url.pathname + url.search + url.hash;
+  } catch (error) {
+    return baseHref;
+  }
+}
+
 
 function decodeLandPaths(topo) {
   var sc = topo.transform.scale, tr = topo.transform.translate;
@@ -265,7 +294,6 @@ function reactionsFromPosts(list) {
 function Styles() {
   return (
     <style>{`
-      @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,600&family=Jost:wght@300;400;500;600&family=Lora:ital,wght@0,400;0,500;1,400&family=Courier+Prime:ital,wght@0,400;0,700;1,400&display=swap');
       *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
       html{scroll-behavior:smooth}
       ::-webkit-scrollbar{width:4px}
@@ -310,6 +338,9 @@ function Styles() {
 
       .fsubbtn{background:rgba(255,255,255,0.12);color:rgba(240,233,223,0.88);padding:4px 13px 5px;border:1px solid rgba(255,255,255,0.3);border-radius:1px;font-family:'Courier Prime',monospace;font-size:10px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;cursor:pointer;transition:all .2s}
       .fsubbtn:hover{background:var(--cream);color:var(--red)}
+      .subprofile{width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,0.42);color:rgba(240,233,223,0.9);text-decoration:none;transition:all .2s}
+      .subprofile svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.7}
+      .subprofile:hover{background:var(--cream);color:var(--red);border-color:var(--cream)}
 
       .readmore{background:none;border:none;color:var(--red);cursor:pointer;font-family:'Jost',sans-serif;font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;padding:0;transition:opacity .15s}
       .readmore:hover{opacity:.65}
@@ -1098,6 +1129,29 @@ function SubModal({ email, setEmail, subscribed, onSubscribe, onClose, statusMes
 // ── MAIN ──────────────────────────────────────────────────────────────────────
 
 export default function ScrapSheet({ backHref = "/" }) {
+  var rememberedProfileMode = false;
+  try {
+    if (typeof window !== "undefined") {
+      var apiKey = String(firebaseConfig?.apiKey || "");
+      var authPrefix = apiKey ? "firebase:authUser:" + apiKey + ":" : "";
+      var hasSession = false;
+      if (authPrefix) {
+        for (var i = 0; i < window.localStorage.length; i += 1) {
+          var key = String(window.localStorage.key(i) || "");
+          if (!key.startsWith(authPrefix)) continue;
+          var value = window.localStorage.getItem(key);
+          if (value && value !== "null") {
+            hasSession = true;
+            break;
+          }
+        }
+      }
+      var cached = readCachedSubscriberProfile();
+      rememberedProfileMode = subscriberHasSegment(cached?.profile, "Travel");
+    }
+  } catch (error) {
+    rememberedProfileMode = false;
+  }
   var filterS=useState("all"),filter=filterS[0],setFilter=filterS[1];
   var expandedS=useState(null),expandedId=expandedS[0],setExpandedId=expandedS[1];
   var fallbackPosts = [];
@@ -1111,7 +1165,7 @@ export default function ScrapSheet({ backHref = "/" }) {
   var newComS=useState(""),newComment=newComS[0],setNewComment=newComS[1];
   var commenterS=useState(""),commenterName=commenterS[0],setCommenterName=commenterS[1];
   var emailS=useState(""),email=emailS[0],setEmail=emailS[1];
-  var subscribedS=useState(false),subscribed=subscribedS[0],setSubscribed=subscribedS[1];
+  var subscribedS=useState(rememberedProfileMode),subscribed=subscribedS[0],setSubscribed=subscribedS[1];
   var subStatusS=useState(""),subStatus=subStatusS[0],setSubStatus=subStatusS[1];
   var subSendingS=useState(false),subSending=subSendingS[0],setSubSending=subSendingS[1];
   var commentEmailS=useState(""),commentSignInEmail=commentEmailS[0],setCommentSignInEmail=commentEmailS[1];
@@ -1186,10 +1240,23 @@ export default function ScrapSheet({ backHref = "/" }) {
           if (active) {
             setSubscriberProfile(profile);
             setSubscribed(subscriberHasSegment(profile, "Travel"));
+            cacheSubscriberDraft(currentUser, profile);
+            persistSubscriberUiMode(subscriberHasSegment(profile, "Travel"));
           }
+        } else if (active) {
+          var cached = readCachedSubscriberProfile();
+          setSubscriberProfile(cached?.profile || null);
+          setSubscribed(subscriberHasSegment(cached?.profile, "Travel"));
+          setCommentSignInEmail(cached?.email || "");
+          persistSubscriberUiMode(subscriberHasSegment(cached?.profile, "Travel"));
         }
       } catch (error) {
-        if (active) setSubscriberProfile(null);
+        if (active) {
+          var fallbackCached = readCachedSubscriberProfile();
+          setSubscriberProfile(fallbackCached?.profile || null);
+          setSubscribed(subscriberHasSegment(fallbackCached?.profile, "Travel"));
+          persistSubscriberUiMode(subscriberHasSegment(fallbackCached?.profile, "Travel"));
+        }
       }
 
       unsubscribe = await onSubscriberAuthChange(async function(user){
@@ -1197,13 +1264,19 @@ export default function ScrapSheet({ backHref = "/" }) {
         setAuthUser(user);
         setCommentSignInEmail(user?.email ? normalizeEmail(user.email) : "");
         if (!user?.uid) {
-          setSubscriberProfile(null);
+          var cached = readCachedSubscriberProfile();
+          setSubscriberProfile(cached?.profile || null);
+          setSubscribed(subscriberHasSegment(cached?.profile, "Travel"));
+          setCommentSignInEmail(cached?.email || "");
+          persistSubscriberUiMode(subscriberHasSegment(cached?.profile, "Travel"));
           return;
         }
         var profile = await getSubscriberRecord(user.uid);
         if (!active) return;
         setSubscriberProfile(profile);
         setSubscribed(subscriberHasSegment(profile, "Travel"));
+        cacheSubscriberDraft(user, profile);
+        persistSubscriberUiMode(subscriberHasSegment(profile, "Travel"));
       });
     })();
     return function(){
@@ -1465,9 +1538,16 @@ export default function ScrapSheet({ backHref = "/" }) {
         segmentTags: ["Travel"],
         source: "travel_comment",
         redirectUrl: window.location.href,
+        forceEmailLink: true,
       });
       if (!result.ok) {
         setCommentWarning("Could not send sign-in link. Please try again.");
+      } else if (result.existing) {
+        if (result.updated) {
+          setCommentWarning("Subscription updated. You can comment now.");
+        } else {
+          setCommentWarning("You are already following the journey. Open Subscriber Settings to update your preferences.");
+        }
       } else if (result.linked) {
         var signedInUser = await getCurrentAuthUser();
         if (signedInUser) {
@@ -1507,6 +1587,7 @@ export default function ScrapSheet({ backHref = "/" }) {
           var updatedProfile = await getSubscriberRecord(authUser.uid);
           setSubscriberProfile(updatedProfile);
           setSubscribed(true);
+          cacheSubscriberDraft(authUser, updatedProfile);
         } catch (error) {
           setSubStatus("Subscription failed. Try again in a moment.");
         } finally {
@@ -1529,6 +1610,19 @@ export default function ScrapSheet({ backHref = "/" }) {
         setSubStatus("Unable to send sign-in link. Please retry.");
         return;
       }
+      if (result.existing) {
+        var existingProfile = mergeTravelSubscriberProfile(result.profile, targetEmail, "");
+        setSubscriberProfile(existingProfile);
+        cacheSubscriberDraft({ email: targetEmail }, existingProfile);
+        if (result.updated) {
+          setSubscribed(true);
+          setSubStatus("Subscription updated.");
+        } else {
+          setSubscribed(true);
+          setSubStatus("You are already following the journey!");
+        }
+        return;
+      }
       if (result.linked) {
         var signedUser = await getCurrentAuthUser();
         if (signedUser) {
@@ -1536,12 +1630,13 @@ export default function ScrapSheet({ backHref = "/" }) {
           setAuthUser(signedUser);
           var signedProfile = await getSubscriberRecord(signedUser.uid);
           setSubscriberProfile(signedProfile);
+          cacheSubscriberDraft(signedUser, signedProfile);
         }
         setSubscribed(true);
         setSubStatus("");
         return;
       }
-      setSubscribed(true);
+      setSubscribed(false);
       setSubStatus("Check your inbox to confirm your subscription.");
     } catch (error) {
       setSubStatus("Subscription failed. Try again in a moment.");
@@ -1574,6 +1669,9 @@ export default function ScrapSheet({ backHref = "/" }) {
     (subscriberProfile && typeof subscriberProfile.name === "string" && subscriberProfile.name.trim()) ||
     fallbackNameFromEmail(authUser?.email || "") ||
     copy.postModal.defaultAuthor;
+  var cleanBackHref = String(backHref || "/").replace(/&+$/g, "").replace(/\/?$/, "/");
+  var settingsHref = settingsHrefWithReturn(cleanBackHref + "subscriber-settings/");
+  var travelSubscribed = subscribed || subscriberHasSegment(subscriberProfile, "Travel");
 
   return (
     <div className="dispatch-root" style={{background:"var(--cream)",minHeight:"100vh"}}>
@@ -1583,7 +1681,7 @@ export default function ScrapSheet({ backHref = "/" }) {
       <header className="dispatch-header" style={{position:"sticky",top:0,zIndex:100,background:"var(--red)",boxShadow:"0 2px 14px rgba(140,8,8,0.28)"}}>
         <div className="dispatch-header-inner" style={{height:60,padding:"0 36px",display:"grid",gridTemplateColumns:"1fr auto 1fr",alignItems:"center"}}>
 
-          <a href={backHref} className="dispatch-back-link" style={{fontFamily:"'Jost',sans-serif",fontSize:10,fontWeight:600,letterSpacing:".18em",textTransform:"uppercase",color:"rgba(240,233,223,0.7)",textDecoration:"none",justifySelf:"start",display:"inline-flex",alignItems:"center",gap:8}}>
+          <a href={cleanBackHref} className="dispatch-back-link" style={{fontFamily:"'Jost',sans-serif",fontSize:10,fontWeight:600,letterSpacing:".18em",textTransform:"uppercase",color:"rgba(240,233,223,0.7)",textDecoration:"none",justifySelf:"start",display:"inline-flex",alignItems:"center",gap:8}}>
             {copy.nav.backLabel}
           </a>
 
@@ -1636,7 +1734,10 @@ export default function ScrapSheet({ backHref = "/" }) {
 
             <a href="#feed" className="nava" onClick={function(e){e.preventDefault();var el=document.getElementById("feed");if(el)el.scrollIntoView({behavior:"smooth"});}}>{copy.nav.links[0]}</a>
             <a href="#about" className="nava" onClick={function(e){e.preventDefault();var el=document.getElementById("about");if(el)el.scrollIntoView({behavior:"smooth"});}}>{copy.nav.links[1]}</a>
-            <button className="subbtn" onClick={function(){setShowSub(true);}}>{copy.nav.links[2]}</button>
+            {travelSubscribed
+              ? <a className="subprofile" href={settingsHref} aria-label="Subscriber settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20a8 8 0 0 1 16 0"/><circle cx="12" cy="8" r="4.2"/></svg></a>
+              : <button className="subbtn" onClick={function(){setShowSub(true);}}>{copy.nav.links[2]}</button>
+            }
           </nav>
         </div>
       </header>
@@ -1734,7 +1835,10 @@ export default function ScrapSheet({ backHref = "/" }) {
       <footer className="dispatch-footer" style={{background:"var(--red)",padding:"20px 48px",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:12,boxShadow:"0 -2px 12px rgba(140,8,8,0.2)"}}>
         <span style={{fontFamily:"'Cormorant Garamond',serif",fontSize:15,color:"rgba(240,233,223,0.78)"}}>{copy.footer.title}</span>
         <span style={{fontFamily:"'Courier Prime',monospace",fontSize:"10px",color:"rgba(240,233,223,0.38)",letterSpacing:".1em",textTransform:"uppercase"}}>{copy.footer.subtitle}</span>
-        <button className="fsubbtn" onClick={function(){setShowSub(true);}}>{copy.footer.subscribeLabel}</button>
+        {travelSubscribed
+          ? <a className="subprofile" href={settingsHref} aria-label="Subscriber settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20a8 8 0 0 1 16 0"/><circle cx="12" cy="8" r="4.2"/></svg></a>
+          : <button className="fsubbtn" onClick={function(){setShowSub(true);}}>{copy.footer.subscribeLabel}</button>
+        }
       </footer>
 
       {expanded&&(
@@ -1759,7 +1863,7 @@ export default function ScrapSheet({ backHref = "/" }) {
           statusMessage={subStatus}
           sending={subSending}
           onSubscribe={handleSubscribe}
-          onClose={function(){setShowSub(false);setSubscribed(false);setEmail("");setSubStatus("");}}/>
+          onClose={function(){setShowSub(false);setEmail("");setSubStatus("");}}/>
       )}
     </div>
   );
