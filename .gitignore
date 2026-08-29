@@ -7,3 +7,6 @@ dist/
 
 # Astro
 .astro/
+
+# Firebase
+firebase-debug.log
