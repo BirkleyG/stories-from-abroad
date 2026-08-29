@@ -390,8 +390,9 @@ function Styles() {
 
       @media (max-width: 900px){
         .dispatch-header-inner{padding:0 18px!important;grid-template-columns:auto 1fr auto!important;gap:10px}
-        .dispatch-nav{gap:12px!important}
-        .dispatch-nav .nava,.dispatch-nav .subbtn{display:none!important}
+        .dispatch-nav{gap:10px!important}
+        .dispatch-nav .nava{font-size:13px!important}
+        .dispatch-nav .subbtn{padding:4px 9px 5px!important;font-size:9px!important;letter-spacing:.14em!important}
         .dispatch-search-box input{width:120px!important}
         .dispatch-logo{font-size:16px!important}
         .dispatch-search-meta{right:-2px!important}
@@ -413,6 +414,8 @@ function Styles() {
         .dispatch-logo{display:none!important}
         .dispatch-back-link{font-size:8.5px!important;letter-spacing:.14em!important;gap:5px!important}
         .dispatch-nav{gap:6px!important}
+        .dispatch-nav .nava{display:none!important}
+        .dispatch-nav .subbtn{padding:3px 7px 4px!important;font-size:8px!important;letter-spacing:.1em!important}
         .dispatch-search-box{padding:3px 7px!important;gap:5px!important}
         .dispatch-search-box input{width:86px!important}
         .dispatch-search-meta{display:none!important}
@@ -1416,6 +1419,14 @@ export default function ScrapSheet({ backHref = "/" }) {
     if (expandedId) return;
     setNewComment("");
     setCommentWarning("");
+  }, [expandedId]);
+
+  useEffect(function(){
+    if (typeof document === "undefined") return;
+    if (!expandedId) return;
+    var previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return function(){ document.body.style.overflow = previousOverflow; };
   }, [expandedId]);
 
   var getR=function(post){return reactions[post.id]||post.defaultReactions||{};};

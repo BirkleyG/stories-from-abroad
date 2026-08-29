@@ -148,9 +148,32 @@ const publicFirebaseApiKey = import.meta.env.PUBLIC_FIREBASE_API_KEY ?? "";
               </a>
             </>
           ) : null}
+          <button class="nav-toggle" id="nav-toggle" type="button" aria-expanded="false" aria-controls="mobile-nav-panel" aria-label="Open menu">
+            <span></span><span></span><span></span>
+          </button>
         </>
       )}
     </header>
+
+    {navMode === "single" ? null : (
+      <div class="mobile-nav-panel" id="mobile-nav-panel">
+        <ul>
+          {navItems.map((item) => (
+            <li>
+              <a href={item.href} class={currentRoute === item.route ? "active" : ""}>
+                {item.label}
+              </a>
+            </li>
+          ))}
+        </ul>
+        {showSubscribe ? (
+          <>
+            <button class="btn-ghost mobile-nav-subscribe" type="button" data-modal-open="subscribe" data-global-subscribe-control>{copy.nav.cta}</button>
+            <a class="btn-ghost mobile-nav-subscribe" href={`${basePath}subscriber-settings/`} data-global-profile-control aria-label="Subscriber settings" hidden>Subscriber Settings</a>
+          </>
+        ) : null}
+      </div>
+    )}
 
     <main>
       <slot />
@@ -251,6 +274,29 @@ const publicFirebaseApiKey = import.meta.env.PUBLIC_FIREBASE_API_KEY ?? "";
         };
         window.addEventListener("scroll", onScroll, { passive: true });
         onScroll();
+      }
+
+      const navToggle = document.getElementById("nav-toggle");
+      const mobileNavPanel = document.getElementById("mobile-nav-panel");
+      if (navToggle && mobileNavPanel) {
+        const setNavOpen = (open) => {
+          navToggle.classList.toggle("open", open);
+          navToggle.setAttribute("aria-expanded", String(open));
+          mobileNavPanel.classList.toggle("open", open);
+          document.body.classList.toggle("mobile-nav-open", open);
+        };
+        navToggle.addEventListener("click", () => {
+          setNavOpen(!mobileNavPanel.classList.contains("open"));
+        });
+        mobileNavPanel.querySelectorAll("a, button").forEach((el) => {
+          el.addEventListener("click", () => setNavOpen(false));
+        });
+        document.addEventListener("keydown", (event) => {
+          if (event.key === "Escape") setNavOpen(false);
+        });
+        window.addEventListener("resize", () => {
+          if (window.innerWidth > 900) setNavOpen(false);
+        });
       }
 
       const modal = document.getElementById("subscribe-modal");

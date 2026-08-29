@@ -2256,6 +2256,11 @@ export default function AdminApp() {
       setNotice({ tone: "warning", message: "Fix the longitude and latitude before publishing. If they look reversed, use the swap button in the form." });
       return;
     }
+    const confirmed =
+      typeof window === "undefined"
+        ? true
+        : window.confirm(`Publish "${draft.title || draft.profileName || draft.locationName || "this item"}" to the live site?`);
+    if (!confirmed) return;
     try {
       setWorking(true);
       await handleManualSave("pre-publish");
@@ -2282,6 +2287,11 @@ export default function AdminApp() {
       setNotice({ tone: "warning", message: "Fix the longitude and latitude before scheduling. If they look reversed, use the swap button in the form." });
       return;
     }
+    const confirmed =
+      typeof window === "undefined"
+        ? true
+        : window.confirm(`Schedule "${draft.title || draft.profileName || draft.locationName || "this item"}" to publish automatically?`);
+    if (!confirmed) return;
     try {
       setWorking(true);
       await handleManualSave("pre-schedule");
@@ -2301,6 +2311,11 @@ export default function AdminApp() {
 
   async function handleUnpublish() {
     if (!canEdit) return;
+    const confirmed =
+      typeof window === "undefined"
+        ? true
+        : window.confirm(`Remove "${draft.title || draft.profileName || draft.locationName || "this item"}" from the live site? It will no longer be visible to visitors.`);
+    if (!confirmed) return;
     try {
       setWorking(true);
       const result = await unpublishDraft(activeSection, draftId);

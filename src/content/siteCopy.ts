@@ -81,7 +81,7 @@ export const siteCopy = {
         },
         {
           title: "Faces of the World",
-          text: "Portraits and notes from ordinary people with extrodinary stories.",
+          text: "Portraits and notes from ordinary people with extraordinary stories.",
           path: "faces-of-the-world",
           iconHtml: "&#9672;",
         },
@@ -110,7 +110,7 @@ export const siteCopy = {
         "There is a particular clarity that comes from being away from home. From having traveled so much that the meaning home loses its significance. Living in places where the only recognizable thing is a human smile.",
         "Stories From Abroad is a personal dispatch, part literary journal, part field notebook, part brain dump. My simple attempt to record as much as possible, for story telling, regardless of its medium, brings life to living. I have not the skill of a journalist, nor the qualifications of an scholar. I have only eyes with which to observe.",
         "The photography is simply an attempt to capture a moment to be held forever. The essays are my raw thoughts. Each section has its own logic, but they share a common conviction: that the world is worth observing.",
-        "Though I may find myself far from home, abroad in forign lands, adrift without anchor, I can know that there is, no matter where I land, a story worth telling.",
+        "Though I may find myself far from home, abroad in foreign lands, adrift without anchor, I can know that there is, no matter where I land, a story worth telling.",
         "If you have found your way here, you are warmly invited to stay. Subscribe to receive dispatches when new work is published. No algorithms, no advertising. Just writing on the world we all inhabit.",
       ],
       portraitLabel: "Portrait Placeholder",

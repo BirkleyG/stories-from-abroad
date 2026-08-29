@@ -9,9 +9,75 @@ const basePathJson = JSON.stringify(basePath);
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Redirecting | Stories From Abroad</title>
+    <style>
+      :root {
+        --bg: #F3EDE2;
+        --green: #142A1F;
+        --text-muted: #7A716A;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      html,
+      body {
+        height: 100%;
+      }
+
+      body {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        background: var(--bg);
+        color: var(--green);
+        font-family: "EB Garamond", Georgia, serif;
+        text-align: center;
+        padding: 1.5rem;
+      }
+
+      .redirect-card {
+        max-width: 28rem;
+      }
+
+      .redirect-wordmark {
+        font-family: "Playfair Display", Georgia, serif;
+        font-size: 1.5rem;
+        letter-spacing: 0.04em;
+        color: var(--green);
+        margin-bottom: 0.75rem;
+      }
+
+      .redirect-message {
+        font-size: 1.05rem;
+        color: var(--text-muted);
+        margin-bottom: 1.5rem;
+      }
+
+      .redirect-link {
+        display: inline-block;
+        font-family: "EB Garamond", Georgia, serif;
+        font-size: 1rem;
+        color: var(--green);
+        border-bottom: 1px solid var(--green);
+        text-decoration: none;
+        padding-bottom: 0.15rem;
+      }
+
+      .redirect-link:hover {
+        opacity: 0.75;
+      }
+    </style>
   </head>
   <body>
-    <p>Redirecting...</p>
+    <div class="redirect-card">
+      <p class="redirect-wordmark">Stories From Abroad</p>
+      <p class="redirect-message">Finding your way back&hellip;</p>
+      <a class="redirect-link" href={basePath}>Continue to the homepage</a>
+    </div>
     <script id="redirect-base-path" type="application/json" set:html={basePathJson}></script>
     <script is:inline>
       (function () {
