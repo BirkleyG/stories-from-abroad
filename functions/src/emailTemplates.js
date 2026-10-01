@@ -99,6 +99,7 @@ function renderPreheader(text) {
 }
 
 const MOBILE_CSS = `
+  :root { color-scheme: light only; supported-color-schemes: light only; }
   body,table,td { -webkit-text-size-adjust:100%; -ms-text-size-adjust:100%; }
   img { border:0; outline:none; text-decoration:none; -ms-interpolation-mode:bicubic; }
   a { text-decoration:none; }
@@ -122,7 +123,9 @@ function wrapBand(openTag, inner, classes) {
   const rest = decls.filter((decl) => !/^padding/i.test(decl));
   const otherAttrs = openTag.replace(/^<td/i, "").replace(/>$/, "").replace(/\s*class="[^"]*"/, "").replace(/\s*style="[^"]*"/, "");
   const innerCell = classes.includes("px") ? `<td class="px" style="${padding.join(";")}">` : "<td>";
-  return `<td${otherAttrs}${rest.length ? ` style="${rest.join(";")}"` : ""}><!--[if mso]><table role="presentation" align="center" width="600"><tr><td><![endif]--><table role="presentation" width="100%" cellpadding="0" cellspacing="0" align="center" style="width:100%;max-width:600px;margin:0 auto;"><tr>${innerCell}${inner}</td></tr></table><!--[if mso]></td></tr></table><![endif]--></td>`;
+  const bgDecl = rest.find((decl) => /^background-colors*:s*#[0-9a-f]{6}$/i.test(decl));
+  const bgAttr = bgDecl ? ` bgcolor="${bgDecl.split(":")[1].trim()}"` : "";
+  return `<td${otherAttrs}${bgAttr}${rest.length ? ` style="${rest.join(";")}"` : ""}><!--[if mso]><table role="presentation" align="center" width="760"><tr><td><![endif]--><table role="presentation" width="100%" cellpadding="0" cellspacing="0" align="center" style="width:100%;max-width:760px;margin:0 auto;"><tr>${innerCell}${inner}</td></tr></table><!--[if mso]></td></tr></table><![endif]--></td>`;
 }
 
 function bleed(html) {
@@ -172,6 +175,8 @@ function renderShell({ title, preheader, fontsHref, bodyRows, wrapperBg }) {
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="color-scheme" content="light only" />
+<meta name="supported-color-schemes" content="light only" />
 <title>${escapeHtml(title)}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -190,7 +195,7 @@ ${bleed(bodyRows)}
 // "label ———— label" section rule built from a table (no flexbox).
 function ruleRow({ left, right, labelStyle, lineColor, padY, padX, bg, borders }) {
   const px = `${padX}px`;
-  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:${bg};${borders}"><tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0" align="center" style="width:100%;max-width:600px;margin:0 auto;"><tr>
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:${bg};${borders}"><tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0" align="center" style="width:100%;max-width:760px;margin:0 auto;"><tr>
   <td style="${labelStyle}padding:${padY}px 16px ${padY}px ${px};white-space:nowrap;">${left}</td>
   <td width="100%" style="padding:${padY}px ${right ? "16px" : px} ${padY}px 0;"><div style="height:1px;background-color:${lineColor};line-height:1px;font-size:1px;">&nbsp;</div></td>
   ${right ? `<td style="${labelStyle}padding:${padY}px ${px} ${padY}px 0;white-space:nowrap;">${right}</td>` : ""}
@@ -247,7 +252,7 @@ export function buildGeneralEmail(ctx) {
   const kicker = cleanString(issueNumber) ? `Dispatch No. ${escapeHtml(issueNumber)}` : "Dispatch";
 
   const heroBlock = cleanString(heroUrl) ? `
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td class="c"><img src="${escapeHtml(heroUrl)}" alt="${escapeHtml(heroAlt || "")}" width="600" style="display:block;width:100%;max-width:600px;height:auto;" /></td></tr></table>` : "";
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td class="c"><img src="${escapeHtml(heroUrl)}" alt="${escapeHtml(heroAlt || "")}" width="760" style="display:block;width:100%;max-width:760px;height:auto;" /></td></tr></table>` : "";
 
   const hasBody = Boolean(cleanString(body) || cleanString(pullQuote));
   const bodyHtml = hasBody ? `
@@ -406,7 +411,7 @@ export function buildPhotographyEmail(ctx) {
     <td align="right" style="font-family:${MONO};font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:rgba(255,255,255,0.25);">${escapeHtml(monthYear(shootDate) || monthYear(new Date().toISOString()))}</td>
   </tr></table>
 </td></tr>
-${coverUrl ? `<tr><td class="c"><a href="${escapeHtml(link)}" style="display:block;"><img src="${escapeHtml(coverUrl)}" alt="${escapeHtml(coverAlt || title || "")}" width="600" style="display:block;width:100%;max-width:600px;height:auto;" /></a></td></tr>
+${coverUrl ? `<tr><td class="c"><a href="${escapeHtml(link)}" style="display:block;"><img src="${escapeHtml(coverUrl)}" alt="${escapeHtml(coverAlt || title || "")}" width="760" style="display:block;width:100%;max-width:760px;height:auto;" /></a></td></tr>
 <tr><td style="height:4px;line-height:4px;font-size:4px;background-color:${accent};">&nbsp;</td></tr>` : ""}
 <tr><td class="c" style="background-color:#0d0d0d;border-top:1px solid rgba(255,255,255,0.06);border-bottom:1px solid rgba(255,255,255,0.06);"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
   <td class="px" style="font-family:${MONO};font-size:10px;letter-spacing:0.22em;text-transform:uppercase;color:${accentText};padding:12px 0 12px 40px;">${escapeHtml(city || "")}${country ? `<span style="color:rgba(255,255,255,0.4);margin-left:6px;">, ${escapeHtml(country)}</span>` : ""}</td>
