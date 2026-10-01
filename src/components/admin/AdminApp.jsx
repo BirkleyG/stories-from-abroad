@@ -1,96 +1,97 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "../../styles/admin.css";
 import { firebaseReady } from "../../lib/firebaseClient";
 import { completeAdminSignIn, ensureAdminPersistence, getAdminSession, onAdminAuthChange, sendAdminSignInLink, signOutAdmin } from "../../lib/admin/adminAuth";
-import { assignAdminClaim, publishDraft, repairCoordinates, rotateWritingShareKey, scheduleDraft, sendContentBroadcast, unpublishDraft } from "../../lib/admin/functions";
+import { assignAdminClaim, publishDraft, repairCoordinates, rotateWritingShareKey, sendContentBroadcast, unpublishDraft } from "../../lib/admin/functions";
 import { dispatchDraftToPublic, faceDraftToPublic, photographyDraftToPublic, slugify } from "../../lib/admin/contentAdapters";
-import { collectFeaturedPhotoOptions, mediaSummaryFromPhotos } from "../../lib/admin/photographyTemplates";
-import { createDraft, deleteDraft as deleteDraftRecord, deleteMediaAsset as deleteMediaAssetRecord, getDraft, listVersions, restoreVersion, saveDraft, savePhotographyFeaturedConfig, saveSectionMediaConfig, subscribeDraftList, subscribeEmailSends, subscribeWritingInvites, createWritingInvite, setWritingInviteActive, deleteWritingInvite, formatInviteCode, subscribeMediaAssets, subscribePhotographyFeaturedConfig, subscribeSectionMediaConfig, subscribeSubscribers, updateMediaAsset, uploadMediaAsset } from "../../lib/admin/repository";
+import { collectFeaturedPhotoOptions } from "../../lib/admin/photographyTemplates";
+import { createDraft, deleteDraft as deleteDraftRecord, deleteMediaAsset as deleteMediaAssetRecord, getDraft, saveDraft, savePhotographyFeaturedConfig, saveSectionMediaConfig, subscribeAnalytics, subscribeDraftList, subscribeEmailSends, subscribeSystemEmails, subscribeWritingInvites, createWritingInvite, setWritingInviteActive, deleteWritingInvite, formatInviteCode, subscribeMediaAssets, subscribePhotographyFeaturedConfig, subscribeSectionMediaConfig, subscribeSubscribers, updateMediaAsset, uploadMediaAsset } from "../../lib/admin/repository";
 import { sendSubscriberSignInLink } from "../../lib/subscriberClient";
 import {
-  AUDIENCE_LEVELS,
   CONTENT_LABELS,
   CONTENT_KINDS,
-  createFaceBlock,
-  createLocalId,
   createMediaValue,
-  PHOTO_TEMPLATES,
-  DISPATCH_TYPES,
-  DRAFT_STATUSES,
   hydrateDraft,
   PAPER_TYPES,
-  PAPER_AUDIENCES,
-  QUOTE_STYLES,
 } from "../../lib/admin/schemas";
-import { swapCoordinateValues, validateCoordinates } from "../../lib/admin/coordinates";
+import { validateCoordinates } from "../../lib/admin/coordinates";
+import { AssetField, IMAGE_ACCEPT, UploadDropzone, screenFiles } from "./AssetUpload";
+import AnalyticsPanel from "./AnalyticsPanel";
+import EmailsPanel, { EmailComposerModal } from "./EmailsPanel";
+import { DraftNotes, FacesForm, PapersForm, PhotographyForm, StringListEditor, TravelForm } from "./Forms";
+import {
+  EmptyState,
+  MenuItem,
+  MoreMenu,
+  Notice,
+  Section,
+  StatTile,
+  StatusPill,
+  TextArea,
+  TextInput,
+  ToggleField,
+  copyText,
+  formatBytes,
+  formatDateInput,
+  formatNumber,
+  formatRelative,
+  formatStamp,
+  isLive,
+  toDate,
+  toIsoDateTime,
+} from "./ui";
 
-const NAV_ITEMS = [
-  { id: "dashboard", label: "Dashboard" },
-  { id: "faces", label: CONTENT_LABELS.faces },
-  { id: "papers", label: CONTENT_LABELS.papers },
-  { id: "travel", label: CONTENT_LABELS.travel },
-  { id: "photography", label: CONTENT_LABELS.photography },
-  { id: "subscribers", label: "Subscribers" },
-  { id: "broadcasts", label: "Broadcasts" },
-  { id: "invites", label: "Invite Codes" },
-  { id: "site-assets", label: "Site Assets" },
-  { id: "media", label: "Media Library" },
+const NAV_GROUPS = [
+  { label: "Overview", items: [{ id: "dashboard", label: "Dashboard" }, { id: "analytics", label: "Analytics" }] },
+  { label: "Content", items: [
+    { id: "faces", label: CONTENT_LABELS.faces },
+    { id: "papers", label: CONTENT_LABELS.papers },
+    { id: "travel", label: CONTENT_LABELS.travel },
+    { id: "photography", label: CONTENT_LABELS.photography },
+  ] },
+  { label: "Audience", items: [
+    { id: "subscribers", label: "Subscribers" },
+    { id: "emails", label: "Emails" },
+    { id: "invites", label: "Invite Codes" },
+  ] },
+  { label: "Library", items: [{ id: "media", label: "Media Library" }, { id: "site-assets", label: "Site Settings" }] },
 ];
 
-const SEGMENT_BY_KIND = {
-  papers: "Articles & Op-Eds",
-  photography: "Photography",
-  faces: "Faces of the World",
-  travel: "Travel",
+const SECTION_TITLES = {
+  dashboard: "Dashboard",
+  analytics: "Analytics",
+  subscribers: "Subscribers",
+  emails: "Emails",
+  invites: "Invite Codes",
+  media: "Media Library",
+  "site-assets": "Site Settings",
+  ...CONTENT_LABELS,
 };
 
-const STATUS_TONES = {
-  draft: "muted",
-  review: "review",
-  scheduled: "scheduled",
-  published: "published",
-  archived: "archived",
-  verified: "published",
-  "not verified": "review",
-};
+const NEW_LABELS = { faces: "New profile", papers: "New paper", travel: "New dispatch", photography: "New shoot" };
+const KIND_ITEM_NOUN = { faces: "profile", papers: "paper", travel: "dispatch", photography: "shoot" };
 
 const ADMIN_PREVIEW_STORAGE_KEY = "sfa-admin-preview-v1";
 const SUBSCRIBER_SEGMENTS = ["Articles & Op-Eds", "Photography", "Faces of the World", "Travel"];
-const TRAVEL_QUOTE_MAX_CHARS = 220;
 const base = import.meta.env.BASE_URL ?? "/";
 const basePath = base.endsWith("/") ? base : `${base}/`;
 
-function toDate(value) {
-  if (!value) return null;
-  if (typeof value.toDate === "function") return value.toDate();
-  if (value instanceof Date) return value;
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
+function itemTitle(item) {
+  return item?.title || item?.profileName || item?.locationName || "Untitled";
 }
 
-function formatStamp(value, opts = {}) {
-  const date = toDate(value);
-  if (!date) return opts.empty || "Not set";
-  return date.toLocaleString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: opts.dateOnly ? undefined : "numeric",
-    minute: opts.dateOnly ? undefined : "2-digit",
-  });
-}
-
-function formatRelative(value) {
-  const date = toDate(value);
-  if (!date) return "";
-  const deltaMs = Date.now() - date.getTime();
-  const minutes = Math.round(deltaMs / 60000);
-  if (minutes < 1) return "just now";
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.round(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.round(hours / 24);
-  return `${days}d ago`;
+function liveUrl(kind, draft) {
+  const slug = encodeURIComponent(draft?.publishedRecord?.slug || draft?.slug || "");
+  if (!slug || typeof window === "undefined") return "";
+  const origin = window.location.origin + basePath;
+  if (kind === "papers") {
+    if (draft.audience && draft.audience !== "public") return "";
+    return `${origin}selected-papers/?paper=${slug}`;
+  }
+  if (kind === "travel") return `${origin}travel-stories/?post=${slug}`;
+  if (kind === "photography") return `${origin}photography/?shoot=${slug}`;
+  if (kind === "faces") return `${origin}faces-of-the-world/#/profile/${slug}`;
+  return "";
 }
 
 function normalizeSubscriberSegments(subscriber) {
@@ -119,38 +120,6 @@ function isSubscriberVerified(subscriber) {
   return subscriber?.verified === true && (subscriber?.status || "active") === "active";
 }
 
-function formatBytes(value) {
-  const size = Number(value || 0);
-  if (!Number.isFinite(size) || size <= 0) return "Unknown";
-  const units = ["B", "KB", "MB", "GB"];
-  let current = size;
-  let unitIndex = 0;
-  while (current >= 1024 && unitIndex < units.length - 1) {
-    current /= 1024;
-    unitIndex += 1;
-  }
-  return `${current >= 10 || unitIndex === 0 ? current.toFixed(0) : current.toFixed(1)} ${units[unitIndex]}`;
-}
-
-function formatDateTimeLocal(value) {
-  const date = toDate(value);
-  if (!date) return "";
-  return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-}
-
-function formatDateInput(value) {
-  const date = toDate(value);
-  if (!date) return "";
-  return date.toISOString().slice(0, 10);
-}
-
-function toIsoDateTime(value) {
-  const raw = String(value || "").trim();
-  if (!raw) return "";
-  const parsed = new Date(raw);
-  return Number.isNaN(parsed.getTime()) ? raw : parsed.toISOString();
-}
-
 function fingerprint(value) {
   return JSON.stringify(value || {});
 }
@@ -161,34 +130,6 @@ function stampDraftLocally(draft, user) {
     ...draft,
     updatedAt: new Date().toISOString(),
     updatedBy: user?.email || user?.uid || draft.updatedBy || "admin",
-  };
-}
-
-function stripMediaAsset(asset) {
-  if (!asset) return createMediaValue();
-  const resolvedUrl = String(asset.url || asset.downloadURL || asset.downloadUrl || asset.src || asset.photoUrl || "").trim();
-  return {
-    assetId: String(asset.id || asset.assetId || ""),
-    url: resolvedUrl,
-    alt: String(asset.alt || ""),
-    title: String(asset.title || asset.fileName || asset.originalName || ""),
-    caption: String(asset.caption || ""),
-    locationLabel: String(asset.locationLabel || ""),
-    storagePath: String(asset.storagePath || ""),
-    contentType: String(asset.contentType || ""),
-    fileName: String(asset.fileName || asset.originalName || ""),
-    focusX: Number.isFinite(Number(asset.focusX)) ? Number(asset.focusX) : 50,
-    focusY: Number.isFinite(Number(asset.focusY)) ? Number(asset.focusY) : 50,
-    width: Number.isFinite(Number(asset.width)) ? Number(asset.width) : null,
-    height: Number.isFinite(Number(asset.height)) ? Number(asset.height) : null,
-    cameraModel: String(asset.cameraModel || ""),
-    exifDate: String(asset.exifDate || ""),
-    shutter: String(asset.shutter || ""),
-    aperture: String(asset.aperture || ""),
-    iso: String(asset.iso || ""),
-    lens: String(asset.lens || ""),
-    metadataEnabled: asset?.metadataEnabled !== false,
-    shortQuote: String(asset.shortQuote || ""),
   };
 }
 
@@ -245,391 +186,6 @@ function clampPercent(value, fallback = 50) {
   return Math.max(0, Math.min(100, number));
 }
 
-function matchesAssetType(asset, accept = "") {
-  if (!accept) return true;
-  const rules = accept.split(",").map((entry) => entry.trim()).filter(Boolean);
-  if (!rules.length) return true;
-  const type = String(asset.contentType || "");
-  const fileName = String(asset.fileName || asset.originalName || "").toLowerCase();
-  return rules.some((rule) => {
-    if (rule === "image/*") return type.startsWith("image/");
-    if (rule.startsWith(".")) return fileName.endsWith(rule.toLowerCase());
-    return type === rule;
-  });
-}
-
-function StatusPill({ status }) {
-  const tone = STATUS_TONES[status] || "muted";
-  return <span className={`admin-status admin-status-${tone}`}>{status}</span>;
-}
-
-function Notice({ notice, onDismiss }) {
-  if (!notice) return null;
-  return (
-    <div className={`admin-notice admin-notice-${notice.tone || "info"}`}>
-      <span>{notice.message}</span>
-      <button type="button" onClick={onDismiss} aria-label="Dismiss message">
-        x
-      </button>
-    </div>
-  );
-}
-
-function TextInput({ label, hint, value, onChange, placeholder = "", type = "text" }) {
-  return (
-    <label className="admin-field">
-      <span className="admin-field-label">{label}</span>
-      {hint ? <span className="admin-field-hint">{hint}</span> : null}
-      <input className="admin-input" type={type} value={value || ""} placeholder={placeholder} onChange={(event) => onChange(event.target.value)} />
-    </label>
-  );
-}
-
-function ToggleField({ label, checked, onChange, hint }) {
-  return (
-    <label className="admin-toggle">
-      <input type="checkbox" checked={Boolean(checked)} onChange={(event) => onChange(event.target.checked)} />
-      <span>
-        <strong>{label}</strong>
-        {hint ? <small>{hint}</small> : null}
-      </span>
-    </label>
-  );
-}
-
-function SelectField({ label, hint, value, onChange, options }) {
-  return (
-    <label className="admin-field">
-      <span className="admin-field-label">{label}</span>
-      {hint ? <span className="admin-field-hint">{hint}</span> : null}
-      <select className="admin-select" value={value || ""} onChange={(event) => onChange(event.target.value)}>
-        {options.map((option) => {
-          const item = typeof option === "string" ? { value: option, label: option } : option;
-          return (
-            <option key={item.value} value={item.value}>
-              {item.label}
-            </option>
-          );
-        })}
-      </select>
-    </label>
-  );
-}
-
-function TextArea({ label, hint, value, onChange, rows = 4, placeholder = "" }) {
-  return (
-    <label className="admin-field">
-      <span className="admin-field-label">{label}</span>
-      {hint ? <span className="admin-field-hint">{hint}</span> : null}
-      <textarea className="admin-textarea" value={value || ""} rows={rows} placeholder={placeholder} onChange={(event) => onChange(event.target.value)} />
-    </label>
-  );
-}
-
-function CoordinateNotice({ longitude, latitude, onSwap }) {
-  const state = validateCoordinates(longitude, latitude);
-  if (!state.message) return null;
-  return (
-    <div className={`admin-notice admin-notice-${state.looksSwapped ? "warning" : "info"}`}>
-      <span>{state.message}</span>
-      {state.looksSwapped ? (
-        <button type="button" className="admin-mini-button" onClick={onSwap}>
-          Swap coordinates
-        </button>
-      ) : null}
-    </div>
-  );
-}
-
-function StringListEditor({ label, hint, values, onChange, addLabel = "Add item" }) {
-  return (
-    <section className="admin-card-section">
-      <div className="admin-section-head">
-        <div>
-          <h3>{label}</h3>
-          {hint ? <p>{hint}</p> : null}
-        </div>
-        <button type="button" className="admin-mini-button" onClick={() => onChange([...(values || []), ""])}>
-          {addLabel}
-        </button>
-      </div>
-      <div className="admin-stack">
-        {(values || []).map((value, index) => (
-          <div className="admin-inline-row" key={`${label}-${index}`}>
-            <input
-              className="admin-input"
-              value={value || ""}
-              onChange={(event) => {
-                const next = [...(values || [])];
-                next[index] = event.target.value;
-                onChange(next);
-              }}
-            />
-            <button
-              type="button"
-              className="admin-icon-button"
-              onClick={() => {
-                const next = (values || []).filter((_, itemIndex) => itemIndex !== index);
-                onChange(next.length ? next : [""]);
-              }}
-            >
-              Remove
-            </button>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function AssetField({ label, accept, value, assets, onChange, onUpload, kind, field, hint }) {
-  const inputRef = useRef(null);
-  const [libraryOpen, setLibraryOpen] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const filteredAssets = useMemo(() => (assets || []).filter((asset) => matchesAssetType(asset, accept)).slice(0, 12), [assets, accept]);
-
-  async function handleFile(event) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    setUploading(true);
-    try {
-      const asset = await onUpload(file, { kind, field });
-      onChange(stripMediaAsset(asset));
-      setLibraryOpen(false);
-    } finally {
-      setUploading(false);
-      event.target.value = "";
-    }
-  }
-
-  const preview = value?.url ? (
-    value.contentType?.startsWith("image/") || /\.(png|jpe?g|webp|gif|avif|svg)$/i.test(value.url) ? (
-      <img src={value.url} alt={value.alt || label} className="admin-asset-preview-image" />
-    ) : (
-      <div className="admin-asset-preview-file">
-        <strong>{value.fileName || "Attached file"}</strong>
-        <span>{value.contentType || "Document"}</span>
-      </div>
-    )
-  ) : (
-    <div className="admin-asset-preview-empty">No asset selected</div>
-  );
-
-  return (
-    <section className="admin-card-section">
-      <div className="admin-section-head">
-        <div>
-          <h3>{label}</h3>
-          {hint ? <p>{hint}</p> : null}
-        </div>
-        <div className="admin-button-row compact">
-          <button type="button" className="admin-mini-button" onClick={() => inputRef.current?.click()} disabled={uploading}>
-            {uploading ? "Uploading..." : "Upload"}
-          </button>
-          <button type="button" className="admin-mini-button" onClick={() => setLibraryOpen((open) => !open)}>
-            {libraryOpen ? "Hide Recent" : "Use Recent"}
-          </button>
-          {value?.url ? (
-            <button type="button" className="admin-mini-button danger" onClick={() => onChange(createMediaValue())}>
-              Clear
-            </button>
-          ) : null}
-        </div>
-      </div>
-      <div className="admin-asset-preview">{preview}</div>
-      <div className="admin-grid two-up">
-        <TextInput label="URL" value={value?.url || ""} onChange={(next) => onChange({ ...value, url: next })} />
-        <TextInput
-          label="Alt text"
-          hint="Describe the image for screen readers and when the image cannot load."
-          value={value?.alt || ""}
-          onChange={(next) => onChange({ ...value, alt: next })}
-        />
-        <TextInput label="Title" hint={kind === "photography" ? "Frame title shown in the shoot panel." : "Internal media title or display label."} value={value?.title || ""} onChange={(next) => onChange({ ...value, title: next })} />
-        <TextInput label="Caption" hint="Visible caption text used where the page supports it." value={value?.caption || ""} onChange={(next) => onChange({ ...value, caption: next })} />
-        {kind === "photography" ? (
-          <>
-            <TextInput label="Location" hint="Frame-level location override." value={value?.locationLabel || ""} onChange={(next) => onChange({ ...value, locationLabel: next })} />
-            <TextInput label="Date" type="date" hint="Captured date for this frame." value={formatDateInput(value?.exifDate)} onChange={(next) => onChange({ ...value, exifDate: toIsoDateTime(next) })} />
-            <ToggleField
-              label="Metadata enabled"
-              hint="Toggle camera/exposure details on the public panel for this frame."
-              checked={value?.metadataEnabled !== false}
-              onChange={(next) => onChange({ ...value, metadataEnabled: next })}
-            />
-            <TextInput label="Short quote (bottom)" hint="Displayed in the bottom quote slot for this frame." value={value?.shortQuote || ""} onChange={(next) => onChange({ ...value, shortQuote: next })} />
-            <TextInput label="Camera" value={value?.cameraModel || ""} onChange={(next) => onChange({ ...value, cameraModel: next })} />
-            <TextInput label="Lens" value={value?.lens || ""} onChange={(next) => onChange({ ...value, lens: next })} />
-            <TextInput label="Shutter" placeholder="e.g. 1/250s" value={value?.shutter || ""} onChange={(next) => onChange({ ...value, shutter: next })} />
-            <TextInput label="Aperture" placeholder="e.g. f/2.8" value={value?.aperture || ""} onChange={(next) => onChange({ ...value, aperture: next })} />
-            <TextInput label="ISO" placeholder="e.g. 400" value={value?.iso || ""} onChange={(next) => onChange({ ...value, iso: next })} />
-          </>
-        ) : null}
-      </div>
-      <input ref={inputRef} type="file" accept={accept} hidden onChange={handleFile} />
-      {libraryOpen ? (
-        <div className="admin-asset-grid">
-          {filteredAssets.length ? (
-            filteredAssets.map((asset) => (
-              <button
-                type="button"
-                className="admin-asset-tile"
-                key={asset.id}
-                onClick={() => {
-                  onChange(stripMediaAsset(asset));
-                  setLibraryOpen(false);
-                }}
-              >
-                {asset.contentType?.startsWith("image/") ? <img src={asset.url} alt={asset.alt || asset.fileName || ""} /> : <div className="admin-doc-pill">DOC</div>}
-                <strong>{asset.fileName || asset.originalName || "Unnamed"}</strong>
-                <span>{asset.contentType || "asset"}</span>
-              </button>
-            ))
-          ) : (
-            <p className="admin-empty-inline">No matching media in the library yet.</p>
-          )}
-        </div>
-      ) : null}
-    </section>
-  );
-}
-
-function FaceBlocksEditor({ blocks, onChange, onUpload, assets }) {
-  function updateBlock(index, nextBlock) {
-    const next = [...blocks];
-    next[index] = nextBlock;
-    onChange(next);
-  }
-
-  function moveBlock(index, direction) {
-    const target = index + direction;
-    if (target < 0 || target >= blocks.length) return;
-    const next = [...blocks];
-    const [block] = next.splice(index, 1);
-    next.splice(target, 0, block);
-    onChange(next);
-  }
-
-  return (
-    <section className="admin-card-section">
-      <div className="admin-section-head">
-        <div>
-          <h3>Story blocks</h3>
-          <p>Build the published profile body with paragraphs, Q&amp;A, pull quotes, and photo blocks.</p>
-        </div>
-        <div className="admin-button-row compact">
-          <button type="button" className="admin-mini-button" onClick={() => onChange([...(blocks || []), createFaceBlock("paragraph")])}>Paragraph</button>
-          <button type="button" className="admin-mini-button" onClick={() => onChange([...(blocks || []), createFaceBlock("qa")])}>Q&amp;A</button>
-          <button type="button" className="admin-mini-button" onClick={() => onChange([...(blocks || []), createFaceBlock("quote")])}>Quote</button>
-          <button type="button" className="admin-mini-button" onClick={() => onChange([...(blocks || []), createFaceBlock("photo")])}>Photo</button>
-        </div>
-      </div>
-      <div className="admin-stack">
-        {(blocks || []).map((block, index) => (
-          <article className="admin-subcard" key={block.id || index}>
-            <div className="admin-subcard-head">
-              <strong>{block.type}</strong>
-              <div className="admin-button-row compact">
-                <button type="button" className="admin-mini-button" onClick={() => moveBlock(index, -1)}>Up</button>
-                <button type="button" className="admin-mini-button" onClick={() => moveBlock(index, 1)}>Down</button>
-                <button
-                  type="button"
-                  className="admin-mini-button danger"
-                  onClick={() => onChange(blocks.filter((_, itemIndex) => itemIndex !== index))}
-                >
-                  Remove
-                </button>
-              </div>
-            </div>
-            {block.type === "paragraph" ? <TextArea label="Paragraph" value={block.text} onChange={(next) => updateBlock(index, { ...block, text: next })} rows={5} /> : null}
-            {block.type === "quote" ? <TextArea label="Pull quote" value={block.text} onChange={(next) => updateBlock(index, { ...block, text: next })} rows={4} /> : null}
-            {block.type === "qa" ? (
-              <div className="admin-grid single-gap">
-                <TextArea label="Question" value={block.question} onChange={(next) => updateBlock(index, { ...block, question: next })} rows={3} />
-                <TextArea label="Answer" value={block.answer} onChange={(next) => updateBlock(index, { ...block, answer: next })} rows={5} />
-              </div>
-            ) : null}
-            {block.type === "photo" ? (
-              <AssetField
-                label="Inline photo"
-                accept="image/*"
-                value={block}
-                assets={assets}
-                onUpload={onUpload}
-                onChange={(next) => updateBlock(index, { ...block, ...next })}
-                kind="faces"
-                field={`block-${index}`}
-                hint="These images publish into the live Faces story body."
-              />
-            ) : null}
-          </article>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function GalleryEditor({ label, items, onChange, onUpload, assets, kind }) {
-  function updateItem(index, nextValue) {
-    const next = [...items];
-    next[index] = nextValue;
-    onChange(next);
-  }
-
-  function move(index, direction) {
-    const target = index + direction;
-    if (target < 0 || target >= items.length) return;
-    const next = [...items];
-    const [item] = next.splice(index, 1);
-    next.splice(target, 0, item);
-    onChange(next);
-  }
-
-  return (
-    <section className="admin-card-section">
-      <div className="admin-section-head">
-        <div>
-          <h3>{label}</h3>
-          <p>Upload, reuse, and reorder visual assets for the published page.</p>
-        </div>
-        <button type="button" className="admin-mini-button" onClick={() => onChange([...(items || []), createMediaValue()])}>
-          Add slot
-        </button>
-      </div>
-      <div className="admin-stack">
-        {(items || []).map((item, index) => (
-          <article className="admin-subcard" key={`${label}-${index}`}>
-            <div className="admin-subcard-head">
-              <strong>Slot {String(index + 1).padStart(2, "0")}</strong>
-              <div className="admin-button-row compact">
-                <button type="button" className="admin-mini-button" onClick={() => move(index, -1)}>Up</button>
-                <button type="button" className="admin-mini-button" onClick={() => move(index, 1)}>Down</button>
-                <button
-                  type="button"
-                  className="admin-mini-button danger"
-                  onClick={() => onChange((items || []).filter((_, itemIndex) => itemIndex !== index))}
-                >
-                  Remove
-                </button>
-              </div>
-            </div>
-            <AssetField
-              label={`Asset ${index + 1}`}
-              accept="image/*"
-              value={item}
-              assets={assets}
-              onUpload={onUpload}
-              onChange={(next) => updateItem(index, next)}
-              kind={kind}
-              field={`${kind}-gallery-${index}`}
-            />
-          </article>
-        ))}
-      </div>
-    </section>
-  );
-}
-
 function SiteAssetsForm({ config, assets, onUpload, onChange, onSave, onRepairCoordinates, saving }) {
   const authorPortrait = config.papersAuthorPortrait || createMediaValue();
   const papersTypewriterLinesValue = Array.isArray(config.papersTypewriterLines) ? config.papersTypewriterLines.join("\n") : "";
@@ -639,15 +195,17 @@ function SiteAssetsForm({ config, assets, onUpload, onChange, onSave, onRepairCo
       <section className="admin-panel admin-editor-panel">
         <div className="admin-panel-head">
           <div>
-            <h2>Section imagery</h2>
-            <p>These assets replace the remaining public placeholder portraits and hero art while keeping clean fallbacks when empty.</p>
+            <h2>Site settings</h2>
+            <p>Portraits, hero art and the short profile details shown across the public pages.</p>
           </div>
-          <button type="button" className="admin-primary-button" onClick={onSave} disabled={saving}>
-            {saving ? "Saving..." : "Save site assets"}
-          </button>
-          <button type="button" className="admin-secondary-button" onClick={onRepairCoordinates} disabled={saving}>
-            Repair live coordinates
-          </button>
+          <div className="admin-button-row compact">
+            <button type="button" className="admin-secondary-button" onClick={onRepairCoordinates} disabled={saving}>
+              Repair map pins
+            </button>
+            <button type="button" className="admin-primary-button" onClick={onSave} disabled={saving}>
+              {saving ? "Saving..." : "Save changes"}
+            </button>
+          </div>
         </div>
         <div className="admin-form-stack">
           <section className="admin-card-section">
@@ -807,68 +365,6 @@ function SiteAssetsForm({ config, assets, onUpload, onChange, onSave, onRepairCo
   );
 }
 
-function DraftInspectorPanel({ kind, draft, onChange, selectedPhotoIndex, onSelectPhoto }) {
-  if (!draft) return null;
-  const photos = Array.isArray(draft.photos) ? draft.photos : [];
-  const clampedIndex = Math.max(0, Math.min(selectedPhotoIndex || 0, Math.max(0, photos.length - 1)));
-  const selectedPhoto = photos[clampedIndex] || null;
-
-  function updateSelectedPhoto(updater) {
-    if (!selectedPhoto) return;
-    const nextPhotos = [...photos];
-    nextPhotos[clampedIndex] = updater(selectedPhoto);
-    onChange({ ...draft, photos: nextPhotos });
-  }
-
-  return (
-    <section className="admin-panel admin-aside-panel">
-      <div className="admin-panel-head tight">
-        <div>
-          <h3>Inspector</h3>
-          <p>Use this area for working notes and quick metadata edits.</p>
-        </div>
-      </div>
-
-      {kind === "photography" && selectedPhoto ? (
-        <section className="admin-card-section">
-          <div className="admin-section-head">
-            <div>
-              <h3>Photo Inspector</h3>
-              <p>Matches the Photo Information model and syncs with Media Library metadata.</p>
-            </div>
-          </div>
-          <label className="admin-field">
-            <span className="admin-field-label">Frame</span>
-            <select className="admin-select" value={String(clampedIndex)} onChange={(event) => onSelectPhoto(Number(event.target.value) || 0)}>
-              {photos.map((_, index) => (
-                <option key={`inspector-frame-${index}`} value={String(index)}>
-                  Photo {String(index + 1).padStart(2, "0")}
-                </option>
-              ))}
-            </select>
-          </label>
-          <div className="admin-grid two-up">
-            <TextInput label="Title" value={selectedPhoto.title || ""} onChange={(next) => updateSelectedPhoto((current) => ({ ...current, title: next }))} />
-            <TextInput label="Caption" value={selectedPhoto.caption || ""} onChange={(next) => updateSelectedPhoto((current) => ({ ...current, caption: next }))} />
-            <TextInput label="Location" value={selectedPhoto.locationLabel || ""} onChange={(next) => updateSelectedPhoto((current) => ({ ...current, locationLabel: next }))} />
-            <TextInput label="Date" type="date" value={formatDateInput(selectedPhoto.exifDate)} onChange={(next) => updateSelectedPhoto((current) => ({ ...current, exifDate: toIsoDateTime(next) }))} />
-            <ToggleField label="Metadata enabled" checked={selectedPhoto.metadataEnabled !== false} onChange={(next) => updateSelectedPhoto((current) => ({ ...current, metadataEnabled: next }))} />
-            <TextInput label="Short Quote (for bottom)" value={selectedPhoto.shortQuote || ""} onChange={(next) => updateSelectedPhoto((current) => ({ ...current, shortQuote: next }))} />
-          </div>
-        </section>
-      ) : null}
-
-      <TextArea
-        label="Editor Notes"
-        hint="Private drafting notes for this item."
-        value={draft.adminNotes || ""}
-        rows={kind === "photography" ? 8 : 12}
-        onChange={(next) => onChange({ ...draft, adminNotes: next })}
-      />
-    </section>
-  );
-}
-
 function PhotographyFeaturedManager({ config, options, onChange, onSave, saving }) {
   const items = Array.isArray(config?.items) ? config.items : [];
   const optionMap = new Map(options.map((option) => [`${option.shootId}:${option.photoId}`, option]));
@@ -974,109 +470,9 @@ function PhotographyFeaturedManager({ config, options, onChange, onSave, saving 
   );
 }
 
-function PhotographyForm({ draft, onChange, onUpload, assets, selectedPhotoIndex, onSelectPhoto }) {
-  const photos = Array.isArray(draft.photos) ? draft.photos : [];
-  const summary = mediaSummaryFromPhotos(photos);
-  const themeValue = String(draft.theme || draft.template || PHOTO_TEMPLATES[0]?.value || "desert-bloom");
-
-  function updatePhoto(index, nextPhoto) {
-    const next = [...photos];
-    next[index] = nextPhoto;
-    onChange({ ...draft, photos: next });
-  }
-
-  function movePhoto(index, direction) {
-    const target = index + direction;
-    if (target < 0 || target >= photos.length) return;
-    const next = [...photos];
-    [next[index], next[target]] = [next[target], next[index]];
-    onChange({ ...draft, photos: next });
-    if (selectedPhotoIndex === index) {
-      onSelectPhoto(target);
-    } else if (selectedPhotoIndex === target) {
-      onSelectPhoto(index);
-    }
-  }
-
-  function removePhoto(index) {
-    const next = photos.filter((_, itemIndex) => itemIndex !== index);
-    onChange({ ...draft, photos: next.length ? next : [createMediaValue()] });
-    if (selectedPhotoIndex >= next.length) onSelectPhoto(Math.max(0, next.length - 1));
-  }
-
-  return (
-    <div className="admin-form-stack">
-      <section className="admin-panel">
-        <div className="admin-panel-head tight">
-          <div>
-            <h2>Shoot Information</h2>
-            <p>Theme and template are unified. Add one ordered photo sequence for the live page.</p>
-          </div>
-        </div>
-        <div className="admin-grid two-up">
-          <TextInput label="Title" value={draft.title} onChange={(next) => onChange({ ...draft, title: next, slug: draft.slug || slugify(next) })} />
-          <TextInput label="Location (city, country)" value={draft.locationLabel || ""} onChange={(next) => onChange({ ...draft, locationLabel: next })} />
-          <TextInput label="Date" type="date" value={draft.shootDate} onChange={(next) => onChange({ ...draft, shootDate: next })} />
-          <TextInput label="Color Picker" type="color" value={draft.accentColor || "#c96b28"} onChange={(next) => onChange({ ...draft, accentColor: next })} />
-          <SelectField label="Theme" hint="Template + theme combined into one control." value={themeValue} onChange={(next) => onChange({ ...draft, theme: next, template: next })} options={PHOTO_TEMPLATES} />
-          <TextInput label="Tag Word 1" value={draft.tagWord1 || ""} onChange={(next) => onChange({ ...draft, tagWord1: next })} />
-          <TextInput label="Tag Word 2" value={draft.tagWord2 || ""} onChange={(next) => onChange({ ...draft, tagWord2: next })} />
-          <TextInput label="Tag Word 3" value={draft.tagWord3 || ""} onChange={(next) => onChange({ ...draft, tagWord3: next })} />
-        </div>
-        <TextArea
-          label="Description"
-          value={draft.description || draft.notes || ""}
-          onChange={(next) => onChange({ ...draft, description: next, notes: next })}
-          rows={5}
-        />
-        <p className="admin-field-hint">Frames attached: {summary.frames} | Detected camera: {summary.cameraModel || "Unknown"}</p>
-      </section>
-
-      <section className="admin-card-section">
-        <div className="admin-section-head">
-          <div>
-            <h3>Photo Information</h3>
-            <p>Add and order photos. Each photo carries title, caption, location, date, metadata toggle, and quote.</p>
-          </div>
-          <button type="button" className="admin-mini-button" onClick={() => onChange({ ...draft, photos: [...photos, createMediaValue()] })}>
-            Add photo
-          </button>
-        </div>
-        <div className="admin-stack">
-          {photos.map((photo, index) => (
-            <article className="admin-subcard" key={`photo-slot-${index}`}>
-              <div className="admin-subcard-head">
-                <strong>Photo {String(index + 1).padStart(2, "0")}</strong>
-                <div className="admin-button-row compact">
-                  <button type="button" className="admin-mini-button" onClick={() => onSelectPhoto(index)}>Inspect</button>
-                  <button type="button" className="admin-mini-button" disabled={index === 0} onClick={() => movePhoto(index, -1)}>Up</button>
-                  <button type="button" className="admin-mini-button" disabled={index === photos.length - 1} onClick={() => movePhoto(index, 1)}>Down</button>
-                  <button type="button" className="admin-mini-button danger" onClick={() => removePhoto(index)}>Remove</button>
-                </div>
-              </div>
-              <AssetField
-                label={`Photo ${index + 1}`}
-                accept="image/*"
-                value={photo}
-                assets={assets}
-                onUpload={onUpload}
-                onChange={(next) => updatePhoto(index, next)}
-                kind="photography"
-                field={`photo-${index}`}
-                hint="Metadata is auto-extracted when possible and can be overridden here."
-              />
-            </article>
-          ))}
-        </div>
-      </section>
-    </div>
-  );
-}
-
 function MediaLibrary({ assets, onUpload, onSaveMetadata, onDeleteAsset }) {
-  const inputRef = useRef(null);
-  const bulkInputRef = useRef(null);
   const [selectedId, setSelectedId] = useState("");
+  const [uploadErrors, setUploadErrors] = useState([]);
   const [editorState, setEditorState] = useState(createMediaMetadataState(null));
   const [uploading, setUploading] = useState(false);
   const [bulkUploading, setBulkUploading] = useState(false);
@@ -1134,24 +530,30 @@ function MediaLibrary({ assets, onUpload, onSaveMetadata, onDeleteAsset }) {
     )));
   }
 
-  async function handleFile(event) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    setUploading(true);
-    try {
-      const asset = await onUpload(file, { kind: "library", field: "library" });
-      if (asset?.id) setSelectedId(asset.id);
-    } finally {
-      setUploading(false);
-      event.target.value = "";
+  async function handleDropped(fileList) {
+    const { ok, errors } = screenFiles(fileList, `${IMAGE_ACCEPT},.pdf,.doc,.docx`);
+    setUploadErrors(errors);
+    if (!ok.length) return;
+    if (ok.length === 1 || !ok.every((file) => String(file.type || "").startsWith("image/"))) {
+      setUploading(true);
+      try {
+        for (const file of ok) {
+          try {
+            const asset = await onUpload(file, { kind: "library", field: "library" });
+            if (asset?.id) setSelectedId(asset.id);
+          } catch {
+            // The upload notice is already surfaced by onUpload.
+          }
+        }
+      } finally {
+        setUploading(false);
+      }
+      return;
     }
+    await handleBulkFiles(ok);
   }
 
-  async function handleBulkFiles(event) {
-    const files = Array.from(event.target.files || []).filter((file) => String(file?.type || "").startsWith("image/"));
-    event.target.value = "";
-    if (!files.length) return;
-
+  async function handleBulkFiles(files) {
     setBulkUploading(true);
     const uploaded = [];
     try {
@@ -1233,24 +635,23 @@ function MediaLibrary({ assets, onUpload, onSaveMetadata, onDeleteAsset }) {
   }
 
   return (
-    <section className="admin-panel media-panel-full">
+    <section className="admin-panel media-panel-full admin-form-stack">
       <div className="admin-panel-head">
         <div>
           <h2>Media Library</h2>
-          <p>Upload once, edit captions and alt text here, then reuse the same asset across Faces, Papers, and Travel drafts.</p>
-        </div>
-        <div className="admin-button-row compact admin-media-upload-actions">
-          <button type="button" className="admin-secondary-button" onClick={() => bulkInputRef.current?.click()} disabled={uploading || bulkUploading}>
-            {bulkUploading ? "Uploading batch..." : "Bulk Upload"}
-          </button>
-          <button type="button" className="admin-primary-button" onClick={() => inputRef.current?.click()} disabled={uploading || bulkUploading}>
-            {uploading ? "Uploading..." : "Upload media"}
-          </button>
+          <p>Everything you have uploaded. Edit captions and alt text here, then reuse a file anywhere on the site.</p>
         </div>
       </div>
 
-      <input ref={inputRef} type="file" hidden accept="image/*,.pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={handleFile} />
-      <input ref={bulkInputRef} type="file" hidden multiple accept="image/*" onChange={handleBulkFiles} />
+      <UploadDropzone
+        multiple
+        accept={`${IMAGE_ACCEPT},.pdf,.doc,.docx`}
+        busy={uploading || bulkUploading}
+        onFiles={handleDropped}
+        title={uploading || bulkUploading ? "Uploading..." : "Drop files here or click to upload"}
+        subtitle="Images, PDFs and Word documents. Drop several photos to add details to each in one pass."
+      />
+      {uploadErrors.map((message) => <p className="admin-inline-error" key={message}>{message}</p>)}
 
       {(assets || []).length ? (
         <div className="admin-media-layout">
@@ -1314,9 +715,7 @@ function MediaLibrary({ assets, onUpload, onSaveMetadata, onDeleteAsset }) {
                   <TextInput label="Aperture" value={editorState.aperture} onChange={(next) => setEditorState((current) => ({ ...current, aperture: next }))} />
                   <TextInput label="ISO" value={editorState.iso} onChange={(next) => setEditorState((current) => ({ ...current, iso: next }))} />
                   <ToggleField label="Metadata enabled" checked={editorState.metadataEnabled !== false} onChange={(next) => setEditorState((current) => ({ ...current, metadataEnabled: next }))} />
-                  <TextInput label="Kind" hint="Optional organizing tag, such as travel or faces." value={editorState.kind} onChange={(next) => setEditorState((current) => ({ ...current, kind: next }))} />
                 </div>
-                <TextInput label="Field" hint="Optional slot label to help you remember where the asset came from." value={editorState.field} onChange={(next) => setEditorState((current) => ({ ...current, field: next }))} />
 
                 <dl className="admin-meta-list">
                   <div><dt>File</dt><dd>{selectedAsset.fileName || selectedAsset.originalName || "Unknown"}</dd></div>
@@ -1399,100 +798,138 @@ function MediaLibrary({ assets, onUpload, onSaveMetadata, onDeleteAsset }) {
   );
 }
 
-function VersionsPanel({ versions, onRestore, loading }) {
-  return (
-    <section className="admin-panel admin-aside-panel">
-      <div className="admin-panel-head tight">
-        <div>
-          <h3>Version history</h3>
-          <p>Manual saves, publishes, and restores are snapshotted here.</p>
-        </div>
-      </div>
-      <div className="admin-version-list">
-        {loading ? <p className="admin-empty-inline">Loading versions...</p> : null}
-        {!loading && !versions.length ? <p className="admin-empty-inline">No versions saved yet.</p> : null}
-        {versions.map((version) => (
-          <article className="admin-version-card" key={version.id}>
-            <div>
-              <strong>{version.reason || "snapshot"}</strong>
-              <p>{formatStamp(version.createdAt)}</p>
-              <small>{version.createdBy || "admin"}</small>
-            </div>
-            <button type="button" className="admin-mini-button" onClick={() => onRestore(version.id)}>Restore</button>
-          </article>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function Dashboard({ lists, onCreate, onJump }) {
+export function Dashboard({ lists, analytics, subscribers, emailSends, systemEmails, onCreate, onJump, onNavigate }) {
   const stats = useMemo(() => {
-    const byKind = CONTENT_KINDS.map((kind) => ({ kind, items: lists[kind] || [] }));
-    const all = byKind.flatMap(({ kind, items }) => items.map((item) => ({ kind, ...item })));
+    const all = CONTENT_KINDS.flatMap((kind) => (lists[kind] || []).map((item) => ({ kind, ...item })));
+    const sevenDays = new Set();
+    for (let offset = 0; offset < 7; offset += 1) {
+      sevenDays.add(new Date(Date.now() - offset * 86400000).toISOString().slice(0, 10));
+    }
+    const week = analytics.filter((doc) => sevenDays.has(doc.id));
+    const verified = subscribers.filter(isSubscriberVerified);
+    const weekAgo = Date.now() - 7 * 86400000;
+    const realSends = emailSends.filter((send) => !send.test);
     return {
-      drafts: all.filter((item) => item.status === "draft").length,
-      scheduled: all.filter((item) => item.status === "scheduled").length,
-      published: all.filter((item) => item.status === "published").length,
-      total: all.length,
+      live: all.filter(isLive).length,
+      notLive: all.filter((item) => !isLive(item)).length,
+      views: week.reduce((sum, doc) => sum + Number(doc.views || 0), 0),
+      visitors: week.reduce((sum, doc) => sum + Number(doc.uniques || 0), 0),
+      subscribers: verified.length,
+      newSubscribers: verified.filter((subscriber) => (toDate(subscriber.createdAt)?.getTime() || 0) >= weekAgo).length,
+      pendingVerification: subscribers.length - verified.length,
+      lastSend: realSends[0] || null,
+      failedSends: realSends.filter((send) => send.status === "failed" || send.status === "partial").length,
+      failedSystem: systemEmails.filter((item) => item.status !== "sent").length,
       recent: [...all].sort((left, right) => (toDate(right.updatedAt)?.getTime() || 0) - (toDate(left.updatedAt)?.getTime() || 0)).slice(0, 6),
     };
-  }, [lists]);
+  }, [lists, analytics, subscribers, emailSends, systemEmails]);
+
+  const attention = [];
+  if (stats.failedSends) attention.push({ key: "sends", tone: "bad", text: `${stats.failedSends} email${stats.failedSends === 1 ? "" : "s"} had delivery problems.`, action: "Review", go: "emails" });
+  if (stats.failedSystem) attention.push({ key: "system", tone: "bad", text: `${stats.failedSystem} sign-in email${stats.failedSystem === 1 ? "" : "s"} failed to send.`, action: "Review", go: "emails" });
+  if (stats.pendingVerification) attention.push({ key: "verify", tone: "warn", text: `${stats.pendingVerification} subscriber${stats.pendingVerification === 1 ? " has" : "s have"} not verified yet.`, action: "View", go: "subscribers" });
+  if (stats.notLive) attention.push({ key: "notlive", tone: "muted", text: `${stats.notLive} item${stats.notLive === 1 ? " is" : "s are"} saved but not live on the site.`, action: "", go: "" });
 
   return (
-    <section className="admin-dashboard-grid">
-      <div className="admin-panel">
-        <div className="admin-panel-head">
-          <div>
-            <h2>Editorial Overview</h2>
-            <p>The v1 admin is focused on draft, preview, and publish control for the three live data-driven sections.</p>
-          </div>
-        </div>
-        <div className="admin-stat-grid">
-          <article className="admin-stat-card"><strong>{stats.drafts}</strong><span>Drafts in progress</span></article>
-          <article className="admin-stat-card"><strong>{stats.scheduled}</strong><span>Scheduled</span></article>
-          <article className="admin-stat-card"><strong>{stats.published}</strong><span>Published</span></article>
-          <article className="admin-stat-card"><strong>{stats.total}</strong><span>Total admin items</span></article>
-        </div>
+    <div className="admin-dashboard">
+      <div className="admin-stat-grid">
+        <StatTile value={formatNumber(stats.views)} label="Page views, last 7 days" hint={`${formatNumber(stats.visitors)} visitors`} />
+        <StatTile value={formatNumber(stats.subscribers)} label="Verified subscribers" hint={`+${stats.newSubscribers} this week`} />
+        <StatTile value={formatNumber(stats.live)} label="Live on the site" hint={`${stats.notLive} not live`} />
+        <StatTile value={stats.lastSend ? <StatusPill status={stats.lastSend.status || "sent"} /> : "—"} label="Latest email" hint={stats.lastSend ? `${stats.lastSend.subject} · ${formatRelative(stats.lastSend.sentAt) || "just now"}` : "Nothing sent yet"} />
       </div>
-      <div className="admin-panel">
-        <div className="admin-panel-head">
-          <div>
-            <h2>Quick Actions</h2>
-            <p>Create a new editorial item directly from the dashboard.</p>
+
+      <div className="admin-two-col">
+        <Section title="Start something new" description="Create an item, then publish it when it is ready.">
+          <div className="admin-button-grid">
+            {CONTENT_KINDS.map((kind) => (
+              <button key={kind} type="button" className="admin-quick-action" onClick={() => onCreate(kind)}>
+                <strong>{NEW_LABELS[kind]}</strong>
+                <small>{CONTENT_LABELS[kind]}</small>
+              </button>
+            ))}
+            <button type="button" className="admin-quick-action" onClick={() => onNavigate("emails")}>
+              <strong>Email subscribers</strong>
+              <small>Compose an announcement</small>
+            </button>
           </div>
-        </div>
-        <div className="admin-button-grid">
-          <button type="button" className="admin-primary-button" onClick={() => onCreate("faces")}>New Face</button>
-          <button type="button" className="admin-primary-button" onClick={() => onCreate("papers")}>New Paper</button>
-          <button type="button" className="admin-primary-button" onClick={() => onCreate("travel")}>New Dispatch</button>
-          <button type="button" className="admin-primary-button" onClick={() => onCreate("photography")}>New Shoot</button>
-        </div>
+        </Section>
+
+        <Section title="Needs attention">
+          {attention.length ? (
+            <ul className="admin-attention-list">
+              {attention.map((item) => (
+                <li key={item.key} className={`tone-${item.tone}`}>
+                  <span>{item.text}</span>
+                  {item.go ? <button type="button" className="admin-mini-button" onClick={() => onNavigate(item.go)}>{item.action}</button> : null}
+                </li>
+              ))}
+            </ul>
+          ) : <p className="admin-empty-inline">Everything looks good.</p>}
+        </Section>
       </div>
-      <div className="admin-panel full-span">
-        <div className="admin-panel-head">
-          <div>
-            <h2>Recently touched drafts</h2>
-            <p>The latest items across all editorial collections.</p>
-          </div>
-        </div>
+
+      <Section title="Pick up where you left off">
         <div className="admin-recent-list">
           {stats.recent.length ? stats.recent.map((item) => (
             <button key={`${item.kind}-${item.id}`} type="button" className="admin-recent-row" onClick={() => onJump(item.kind, item.id)}>
               <div>
-                <strong>{item.title || item.profileName || item.locationName || "Untitled"}</strong>
-                <p>{CONTENT_LABELS[item.kind]} | {formatRelative(item.updatedAt)}</p>
+                <strong>{itemTitle(item)}</strong>
+                <p>{CONTENT_LABELS[item.kind]} &middot; edited {formatRelative(item.updatedAt) || "just now"}</p>
               </div>
-              <StatusPill status={item.status || "draft"} />
+              <StatusPill status={isLive(item) ? "published" : "draft"} />
             </button>
-          )) : <p className="admin-empty-inline">No drafts created yet.</p>}
+          )) : <EmptyState title="Nothing here yet">Create your first item above.</EmptyState>}
         </div>
-      </div>
-    </section>
+      </Section>
+    </div>
   );
 }
 
-function SubscribersPanel({ subscribers, onPromptVerify, promptingId }) {
+export function CollectionList({ kind, items, selectedId, onSelect, onCreate, creating }) {
+  const [queryText, setQueryText] = useState("");
+  const [filter, setFilter] = useState("all");
+  const visible = items.filter((item) => {
+    if (filter === "live" && !isLive(item)) return false;
+    if (filter === "notlive" && isLive(item)) return false;
+    const needle = queryText.trim().toLowerCase();
+    return !needle || itemTitle(item).toLowerCase().includes(needle);
+  });
+  return (
+    <aside className="admin-list-panel">
+      <div className="admin-list-head">
+        <div>
+          <h2>{CONTENT_LABELS[kind]}</h2>
+          <p>{items.length} item{items.length === 1 ? "" : "s"}</p>
+        </div>
+        <button type="button" className="admin-primary-button small" onClick={() => onCreate(kind)} disabled={creating}>{NEW_LABELS[kind]}</button>
+      </div>
+      {items.length > 4 ? (
+        <div className="admin-list-tools">
+          <input className="admin-input" type="search" placeholder="Search" value={queryText} onChange={(event) => setQueryText(event.target.value)} />
+          <div className="admin-segmented small">
+            {[["all", "All"], ["live", "Live"], ["notlive", "Not live"]].map(([id, label]) => (
+              <button key={id} type="button" className={filter === id ? "is-active" : ""} onClick={() => setFilter(id)}>{label}</button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      <div className="admin-list-scroll">
+        {visible.length ? visible.map((item) => (
+          <button type="button" key={item.id} className={`admin-list-item${selectedId === item.id ? " is-active" : ""}`} onClick={() => onSelect(item.id)}>
+            <div>
+              <strong>{itemTitle(item)}</strong>
+              <p>{formatRelative(item.updatedAt) || "new"}</p>
+            </div>
+            <StatusPill status={isLive(item) ? "published" : "draft"} />
+          </button>
+        )) : <p className="admin-empty-inline">{items.length ? "Nothing matches." : `No ${KIND_ITEM_NOUN[kind]}s yet.`}</p>}
+      </div>
+    </aside>
+  );
+}
+
+export function SubscribersPanel({ subscribers, onPromptVerify, promptingId }) {
   const [queryText, setQueryText] = useState("");
   const stats = useMemo(() => {
     const now = Date.now();
@@ -1678,345 +1115,6 @@ function SubscribersPanel({ subscribers, onPromptVerify, promptingId }) {
   );
 }
 
-function BroadcastsPanel({ subscribers, emailSends, onCompose, working }) {
-  const activeCount = subscribers.filter(isSubscriberVerified).length;
-  return (
-    <section className="admin-subscriber-layout">
-      <div className="admin-panel full-span">
-        <div className="admin-panel-head">
-          <div>
-            <h2>General Announcement</h2>
-            <p>Write a standalone update that is not tied to a specific piece of content. It sends to every verified subscriber via Resend.</p>
-          </div>
-          <button type="button" className="admin-primary-button" onClick={onCompose} disabled={working}>Compose Email</button>
-        </div>
-        <div className="admin-stat-grid">
-          <article className="admin-stat-card"><strong>{activeCount}</strong><span>Verified subscribers</span></article>
-          <article className="admin-stat-card"><strong>{emailSends.length}</strong><span>Broadcasts sent</span></article>
-        </div>
-      </div>
-
-      <div className="admin-panel full-span">
-        <div className="admin-panel-head tight">
-          <div>
-            <h2>Send History</h2>
-            <p>Most recent broadcasts, newest first.</p>
-          </div>
-        </div>
-        <div className="admin-subscriber-table-wrap">
-          <table className="admin-subscriber-table">
-            <thead>
-              <tr>
-                <th>Sent</th>
-                <th>Type</th>
-                <th>Subject</th>
-                <th>Recipients</th>
-                <th>Result</th>
-                <th>Sent by</th>
-              </tr>
-            </thead>
-            <tbody>
-              {emailSends.map((send) => (
-                <tr key={send.id}>
-                  <td>{formatStamp(send.sentAt, { empty: "Sending..." })}</td>
-                  <td>{send.kind && send.kind !== "general" ? (CONTENT_LABELS[send.kind] || send.kind) : "General"}</td>
-                  <td>{send.subject}</td>
-                  <td>{send.recipientCount}</td>
-                  <td>{send.failed ? `${send.succeeded} sent, ${send.failed} failed` : `${send.succeeded} sent`}</td>
-                  <td>{send.sentBy}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {!emailSends.length ? <p className="admin-empty-inline">No broadcasts sent yet.</p> : null}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function EmailComposerModal({ open, kind, item, subscribers, authEmail, working, onClose, onSend }) {
-  const [subject, setSubject] = useState("");
-  const [note, setNote] = useState("");
-  const [heroUrl, setHeroUrl] = useState("");
-  const [heroAlt, setHeroAlt] = useState("");
-  const [ctaLabel, setCtaLabel] = useState("");
-  const [ctaUrl, setCtaUrl] = useState("");
-  const [subtitle, setSubtitle] = useState("");
-  const [body, setBody] = useState("");
-  const [pullQuote, setPullQuote] = useState("");
-  const [sendingTest, setSendingTest] = useState(false);
-  const [confirmingSend, setConfirmingSend] = useState(false);
-  const [localError, setLocalError] = useState("");
-
-  useEffect(() => {
-    if (!open) return;
-    setSubject(kind === "general" ? "" : (item?.title ? `New from Stories From Abroad: ${item.title}` : ""));
-    setNote("");
-    setHeroUrl("");
-    setHeroAlt("");
-    setCtaLabel("");
-    setCtaUrl("");
-    setSubtitle("");
-    setBody("");
-    setPullQuote("");
-    setConfirmingSend(false);
-    setLocalError("");
-    setSendingTest(false);
-  }, [open, kind, item?.id]);
-
-  const recipientCount = useMemo(() => {
-    const verified = subscribers.filter(isSubscriberVerified);
-    const segment = SEGMENT_BY_KIND[kind];
-    if (!segment) return verified.length;
-    return verified.filter((subscriber) => normalizeSubscriberSegments(subscriber).includes(segment)).length;
-  }, [subscribers, kind]);
-
-  if (!open) return null;
-
-  const basePayload = kind === "general"
-    ? { kind: "general", subject: subject.trim(), note, heroUrl: heroUrl.trim(), heroAlt: heroAlt.trim(), ctaLabel: ctaLabel.trim(), ctaUrl: ctaUrl.trim(), subtitle: subtitle.trim(), body, pullQuote: pullQuote.trim() }
-    : { kind, id: item?.id, subject: subject.trim(), note };
-
-  async function handleTestSend() {
-    if (!subject.trim()) {
-      setLocalError("Add a subject line first.");
-      return;
-    }
-    if (!authEmail) {
-      setLocalError("No signed-in admin email available for the test send.");
-      return;
-    }
-    setLocalError("");
-    setSendingTest(true);
-    try {
-      await onSend({ ...basePayload, testEmail: authEmail });
-    } catch (error) {
-      setLocalError(error.message || "Test send failed.");
-    } finally {
-      setSendingTest(false);
-    }
-  }
-
-  async function handleRealSend() {
-    if (!subject.trim()) {
-      setLocalError("Add a subject line first.");
-      return;
-    }
-    if (!confirmingSend) {
-      setConfirmingSend(true);
-      return;
-    }
-    setLocalError("");
-    try {
-      await onSend(basePayload);
-      onClose();
-    } catch (error) {
-      setLocalError(error.message || "Send failed.");
-      setConfirmingSend(false);
-    }
-  }
-
-  return (
-    <div className="admin-email-overlay" role="dialog" aria-modal="true" aria-label="Compose subscriber email">
-      <section className="admin-email-dialog">
-        <header className="admin-email-head">
-          <div>
-            <p className="admin-topbar-kicker">{kind === "general" ? "General Announcement" : `${CONTENT_LABELS[kind]} Update`}</p>
-            <h2>Compose Email</h2>
-          </div>
-          <button type="button" className="admin-mini-button" onClick={onClose}>Close</button>
-        </header>
-        <div className="admin-email-body">
-          {item ? (
-            <div className="admin-email-preview-card">
-              {item.image ? <img src={item.image} alt="" /> : null}
-              <div>
-                <strong>{item.title}</strong>
-                {item.subtitle ? <p>{item.subtitle}</p> : null}
-              </div>
-            </div>
-          ) : null}
-          <TextInput label={kind === "general" ? "Subject line / headline" : "Subject line"} value={subject} onChange={setSubject} placeholder="What's the headline?" />
-          {kind === "general" ? <TextInput label="Subtitle (optional, bold second headline line)" value={subtitle} onChange={setSubtitle} placeholder="e.g. Stories from Abroad" /> : null}
-          <TextArea
-            label={kind === "general" ? "A note from BTG" : "Add a note (optional)"}
-            value={note}
-            onChange={setNote}
-            rows={6}
-            placeholder={kind === "general" ? "Write the announcement..." : "Anything you'd like to add above the published content..."}
-          />
-          {kind === "general" ? (
-            <>
-              <TextArea label="Dispatch body (optional)" value={body} onChange={setBody} rows={5} placeholder="Shown under the This Dispatch heading. Leave blank to skip that section." />
-              <TextInput label="Pull quote (optional)" value={pullQuote} onChange={setPullQuote} />
-            </>
-          ) : null}
-          {kind === "general" ? (
-            <div className="admin-grid two-up">
-              <TextInput label="Image URL (optional)" value={heroUrl} onChange={setHeroUrl} placeholder="https://..." />
-              <TextInput label="Image alt text" value={heroAlt} onChange={setHeroAlt} />
-              <TextInput label="Button label (optional)" value={ctaLabel} onChange={setCtaLabel} placeholder="Visit the Site" />
-              <TextInput label="Button link (optional)" value={ctaUrl} onChange={setCtaUrl} placeholder="https://..." />
-            </div>
-          ) : null}
-          <p className="admin-field-hint">
-            Sending to <strong>{recipientCount}</strong> verified subscriber{recipientCount === 1 ? "" : "s"}
-            {SEGMENT_BY_KIND[kind] ? ` in the "${SEGMENT_BY_KIND[kind]}" segment` : ""}.
-          </p>
-          {localError ? <p className="admin-inline-error">{localError}</p> : null}
-        </div>
-        <footer className="admin-email-actions">
-          <button type="button" className="admin-secondary-button" onClick={handleTestSend} disabled={working || sendingTest}>
-            {sendingTest ? "Sending test..." : "Send test to me"}
-          </button>
-          <button type="button" className={`admin-primary-button${confirmingSend ? " danger" : ""}`} onClick={handleRealSend} disabled={working || !recipientCount}>
-            {confirmingSend ? `Confirm: send to ${recipientCount}` : `Send to ${recipientCount} subscriber${recipientCount === 1 ? "" : "s"}`}
-          </button>
-        </footer>
-      </section>
-    </div>
-  );
-}
-
-function CollectionList({ kind, items, selectedId, onSelect, onCreate }) {
-  return (
-    <section className="admin-panel admin-list-panel">
-      <div className="admin-panel-head">
-        <div>
-          <h2>{CONTENT_LABELS[kind]}</h2>
-          <p>{items.length} draft{items.length === 1 ? "" : "s"}</p>
-        </div>
-        <button type="button" className="admin-mini-button primary" onClick={() => onCreate(kind)}>New</button>
-      </div>
-      <div className="admin-list-scroll">
-        {items.length ? items.map((item) => {
-          const title = item.title || item.profileName || item.locationName || "Untitled";
-          return (
-            <button
-              type="button"
-              key={item.id}
-              className={`admin-list-item${selectedId === item.id ? " is-active" : ""}`}
-              onClick={() => onSelect(item.id)}
-            >
-              <div>
-                <strong>{title}</strong>
-                <p>{formatRelative(item.updatedAt) || "new draft"}</p>
-              </div>
-              <StatusPill status={item.status || "draft"} />
-            </button>
-          );
-        }) : <p className="admin-empty-inline">No drafts yet.</p>}
-      </div>
-    </section>
-  );
-}
-
-function FacesForm({ draft, onChange, onUpload, assets }) {
-  const coordinates = validateCoordinates(draft.longitude, draft.latitude);
-  return (
-    <div className="admin-form-stack">
-      <section className="admin-panel">
-        <div className="admin-panel-head tight"><div><h2>Profile Setup</h2><p>Canonical draft fields for the published Faces profile and its map pin.</p></div></div>
-        <div className="admin-grid two-up">
-          <SelectField label="Status" value={draft.status} onChange={(next) => onChange({ ...draft, status: next })} options={DRAFT_STATUSES} />
-          <TextInput label="Title" value={draft.title} onChange={(next) => onChange({ ...draft, title: next, slug: draft.slug || slugify(next) })} />
-          <TextInput label="Subtitle" value={draft.subtitle} onChange={(next) => onChange({ ...draft, subtitle: next })} />
-          <TextInput
-            label="Profile name"
-            hint="The person's displayed name on the Faces card and story."
-            value={draft.profileName}
-            onChange={(next) => onChange({ ...draft, profileName: next, slug: draft.slug || slugify(next) })}
-          />
-          <TextInput label="Descriptor" value={draft.descriptor} onChange={(next) => onChange({ ...draft, descriptor: next })} />
-          <TextInput label="Location name" value={draft.locationName} onChange={(next) => onChange({ ...draft, locationName: next })} />
-          <TextInput label="Country / region" value={draft.countryRegion} onChange={(next) => onChange({ ...draft, countryRegion: next })} />
-          <TextInput label="Longitude" value={draft.longitude} onChange={(next) => onChange({ ...draft, longitude: next })} />
-          <TextInput label="Latitude" value={draft.latitude} onChange={(next) => onChange({ ...draft, latitude: next })} />
-          <TextInput label="Publish date" type="date" value={draft.publishDate} onChange={(next) => onChange({ ...draft, publishDate: next })} />
-          <TextInput label="Schedule publish" type="datetime-local" value={formatDateTimeLocal(draft.scheduledPublishAt)} onChange={(next) => onChange({ ...draft, scheduledPublishAt: toIsoDateTime(next) })} />
-          <TextInput label="Age" value={draft.age} onChange={(next) => onChange({ ...draft, age: next })} />
-          <TextInput label="Occupation" value={draft.occupation} onChange={(next) => onChange({ ...draft, occupation: next })} />
-          <TextInput label="Religion" value={draft.religion} onChange={(next) => onChange({ ...draft, religion: next })} />
-          <TextInput
-            label="Slug"
-            hint="URL-friendly identifier used in links and publish records, such as marrakesh-at-dawn."
-            value={draft.slug}
-            onChange={(next) => onChange({ ...draft, slug: slugify(next) })}
-          />
-        </div>
-        <CoordinateNotice
-          longitude={draft.longitude}
-          latitude={draft.latitude}
-          onSwap={() => onChange({ ...draft, ...swapCoordinateValues(draft.longitude, draft.latitude) })}
-        />
-        {coordinates.isValid ? <p className="admin-field-hint">Validated coordinates: {coordinates.longitude}, {coordinates.latitude}</p> : null}
-        <TextArea label="Excerpt" value={draft.excerpt} onChange={(next) => onChange({ ...draft, excerpt: next })} rows={4} />
-      </section>
-      <AssetField label="Portrait photo" accept="image/*" value={draft.portrait} assets={assets} onUpload={onUpload} onChange={(next) => onChange({ ...draft, portrait: next })} kind="faces" field="portrait" hint="Publishes into the live card and profile portrait slot." />
-      <AssetField label="Hero photo" accept="image/*" value={draft.hero} assets={assets} onUpload={onUpload} onChange={(next) => onChange({ ...draft, hero: next })} kind="faces" field="hero" hint="Reserved for future hero usage and email art direction." />
-      <GalleryEditor label="Gallery" items={draft.gallery || []} onChange={(next) => onChange({ ...draft, gallery: next })} onUpload={onUpload} assets={assets} kind="faces" />
-      <StringListEditor label="Callout facts / tags" values={draft.facts || []} onChange={(next) => onChange({ ...draft, facts: next })} addLabel="Add fact" />
-      <section className="admin-card-section">
-        <div className="admin-section-head">
-          <div><h3>Featured quotes</h3><p>Saved into the canonical draft; hero/pull rendering can expand later.</p></div>
-          <button type="button" className="admin-mini-button" onClick={() => onChange({ ...draft, quotes: [...(draft.quotes || []), { id: createLocalId("face-quote"), text: "", style: "pull" }] })}>Add quote</button>
-        </div>
-        <div className="admin-stack">
-          {(draft.quotes || []).map((quote, index) => (
-            <article className="admin-subcard" key={quote.id}>
-              <div className="admin-subcard-head">
-                <strong>Quote {index + 1}</strong>
-                <button type="button" className="admin-mini-button danger" onClick={() => onChange({ ...draft, quotes: draft.quotes.filter((item) => item.id !== quote.id) })}>Remove</button>
-              </div>
-              <div className="admin-grid two-up">
-                <SelectField label="Style" value={quote.style} onChange={(next) => onChange({ ...draft, quotes: draft.quotes.map((item) => item.id === quote.id ? { ...item, style: next } : item) })} options={QUOTE_STYLES} />
-                <TextArea label="Quote text" value={quote.text} onChange={(next) => onChange({ ...draft, quotes: draft.quotes.map((item) => item.id === quote.id ? { ...item, text: next } : item) })} rows={4} />
-              </div>
-            </article>
-          ))}
-        </div>
-      </section>
-      <FaceBlocksEditor blocks={draft.bodyBlocks || []} onChange={(next) => onChange({ ...draft, bodyBlocks: next })} onUpload={onUpload} assets={assets} />
-    </div>
-  );
-}
-
-function copyText(text) {
-  try {
-    return navigator.clipboard.writeText(text);
-  } catch {
-    return Promise.reject(new Error("Clipboard unavailable"));
-  }
-}
-
-function ProtectedShareLink({ draft, onRotate }) {
-  const [copied, setCopied] = useState(false);
-  const live = draft.status === "published" && draft.shareKey && (draft.slug || draft.id);
-  const url = live
-    ? `${window.location.origin}${basePath}selected-papers/${draft.audience}/?paper=${encodeURIComponent(draft.slug || draft.id)}&key=${encodeURIComponent(draft.shareKey)}`
-    : "";
-  return (
-    <section className="admin-panel">
-      <div className="admin-panel-head tight">
-        <div>
-          <h2>Private share link</h2>
-          <p>Anyone with this link opens this one piece directly, with no invite code. They cannot see anything else in the collection.</p>
-        </div>
-      </div>
-      {live ? (
-        <>
-          <input className="admin-input" readOnly value={url} onFocus={(event) => event.target.select()} />
-          <div className="admin-inline-actions">
-            <button type="button" className="admin-mini-button primary" onClick={() => copyText(url).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1800); })}>{copied ? "Copied" : "Copy link"}</button>
-            <button type="button" className="admin-mini-button danger" onClick={onRotate}>Reset link</button>
-          </div>
-        </>
-      ) : <p className="admin-empty-inline">Publish this piece to generate its share link.</p>}
-    </section>
-  );
-}
-
 function InviteCodesPanel({ invites, onCreate, onToggle, onDelete }) {
   const [label, setLabel] = useState("");
   const [customCode, setCustomCode] = useState("");
@@ -2085,114 +1183,12 @@ function InviteCodesPanel({ invites, onCreate, onToggle, onDelete }) {
   );
 }
 
-function PapersForm({ draft, onChange, onUpload, assets, paperTypeOptions, onRotateShareKey }) {
-  const isProtected = draft.audience === "drafts" || draft.audience === "unpublished";
-  return (
-    <div className="admin-form-stack">
-      <section className="admin-panel">
-        <div className="admin-panel-head tight"><div><h2>Publication Setup</h2><p>Enough metadata to power the current archive page plus the richer publish payload.</p></div></div>
-        <p className="admin-field-hint">Only items in the <strong>Published</strong> state appear on the live Selected Papers page. Saving a draft does not change the public site.</p>
-        <SelectField label="Where it appears" hint="Drafts and Unpublished Thoughts live behind the invite-code gate and are never listed on the public page. Unpublish and republish after changing this on a live piece." value={draft.audience || "public"} onChange={(next) => onChange({ ...draft, audience: next })} options={PAPER_AUDIENCES} />
-        <div className="admin-grid two-up">
-          <SelectField label="Status" value={draft.status} onChange={(next) => onChange({ ...draft, status: next })} options={DRAFT_STATUSES} />
-          <TextInput label="Title" value={draft.title} onChange={(next) => onChange({ ...draft, title: next, slug: draft.slug || slugify(next) })} />
-          <TextInput label="Subtitle / deck" value={draft.subtitle} onChange={(next) => onChange({ ...draft, subtitle: next })} />
-          <SelectField label="Type" value={draft.type} onChange={(next) => onChange({ ...draft, type: next })} options={paperTypeOptions} />
-          <TextInput label="Badge style" value={draft.badgeStyle} onChange={(next) => onChange({ ...draft, badgeStyle: next })} />
-          <TextInput label="Publish date" type="date" value={draft.publishDate} onChange={(next) => onChange({ ...draft, publishDate: next })} />
-          <TextInput label="Display date override" value={draft.customDisplayDate} onChange={(next) => onChange({ ...draft, customDisplayDate: next })} />
-          <TextInput label="Schedule publish" type="datetime-local" value={formatDateTimeLocal(draft.scheduledPublishAt)} onChange={(next) => onChange({ ...draft, scheduledPublishAt: toIsoDateTime(next) })} />
-          <TextInput
-            label="Slug"
-            hint="URL-friendly identifier used in links and publish records, such as eu-policy-brief."
-            value={draft.slug}
-            onChange={(next) => onChange({ ...draft, slug: slugify(next) })}
-          />
-          <TextInput label="Publication name" value={draft.publicationName} onChange={(next) => onChange({ ...draft, publicationName: next })} />
-          <TextInput label="Publication link" value={draft.publicationLink} onChange={(next) => onChange({ ...draft, publicationLink: next })} />
-          <TextInput label="Read time" value={draft.readTime} onChange={(next) => onChange({ ...draft, readTime: next })} />
-          <TextInput label="Featured rank" value={draft.featuredRank} onChange={(next) => onChange({ ...draft, featuredRank: next })} />
-        </div>
-        <div className="admin-grid two-up toggles">
-          <ToggleField label="Featured paper" checked={draft.featured} onChange={(next) => onChange({ ...draft, featured: next })} />
-          <ToggleField label="External publication" checked={draft.externalPublication} onChange={(next) => onChange({ ...draft, externalPublication: next })} />
-        </div>
-        <TextArea label="Summary" value={draft.summary} onChange={(next) => onChange({ ...draft, summary: next })} rows={5} />
-        <TextArea label="Body / abstract text" value={draft.bodyText} onChange={(next) => onChange({ ...draft, bodyText: next })} rows={10} />
-      </section>
-      {isProtected ? <ProtectedShareLink draft={draft} onRotate={onRotateShareKey} /> : null}
-      <StringListEditor label="Keywords" values={draft.keywords || []} onChange={(next) => onChange({ ...draft, keywords: next })} addLabel="Add keyword" />
-      <AssetField label="Document upload" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" value={draft.document} assets={assets} onUpload={onUpload} onChange={(next) => onChange({ ...draft, document: next })} kind="papers" field="document" hint="Supports uploaded PDFs now; richer document workflows can expand later." />
-    </div>
-  );
-}
+const VALID_SECTIONS = new Set(["dashboard", "analytics", "subscribers", "emails", "invites", "media", "site-assets", ...CONTENT_KINDS]);
 
-function TravelForm({ draft, onChange, onUpload, assets }) {
-  const coordinates = validateCoordinates(draft.longitude, draft.latitude);
-  return (
-    <div className="admin-form-stack">
-      <section className="admin-panel">
-        <div className="admin-panel-head tight"><div><h2>Dispatch Setup</h2><p>Canonical dispatch data publishes into Scrap Sheet posts and quote records.</p></div></div>
-        <div className="admin-grid two-up">
-          <SelectField label="Status" value={draft.status} onChange={(next) => onChange({ ...draft, status: next })} options={DRAFT_STATUSES} />
-          <TextInput label="Title" value={draft.title} onChange={(next) => onChange({ ...draft, title: next, slug: draft.slug || slugify(next) })} />
-          <TextInput
-            label="Slug"
-            hint="URL-friendly identifier used in links and publish records, such as overnight-train-to-prague."
-            value={draft.slug}
-            onChange={(next) => onChange({ ...draft, slug: slugify(next) })}
-          />
-          <SelectField label="Dispatch type" value={draft.dispatchType} onChange={(next) => onChange({ ...draft, dispatchType: next })} options={DISPATCH_TYPES} />
-          <SelectField label="Audience level" value={draft.audienceLevel} onChange={(next) => onChange({ ...draft, audienceLevel: next })} options={AUDIENCE_LEVELS} />
-          <TextInput label="Location name" value={draft.locationName} onChange={(next) => onChange({ ...draft, locationName: next })} />
-          <TextInput
-            label="Time label"
-            hint="Optional short display label for the dispatch, such as Dawn, 6:40 AM, or Late Night."
-            value={draft.timeLabel}
-            onChange={(next) => onChange({ ...draft, timeLabel: next })}
-          />
-          <TextInput label="Longitude" value={draft.longitude} onChange={(next) => onChange({ ...draft, longitude: next })} />
-          <TextInput label="Latitude" value={draft.latitude} onChange={(next) => onChange({ ...draft, latitude: next })} />
-          <TextInput label="Publish date" type="date" value={draft.publishDate} onChange={(next) => onChange({ ...draft, publishDate: next })} />
-          <TextInput label="Schedule publish" type="datetime-local" value={formatDateTimeLocal(draft.scheduledPublishAt)} onChange={(next) => onChange({ ...draft, scheduledPublishAt: toIsoDateTime(next) })} />
-        </div>
-        <CoordinateNotice
-          longitude={draft.longitude}
-          latitude={draft.latitude}
-          onSwap={() => onChange({ ...draft, ...swapCoordinateValues(draft.longitude, draft.latitude) })}
-        />
-        {coordinates.isValid ? <p className="admin-field-hint">Validated coordinates: {coordinates.longitude}, {coordinates.latitude}</p> : null}
-        <ToggleField label="Pin as featured dispatch" checked={draft.pinned} onChange={(next) => onChange({ ...draft, pinned: next })} hint="The public page already honors pinned items in its current list model." />
-        <TextArea label="Excerpt / preview" value={draft.excerpt} onChange={(next) => onChange({ ...draft, excerpt: next })} rows={4} />
-        <TextArea label="Body text" value={draft.bodyText} onChange={(next) => onChange({ ...draft, bodyText: next })} rows={10} />
-      </section>
-      <GalleryEditor label="Dispatch photos" items={draft.photos || []} onChange={(next) => onChange({ ...draft, photos: next })} onUpload={onUpload} assets={assets} kind="travel" />
-      <section className="admin-card-section">
-        <div className="admin-section-head">
-          <div><h3>Quote cards</h3><p>Each saved quote publishes into `scrap_sheet_quotes` for the current travel page experience. Max {TRAVEL_QUOTE_MAX_CHARS} characters.</p></div>
-          <button type="button" className="admin-mini-button" onClick={() => onChange({ ...draft, quotes: [...(draft.quotes || []), { id: createLocalId("travel-quote"), text: "" }] })}>Add quote</button>
-        </div>
-        <div className="admin-stack">
-          {(draft.quotes || []).map((quote) => (
-            <div className="admin-inline-row" key={quote.id}>
-              <textarea
-                className="admin-textarea compact"
-                rows={3}
-                maxLength={TRAVEL_QUOTE_MAX_CHARS}
-                value={quote.text || ""}
-                onChange={(event) => onChange({
-                  ...draft,
-                  quotes: draft.quotes.map((item) => item.id === quote.id ? { ...item, text: String(event.target.value || "").slice(0, TRAVEL_QUOTE_MAX_CHARS) } : item),
-                })}
-              />
-              <span className="admin-field-hint">{String((quote.text || "").length)}/{TRAVEL_QUOTE_MAX_CHARS}</span>
-              <button type="button" className="admin-icon-button" onClick={() => onChange({ ...draft, quotes: draft.quotes.filter((item) => item.id !== quote.id) })}>Remove</button>
-            </div>
-          ))}
-        </div>
-      </section>
-    </div>
-  );
+function sectionFromHash() {
+  if (typeof window === "undefined") return "dashboard";
+  const hash = window.location.hash.replace(/^#/, "");
+  return VALID_SECTIONS.has(hash) ? hash : "dashboard";
 }
 
 export default function AdminApp() {
@@ -2202,6 +1198,8 @@ export default function AdminApp() {
   const [mediaAssets, setMediaAssets] = useState([]);
   const [subscribers, setSubscribers] = useState([]);
   const [emailSends, setEmailSends] = useState([]);
+  const [systemEmails, setSystemEmails] = useState([]);
+  const [analytics, setAnalytics] = useState([]);
   const [invites, setInvites] = useState([]);
   const [emailComposer, setEmailComposer] = useState(null);
   const [sendingBroadcast, setSendingBroadcast] = useState(false);
@@ -2220,22 +1218,24 @@ export default function AdminApp() {
   const [photographyFeaturedConfig, setPhotographyFeaturedConfig] = useState({ items: [] });
   const [selectedIds, setSelectedIds] = useState({ faces: "", papers: "", travel: "", photography: "" });
   const [draft, setDraft] = useState(null);
-  const [versions, setVersions] = useState([]);
   const [loadingDraft, setLoadingDraft] = useState(false);
-  const [loadingVersions, setLoadingVersions] = useState(false);
   const [notice, setNotice] = useState(null);
   const [emailInput, setEmailInput] = useState("");
   const [working, setWorking] = useState(false);
   const [promptingSubscriberId, setPromptingSubscriberId] = useState("");
-  const [saveState, setSaveState] = useState("Idle");
-  const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
+  const [saveState, setSaveState] = useState("saved");
   const baselineRef = useRef("");
+  const draftRef = useRef(null);
   const photoMetadataSyncRef = useRef({});
-  const isContentSection = activeSection === "faces" || activeSection === "papers" || activeSection === "travel" || activeSection === "photography";
+  const isContentSection = CONTENT_KINDS.includes(activeSection);
   const activeItems = isContentSection ? (lists[activeSection] || []) : [];
   const draftId = isContentSection ? selectedIds[activeSection] : "";
   const canEdit = authState.isAdmin && isContentSection && draftId;
   const canBuildPreview = canEdit && (activeSection === "faces" || activeSection === "travel" || activeSection === "photography");
+  const draftIsLive = isLive(draft);
+  const dismissNotice = useCallback(() => setNotice(null), []);
+
+  draftRef.current = draft;
 
   async function syncPhotographyMediaMetadata(sourceDraft, options = {}) {
     if (activeSection !== "photography" || !authState.user || !sourceDraft) {
@@ -2267,6 +1267,50 @@ export default function AdminApp() {
       throw new Error(failed[0].message);
     }
     return { synced, failed };
+  }
+
+  // Saves the open item right now. Returns the saved (hydrated) draft.
+  async function saveNow() {
+    const current = draftRef.current;
+    if (!canEdit || !current) return null;
+    setSaveState("saving");
+    try {
+      const photoSync = activeSection === "photography" ? await syncPhotographyMediaMetadata(current) : { failed: [] };
+      await saveDraft(activeSection, draftId, current, authState.user);
+      baselineRef.current = fingerprint(current);
+      setSaveState("saved");
+      if (photoSync.failed?.length) {
+        setNotice({ tone: "warning", message: `Saved. ${photoSync.failed.length} photo detail${photoSync.failed.length === 1 ? "" : "s"} could not sync to the Media Library.` });
+      }
+      return current;
+    } catch (error) {
+      setSaveState("error");
+      setNotice({ tone: "error", message: error.message || "Save failed." });
+      throw error;
+    }
+  }
+
+  async function reloadDraft() {
+    const loaded = await getDraft(activeSection, draftId);
+    const hydrated = hydrateDraft(activeSection, loaded || {});
+    setDraft(hydrated);
+    baselineRef.current = fingerprint(hydrated);
+    setSaveState("saved");
+    return hydrated;
+  }
+
+  // Section is remembered in the URL hash so refresh and the back button keep your place.
+  useEffect(() => {
+    setActiveSection(sectionFromHash());
+    const onHash = () => setActiveSection(sectionFromHash());
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
+
+  function navigate(section) {
+    setActiveSection(section);
+    if (typeof window !== "undefined") window.history.replaceState(null, "", `#${section}`);
+    window.scrollTo?.({ top: 0 });
   }
 
   useEffect(() => {
@@ -2310,6 +1354,16 @@ export default function AdminApp() {
     };
   }, []);
 
+  // Keep the admin's own visits out of the public analytics.
+  useEffect(() => {
+    if (!authState.isAdmin) return;
+    try {
+      window.localStorage.setItem("sfa-no-track", "1");
+    } catch {
+      // Storage can be unavailable in private windows; analytics just counts this browser.
+    }
+  }, [authState.isAdmin]);
+
   useEffect(() => {
     if (!authState.isAdmin) return undefined;
     const unsubscribers = CONTENT_KINDS.map((kind) => subscribeDraftList(kind, (items) => {
@@ -2342,13 +1396,15 @@ export default function AdminApp() {
         reading: String(config?.reading || ""),
         email: String(config?.email || ""),
       });
-    }, (error) => setNotice({ tone: "error", message: `Site assets failed to load: ${error.message}` }));
+    }, (error) => setNotice({ tone: "error", message: `Site settings failed to load: ${error.message}` }));
     const unsubscribePhotographyFeatured = subscribePhotographyFeaturedConfig((config) => {
       setPhotographyFeaturedConfig({ items: Array.isArray(config?.items) ? config.items : [] });
     }, (error) => setNotice({ tone: "error", message: `Photography featured failed to load: ${error.message}` }));
-    const unsubscribeEmailSends = subscribeEmailSends(setEmailSends, (error) => setNotice({ tone: "error", message: `Send history failed to load: ${error.message}` }));
+    const unsubscribeEmailSends = subscribeEmailSends(setEmailSends, (error) => setNotice({ tone: "error", message: `Email history failed to load: ${error.message}` }));
+    const unsubscribeSystemEmails = subscribeSystemEmails(setSystemEmails, () => setSystemEmails([]));
+    const unsubscribeAnalytics = subscribeAnalytics(190, setAnalytics, () => setAnalytics([]));
     const unsubscribeInvites = subscribeWritingInvites(setInvites, (error) => setNotice({ tone: "error", message: `Invite codes failed to load: ${error.message}` }));
-    unsubscribers.push(unsubscribeInvites, unsubscribeMedia, unsubscribeSubscribers, unsubscribeSectionMedia, unsubscribePhotographyFeatured, unsubscribeEmailSends);
+    unsubscribers.push(unsubscribeInvites, unsubscribeMedia, unsubscribeSubscribers, unsubscribeSectionMedia, unsubscribePhotographyFeatured, unsubscribeEmailSends, unsubscribeSystemEmails, unsubscribeAnalytics);
     return () => unsubscribers.forEach((unsubscribe) => typeof unsubscribe === "function" && unsubscribe());
   }, [authState.isAdmin, authState.user?.uid, authState.claims?.iat]);
 
@@ -2364,84 +1420,67 @@ export default function AdminApp() {
   }, [activeItems, activeSection, isContentSection, selectedIds]);
 
   useEffect(() => {
-    if (!isContentSection) {
+    if (!isContentSection || !draftId) {
       setDraft(null);
-      setVersions([]);
       baselineRef.current = "";
-      return;
-    }
-    if (!draftId) {
-      setDraft(null);
-      setVersions([]);
-      baselineRef.current = "";
-      return;
+      return undefined;
     }
     let active = true;
     setLoadingDraft(true);
-    setLoadingVersions(true);
     getDraft(activeSection, draftId)
       .then((loaded) => {
         if (!active) return;
         const hydrated = hydrateDraft(activeSection, loaded || {});
         setDraft(hydrated);
         baselineRef.current = fingerprint(hydrated);
+        setSaveState("saved");
       })
       .catch((error) => {
-        if (active) setNotice({ tone: "error", message: error.message || "Draft could not be loaded." });
+        if (active) setNotice({ tone: "error", message: error.message || "Item could not be loaded." });
       })
       .finally(() => {
         if (active) setLoadingDraft(false);
-      });
-    listVersions(activeSection, draftId)
-      .then((loaded) => {
-        if (active) setVersions(loaded);
-      })
-      .catch((error) => {
-        if (active) setNotice({ tone: "error", message: error.message || "Version history could not be loaded." });
-      })
-      .finally(() => {
-        if (active) setLoadingVersions(false);
       });
     return () => {
       active = false;
     };
   }, [activeSection, draftId, isContentSection]);
 
+  // Autosave: every edit is saved a moment after you stop typing.
   useEffect(() => {
     if (!canEdit || !draft || typeof window === "undefined") return undefined;
     const currentFingerprint = fingerprint(draft);
     if (!baselineRef.current || currentFingerprint === baselineRef.current) return undefined;
-    const timeout = window.setTimeout(async () => {
-      try {
-        setSaveState("Autosaving...");
-        if (activeSection === "photography") {
-          await syncPhotographyMediaMetadata(draft);
-        }
-        await saveDraft(activeSection, draftId, draft, authState.user, { captureVersion: false, reason: "autosave" });
-        baselineRef.current = currentFingerprint;
-        setSaveState(`Autosaved ${new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`);
-      } catch (error) {
-        setSaveState("Autosave failed");
-        setNotice({ tone: "error", message: error.message || "Autosave failed." });
-      }
+    setSaveState("dirty");
+    const timeout = window.setTimeout(() => {
+      saveNow().catch(() => undefined);
     }, 1200);
     return () => window.clearTimeout(timeout);
   }, [draft, canEdit, activeSection, draftId, authState.user]);
 
+  // Warn before closing the tab while an edit has not been written yet.
   useEffect(() => {
-    if (activeSection !== "photography") {
-      if (selectedPhotoIndex !== 0) setSelectedPhotoIndex(0);
-      return;
-    }
-    const photos = Array.isArray(draft?.photos) ? draft.photos : [];
-    if (!photos.length) {
-      if (selectedPhotoIndex !== 0) setSelectedPhotoIndex(0);
-      return;
-    }
-    if (selectedPhotoIndex >= photos.length) {
-      setSelectedPhotoIndex(photos.length - 1);
-    }
-  }, [activeSection, draft, selectedPhotoIndex]);
+    const onBeforeUnload = (event) => {
+      if (saveState === "dirty" || saveState === "saving") {
+        event.preventDefault();
+        event.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [saveState]);
+
+  // Ctrl/Cmd+S saves immediately.
+  useEffect(() => {
+    const onKey = (event) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
+        event.preventDefault();
+        if (canEdit && draftRef.current) saveNow().catch(() => undefined);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
 
   const totals = useMemo(() => ({
     faces: lists.faces.length,
@@ -2567,10 +1606,7 @@ export default function AdminApp() {
     try {
       setWorking(true);
       await rotateWritingShareKey(draftId);
-      const loaded = await getDraft(activeSection, draftId);
-      const hydrated = hydrateDraft(activeSection, loaded || {});
-      setDraft(hydrated);
-      baselineRef.current = fingerprint(hydrated);
+      await reloadDraft();
       setNotice({ tone: "success", message: "Share link reset. Copy the new link below." });
     } catch (error) {
       setNotice({ tone: "error", message: error.message || "Share link could not be reset." });
@@ -2582,64 +1618,49 @@ export default function AdminApp() {
   async function handleCreate(kind) {
     try {
       setWorking(true);
+      if (canEdit && saveState === "dirty") await saveNow();
       const id = await createDraft(kind, authState.user);
       setSelectedIds((current) => ({ ...current, [kind]: id }));
-      setActiveSection(kind);
-      setNotice({ tone: "success", message: `${CONTENT_LABELS[kind]} draft created.` });
+      navigate(kind);
+      setNotice({ tone: "success", message: `New ${KIND_ITEM_NOUN[kind]} created. Fill it in and publish when you are ready.` });
     } catch (error) {
-      setNotice({ tone: "error", message: error.message || "Draft could not be created." });
+      setNotice({ tone: "error", message: error.message || "Could not create the item." });
     } finally {
       setWorking(false);
     }
   }
 
-  async function handleManualSave(reason = "manual-save") {
-    if (!canEdit || !draft) return;
-    try {
-      setWorking(true);
-      const photoSync = activeSection === "photography" ? await syncPhotographyMediaMetadata(draft) : { failed: [] };
-      await saveDraft(activeSection, draftId, draft, authState.user, { captureVersion: true, reason });
-      const hydrated = hydrateDraft(activeSection, stampDraftLocally(draft, authState.user));
-      setDraft(hydrated);
-      baselineRef.current = fingerprint(hydrated);
-      setSaveState(`Saved ${new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`);
-      setVersions(await listVersions(activeSection, draftId));
-      setNotice({
-        tone: photoSync.failed?.length ? "warning" : "success",
-        message: photoSync.failed?.length
-          ? `Draft saved. ${photoSync.failed.length} linked media item${photoSync.failed.length === 1 ? "" : "s"} could not sync metadata.`
-          : "Draft saved.",
-      });
-      return true;
-    } catch (error) {
-      setNotice({ tone: "error", message: error.message || "Draft save failed." });
-      throw error;
-    } finally {
-      setWorking(false);
-    }
+  function describeItem() {
+    return itemTitle(draft);
   }
 
   async function handlePublish() {
     if (!canEdit || !draft) return;
+    if (!String(draft.title || draft.profileName || "").trim()) {
+      setNotice({ tone: "warning", message: "Give it a title before publishing." });
+      return;
+    }
     if ((activeSection === "faces" || activeSection === "travel") && !validateCoordinates(draft.longitude, draft.latitude).isValid) {
       setNotice({ tone: "warning", message: "Fix the longitude and latitude before publishing. If they look reversed, use the swap button in the form." });
       return;
     }
+    const wasLive = draftIsLive;
     const confirmed =
       typeof window === "undefined"
         ? true
-        : window.confirm(`Publish "${draft.title || draft.profileName || draft.locationName || "this item"}" to the live site?`);
+        : window.confirm(wasLive ? `Update "${describeItem()}" on the live site?` : `Publish "${describeItem()}" to the live site?`);
     if (!confirmed) return;
     try {
       setWorking(true);
-      await handleManualSave("pre-publish");
+      await saveNow();
       const result = await publishDraft(activeSection, draftId);
-      setNotice({ tone: "success", message: result?.message || "Published to the public collection." });
-      const loaded = await getDraft(activeSection, draftId);
-      const hydrated = hydrateDraft(activeSection, loaded || {});
-      setDraft(hydrated);
-      baselineRef.current = fingerprint(hydrated);
-      setVersions(await listVersions(activeSection, draftId));
+      const reloaded = await reloadDraft();
+      const url = liveUrl(activeSection, reloaded);
+      const canEmail = !(activeSection === "papers" && reloaded.audience && reloaded.audience !== "public");
+      const actions = [];
+      if (url) actions.push({ label: "View live page", onClick: () => window.open(url, "_blank", "noopener") });
+      if (canEmail) actions.push({ label: "Email subscribers", onClick: () => handleOpenEmailComposer(reloaded) });
+      setNotice({ tone: "success", message: wasLive ? "Live site updated." : (result?.message || "Published."), actions });
     } catch (error) {
       setNotice({ tone: "error", message: error.message || "Publish failed." });
     } finally {
@@ -2647,15 +1668,15 @@ export default function AdminApp() {
     }
   }
 
-  function handleOpenEmailComposer() {
-    if (!draft) return;
-    const image = draft.portrait?.url || draft.hero?.url || draft.photos?.[0]?.url || draft.coverPhoto?.url || "";
+  function handleOpenEmailComposer(source = draft) {
+    if (!source) return;
+    const image = source.portrait?.url || source.hero?.url || source.photos?.[0]?.url || source.coverPhoto?.url || "";
     setEmailComposer({
       kind: activeSection,
       item: {
         id: draftId,
-        title: draft.title || draft.profileName || draft.locationName || "Untitled",
-        subtitle: draft.subtitle || draft.locationName || "",
+        title: source.title || source.profileName || source.locationName || "Untitled",
+        subtitle: source.subtitle || source.locationName || "",
         image,
       },
     });
@@ -2671,43 +1692,22 @@ export default function AdminApp() {
       const result = await sendContentBroadcast(payload);
       if (payload.testEmail) {
         setNotice({ tone: "success", message: `Test email sent to ${payload.testEmail}.` });
+      } else if (result?.failed) {
+        setNotice({
+          tone: "warning",
+          message: `${result.succeeded} of ${result.recipientCount} emails were accepted; ${result.failed} failed. See Emails for details.`,
+          actions: [{ label: "View delivery", onClick: () => navigate("emails") }],
+        });
       } else {
-        setNotice({ tone: "success", message: `Sent to ${result?.recipientCount || 0} subscriber(s).` });
+        setNotice({
+          tone: "success",
+          message: `Sent to ${result?.recipientCount || 0} subscriber${result?.recipientCount === 1 ? "" : "s"}.`,
+          actions: [{ label: "View delivery", onClick: () => navigate("emails") }],
+        });
       }
       return result;
     } finally {
       setSendingBroadcast(false);
-    }
-  }
-
-  async function handleSchedule() {
-    if (!canEdit || !draft?.scheduledPublishAt) {
-      setNotice({ tone: "warning", message: "Set a future publish date and time before scheduling." });
-      return;
-    }
-    if ((activeSection === "faces" || activeSection === "travel") && !validateCoordinates(draft.longitude, draft.latitude).isValid) {
-      setNotice({ tone: "warning", message: "Fix the longitude and latitude before scheduling. If they look reversed, use the swap button in the form." });
-      return;
-    }
-    const confirmed =
-      typeof window === "undefined"
-        ? true
-        : window.confirm(`Schedule "${draft.title || draft.profileName || draft.locationName || "this item"}" to publish automatically?`);
-    if (!confirmed) return;
-    try {
-      setWorking(true);
-      await handleManualSave("pre-schedule");
-      const result = await scheduleDraft(activeSection, draftId, draft.scheduledPublishAt);
-      setNotice({ tone: "success", message: result?.message || "Draft scheduled." });
-      const loaded = await getDraft(activeSection, draftId);
-      const hydrated = hydrateDraft(activeSection, loaded || {});
-      setDraft(hydrated);
-      baselineRef.current = fingerprint(hydrated);
-      setVersions(await listVersions(activeSection, draftId));
-    } catch (error) {
-      setNotice({ tone: "error", message: error.message || "Schedule failed." });
-    } finally {
-      setWorking(false);
     }
   }
 
@@ -2716,36 +1716,16 @@ export default function AdminApp() {
     const confirmed =
       typeof window === "undefined"
         ? true
-        : window.confirm(`Remove "${draft.title || draft.profileName || draft.locationName || "this item"}" from the live site? It will no longer be visible to visitors.`);
+        : window.confirm(`Take "${describeItem()}" off the live site? Visitors will no longer see it. You can publish it again any time.`);
     if (!confirmed) return;
     try {
       setWorking(true);
+      await saveNow();
       const result = await unpublishDraft(activeSection, draftId);
-      setNotice({ tone: "success", message: result?.message || "Public content removed." });
-      const loaded = await getDraft(activeSection, draftId);
-      const hydrated = hydrateDraft(activeSection, loaded || {});
-      setDraft(hydrated);
-      baselineRef.current = fingerprint(hydrated);
-      setVersions(await listVersions(activeSection, draftId));
+      await reloadDraft();
+      setNotice({ tone: "success", message: result?.message || "Taken off the live site." });
     } catch (error) {
       setNotice({ tone: "error", message: error.message || "Unpublish failed." });
-    } finally {
-      setWorking(false);
-    }
-  }
-
-  async function handleRestoreVersion(versionId) {
-    if (!canEdit) return;
-    try {
-      setWorking(true);
-      const restored = await restoreVersion(activeSection, draftId, versionId, authState.user);
-      const hydrated = hydrateDraft(activeSection, restored);
-      setDraft(hydrated);
-      baselineRef.current = fingerprint(hydrated);
-      setVersions(await listVersions(activeSection, draftId));
-      setNotice({ tone: "success", message: "Version restored into the active draft." });
-    } catch (error) {
-      setNotice({ tone: "error", message: error.message || "Restore failed." });
     } finally {
       setWorking(false);
     }
@@ -2754,7 +1734,7 @@ export default function AdminApp() {
   async function handleUpload(file, context) {
     try {
       const asset = await uploadMediaAsset(file, authState.user, context);
-      setNotice({ tone: "success", message: `${file.name} uploaded to the media library.` });
+      setNotice({ tone: "success", message: `${file.name} uploaded.` });
       return asset;
     } catch (error) {
       setNotice({ tone: "error", message: error.message || "Upload failed." });
@@ -2769,10 +1749,10 @@ export default function AdminApp() {
       if (asset?.id) {
         photoMetadataSyncRef.current[asset.id] = JSON.stringify(mediaLibraryMetadataFromPhoto(asset));
       }
-      setNotice({ tone: "success", message: "Media metadata saved." });
+      setNotice({ tone: "success", message: "Media details saved." });
       return asset;
     } catch (error) {
-      setNotice({ tone: "error", message: error.message || "Media metadata could not be saved." });
+      setNotice({ tone: "error", message: error.message || "Media details could not be saved." });
       throw error;
     } finally {
       setWorking(false);
@@ -2807,9 +1787,9 @@ export default function AdminApp() {
         reading: String(saved?.reading || ""),
         email: String(saved?.email || ""),
       });
-      setNotice({ tone: "success", message: "Site assets saved." });
+      setNotice({ tone: "success", message: "Site settings saved." });
     } catch (error) {
-      setNotice({ tone: "error", message: error.message || "Site assets could not be saved." });
+      setNotice({ tone: "error", message: error.message || "Site settings could not be saved." });
     } finally {
       setWorking(false);
     }
@@ -2832,9 +1812,9 @@ export default function AdminApp() {
     try {
       setWorking(true);
       const result = await repairCoordinates();
-      setNotice({ tone: "success", message: result?.message || "Coordinate repair completed." });
+      setNotice({ tone: "success", message: result?.message || "Map pins repaired." });
     } catch (error) {
-      setNotice({ tone: "error", message: error.message || "Coordinate repair failed." });
+      setNotice({ tone: "error", message: error.message || "Map pin repair failed." });
     } finally {
       setWorking(false);
     }
@@ -2842,24 +1822,22 @@ export default function AdminApp() {
 
   async function handleDeleteDraft() {
     if (!canEdit || !draftId) return;
-    if (draft?.status === "published" || draft?.publishedRecord?.slug) {
-      setNotice({ tone: "warning", message: "Unpublish this item before deleting its draft record." });
+    if (draftIsLive) {
+      setNotice({ tone: "warning", message: "Take this off the live site (More > Take off live site) before deleting it." });
       return;
     }
-    const label = draft?.title || draft?.profileName || draft?.locationName || "this draft";
-    const confirmed = typeof window === "undefined" ? true : window.confirm(`Delete "${label}"? This removes the draft and its version history.`);
+    const confirmed = typeof window === "undefined" ? true : window.confirm(`Delete "${describeItem()}"? This cannot be undone.`);
     if (!confirmed) return;
     try {
       setWorking(true);
       await deleteDraftRecord(activeSection, draftId);
       baselineRef.current = "";
       setDraft(null);
-      setVersions([]);
       setSelectedIds((current) => ({ ...current, [activeSection]: "" }));
-      setSaveState("Idle");
-      setNotice({ tone: "success", message: "Draft deleted." });
+      setSaveState("saved");
+      setNotice({ tone: "success", message: "Deleted." });
     } catch (error) {
-      setNotice({ tone: "error", message: error.message || "Draft could not be deleted." });
+      setNotice({ tone: "error", message: error.message || "Could not delete the item." });
     } finally {
       setWorking(false);
     }
@@ -2918,27 +1896,17 @@ export default function AdminApp() {
         window.open(`${basePath}photography?adminPreview=1&shoot=${encodeURIComponent(preview.slug)}`, "_blank", "noopener");
       }
     } catch (error) {
-      setNotice({ tone: "error", message: error.message || "Preview build failed." });
+      setNotice({ tone: "error", message: error.message || "Preview could not be built." });
     }
   }
 
   function renderActiveForm() {
-    if (!draft) return <p className="admin-empty-inline">Create or select a draft to start editing.</p>;
-    if (activeSection === "faces") return <FacesForm draft={draft} onChange={(next) => setDraft(hydrateDraft("faces", next))} onUpload={handleUpload} assets={mediaAssets} />;
-    if (activeSection === "papers") return <PapersForm draft={draft} onChange={(next) => setDraft(hydrateDraft("papers", next))} onUpload={handleUpload} assets={mediaAssets} paperTypeOptions={paperTypeOptions} onRotateShareKey={handleRotateShareKey} />;
-    if (activeSection === "travel") return <TravelForm draft={draft} onChange={(next) => setDraft(hydrateDraft("travel", next))} onUpload={handleUpload} assets={mediaAssets} />;
-    if (activeSection === "photography") {
-      return (
-        <PhotographyForm
-          draft={draft}
-          onChange={(next) => setDraft(hydrateDraft("photography", next))}
-          onUpload={handleUpload}
-          assets={mediaAssets}
-          selectedPhotoIndex={selectedPhotoIndex}
-          onSelectPhoto={setSelectedPhotoIndex}
-        />
-      );
-    }
+    if (!draft) return null;
+    const update = (kind) => (next) => setDraft(hydrateDraft(kind, next));
+    if (activeSection === "faces") return <FacesForm draft={draft} onChange={update("faces")} onUpload={handleUpload} assets={mediaAssets} />;
+    if (activeSection === "papers") return <PapersForm draft={draft} onChange={update("papers")} onUpload={handleUpload} assets={mediaAssets} paperTypeOptions={paperTypeOptions} onRotateShareKey={handleRotateShareKey} />;
+    if (activeSection === "travel") return <TravelForm draft={draft} onChange={update("travel")} onUpload={handleUpload} assets={mediaAssets} />;
+    if (activeSection === "photography") return <PhotographyForm draft={draft} onChange={update("photography")} onUpload={handleUpload} assets={mediaAssets} />;
     return null;
   }
 
@@ -2951,11 +1919,11 @@ export default function AdminApp() {
       <main className="admin-auth-shell">
         <section className="admin-auth-card">
           <p className="admin-auth-kicker">Stories From Abroad</p>
-          <h1>Admin CMS</h1>
-          <p className="admin-auth-copy">Passwordless Firebase sign-in for the protected editorial workspace.</p>
-          <input className="admin-input" type="email" value={emailInput} placeholder="you@example.com" onChange={(event) => setEmailInput(event.target.value)} />
-          <button type="button" className="admin-primary-button wide" onClick={handleSendLink}>Send admin sign-in link</button>
-          <Notice notice={notice} onDismiss={() => setNotice(null)} />
+          <h1>Admin</h1>
+          <p className="admin-auth-copy">Enter your email and we will send you a one-tap sign-in link.</p>
+          <input className="admin-input" type="email" value={emailInput} placeholder="you@example.com" onChange={(event) => setEmailInput(event.target.value)} onKeyDown={(event) => event.key === "Enter" && handleSendLink()} />
+          <button type="button" className="admin-primary-button wide" onClick={handleSendLink}>Send sign-in link</button>
+          <Notice notice={notice} onDismiss={dismissNotice} />
           {authState.error ? <p className="admin-inline-error">{authState.error}</p> : null}
         </section>
       </main>
@@ -2967,34 +1935,42 @@ export default function AdminApp() {
       <main className="admin-auth-shell">
         <section className="admin-auth-card">
           <p className="admin-auth-kicker">Signed in as {authState.user.email}</p>
-          <h1>Admin claim required</h1>
-          <p className="admin-auth-copy">This account is authenticated but does not yet have the `admin` custom claim. If your email is in the bootstrap allowlist, the button below will attach it.</p>
+          <h1>Admin access needed</h1>
+          <p className="admin-auth-copy">This account is signed in but does not have admin access yet. If your email is on the approved list, the button below will turn it on.</p>
           <div className="admin-button-row stacked">
             <button type="button" className="admin-primary-button wide" onClick={handleClaimAdmin} disabled={working}>Claim admin access</button>
             <button type="button" className="admin-secondary-button wide" onClick={() => refreshSession(true)}>Refresh session</button>
             <button type="button" className="admin-secondary-button wide" onClick={() => signOutAdmin()}>Sign out</button>
           </div>
-          <Notice notice={notice} onDismiss={() => setNotice(null)} />
+          <Notice notice={notice} onDismiss={dismissNotice} />
           {authState.error ? <p className="admin-inline-error">{authState.error}</p> : null}
         </section>
       </main>
     );
   }
 
+  const saveLabel = { saved: "All changes saved", saving: "Saving…", dirty: "Unsaved changes", error: "Save failed" }[saveState];
+  const viewUrl = canEdit && draft && draftIsLive ? liveUrl(activeSection, draft) : "";
+  const emailEligible = canEdit && draft && draftIsLive && !(activeSection === "papers" && draft.audience && draft.audience !== "public");
+
   return (
     <main className="admin-shell">
       <aside className="admin-sidebar">
         <div className="admin-brand">
           <p>Stories From Abroad</p>
-          <h1>Admin CRM v1</h1>
-          <span>Content-first release</span>
+          <h1>Admin</h1>
         </div>
-        <nav className="admin-nav">
-          {NAV_ITEMS.map((item) => (
-            <button key={item.id} type="button" className={`admin-nav-item${activeSection === item.id ? " is-active" : ""}`} onClick={() => setActiveSection(item.id)}>
-              <span>{item.label}</span>
-              {totals[item.id] ? <small>{totals[item.id]}</small> : null}
-            </button>
+        <nav className="admin-nav" aria-label="Admin sections">
+          {NAV_GROUPS.map((group) => (
+            <div className="admin-nav-group" key={group.label}>
+              <span className="admin-nav-label">{group.label}</span>
+              {group.items.map((item) => (
+                <button key={item.id} type="button" className={`admin-nav-item${activeSection === item.id ? " is-active" : ""}`} onClick={() => navigate(item.id)} aria-current={activeSection === item.id ? "page" : undefined}>
+                  <span>{item.label}</span>
+                  {totals[item.id] ? <small>{totals[item.id]}</small> : null}
+                </button>
+              ))}
+            </div>
           ))}
         </nav>
         <div className="admin-sidebar-footer">
@@ -3002,28 +1978,22 @@ export default function AdminApp() {
           <button type="button" className="admin-mini-button" onClick={() => signOutAdmin()}>Sign out</button>
         </div>
       </aside>
+
       <section className="admin-main">
-        <header className="admin-topbar">
-          <div>
-            <p className="admin-topbar-kicker">Protected editorial workspace</p>
-            <h2>{activeSection === "dashboard" ? "Dashboard" : activeSection === "media" ? "Media Library" : activeSection === "site-assets" ? "Site Assets" : activeSection === "subscribers" ? "Subscribers" : activeSection === "broadcasts" ? "Broadcasts" : activeSection === "invites" ? "Invite Codes" : CONTENT_LABELS[activeSection]}</h2>
-          </div>
-          <div className="admin-topbar-actions">
-            {isContentSection && draft ? <StatusPill status={draft.status || "draft"} /> : null}
-            {isContentSection ? <span className="admin-save-state">{saveState}</span> : null}
-            {canEdit ? <button type="button" className="admin-secondary-button" onClick={() => handleManualSave()} disabled={working || loadingDraft}>Save version</button> : null}
-            {canBuildPreview ? <button type="button" className="admin-secondary-button" onClick={handleBuildPreview} disabled={working || loadingDraft}>Build Preview</button> : null}
-            {canEdit ? <button type="button" className="admin-primary-button" onClick={handlePublish} disabled={working || loadingDraft}>Publish now</button> : null}
-            {canEdit && draft && !(activeSection === "papers" && draft.audience && draft.audience !== "public") && (draft.status === "published" || draft.publishedRecord?.slug) ? <button type="button" className="admin-secondary-button" onClick={handleOpenEmailComposer} disabled={working || loadingDraft}>Send Email</button> : null}
-            {canEdit ? <button type="button" className="admin-secondary-button" onClick={handleSchedule} disabled={working || loadingDraft}>Schedule</button> : null}
-            {canEdit ? <button type="button" className="admin-secondary-button danger" onClick={handleUnpublish} disabled={working || loadingDraft}>Unpublish</button> : null}
-            {canEdit ? <button type="button" className="admin-secondary-button danger" onClick={handleDeleteDraft} disabled={working || loadingDraft}>Delete draft</button> : null}
-          </div>
-        </header>
-        <Notice notice={notice} onDismiss={() => setNotice(null)} />
-        {activeSection === "dashboard" ? <Dashboard lists={lists} onCreate={handleCreate} onJump={(kind, id) => { setActiveSection(kind); setSelectedIds((current) => ({ ...current, [kind]: id })); }} /> : null}
+        {!isContentSection ? (
+          <header className="admin-topbar">
+            <h2>{SECTION_TITLES[activeSection]}</h2>
+          </header>
+        ) : null}
+
+        <Notice notice={notice} onDismiss={dismissNotice} />
+
+        {activeSection === "dashboard" ? (
+          <Dashboard lists={lists} analytics={analytics} subscribers={subscribers} emailSends={emailSends} systemEmails={systemEmails} onCreate={handleCreate} onNavigate={navigate} onJump={(kind, id) => { setSelectedIds((current) => ({ ...current, [kind]: id })); navigate(kind); }} />
+        ) : null}
+        {activeSection === "analytics" ? <AnalyticsPanel analytics={analytics} subscribers={subscribers} emailSends={emailSends} lists={lists} verifiedOnly={isSubscriberVerified} /> : null}
         {activeSection === "subscribers" ? <SubscribersPanel subscribers={subscribers} onPromptVerify={handlePromptSubscriberVerify} promptingId={promptingSubscriberId} /> : null}
-        {activeSection === "broadcasts" ? <BroadcastsPanel subscribers={subscribers} emailSends={emailSends} onCompose={handleOpenGeneralComposer} working={sendingBroadcast} /> : null}
+        {activeSection === "emails" ? <EmailsPanel subscribers={subscribers} emailSends={emailSends} systemEmails={systemEmails} onCompose={handleOpenGeneralComposer} working={sendingBroadcast} verifiedOnly={isSubscriberVerified} /> : null}
         {activeSection === "invites" ? <InviteCodesPanel invites={invites} onCreate={handleCreateInvite} onToggle={handleToggleInvite} onDelete={handleDeleteInvite} /> : null}
         {activeSection === "media" ? <MediaLibrary assets={mediaAssets} onUpload={handleUpload} onSaveMetadata={handleSaveMediaMetadata} onDeleteAsset={handleDeleteMediaAsset} /> : null}
         {activeSection === "site-assets" ? (
@@ -3037,47 +2007,60 @@ export default function AdminApp() {
             saving={working}
           />
         ) : null}
+
         {isContentSection ? (
-          <>
-            {activeSection === "photography" ? (
-              <PhotographyFeaturedManager
-                config={photographyFeaturedConfig}
-                options={photographyFeaturedOptions}
-                onChange={setPhotographyFeaturedConfig}
-                onSave={handleSavePhotographyFeatured}
-                saving={working}
-              />
-            ) : null}
-            <section className="admin-editor-grid">
-              <CollectionList kind={activeSection} items={lists[activeSection] || []} selectedId={draftId} onSelect={(id) => setSelectedIds((current) => ({ ...current, [activeSection]: id }))} onCreate={handleCreate} />
-              <section className="admin-panel admin-editor-panel">
-                <div className="admin-panel-head">
-                  <div>
-                    <h2>{draft?.title || draft?.profileName || draft?.locationName || "Untitled draft"}</h2>
-                    <p>
-                      Last updated {draft?.updatedAt ? formatStamp(draft.updatedAt) : "not yet"}
-                      {draft?.publishedRecord?.slug ? ` | public slug ${draft.publishedRecord.slug}` : ""}
-                    </p>
-                  </div>
-                </div>
-                {loadingDraft ? <p className="admin-empty-inline">Loading draft...</p> : renderActiveForm()}
-              </section>
-              <div className="admin-aside-stack">
-                {draft ? (
-                  <DraftInspectorPanel
-                    kind={activeSection}
-                    draft={draft}
-                    onChange={(next) => setDraft(hydrateDraft(activeSection, next))}
-                    selectedPhotoIndex={selectedPhotoIndex}
-                    onSelectPhoto={setSelectedPhotoIndex}
-                  />
-                ) : null}
-                <VersionsPanel versions={versions} onRestore={handleRestoreVersion} loading={loadingVersions} />
-              </div>
-            </section>
-          </>
+          <div className="admin-editor-layout">
+            <CollectionList kind={activeSection} items={activeItems} selectedId={draftId} creating={working} onSelect={(id) => setSelectedIds((current) => ({ ...current, [activeSection]: id }))} onCreate={handleCreate} />
+            <div className="admin-editor-main">
+              {draft ? (
+                <>
+                  <header className="admin-actionbar">
+                    <div className="admin-actionbar-title">
+                      <p className="admin-kicker">{CONTENT_LABELS[activeSection]}</p>
+                      <h2>{describeItem()}</h2>
+                      <div className="admin-actionbar-meta">
+                        <StatusPill status={draftIsLive ? "published" : "draft"} />
+                        <span className={`admin-save-state is-${saveState}`}>{saveLabel}</span>
+                        {draft.updatedAt ? <span className="admin-save-state">Edited {formatRelative(draft.updatedAt)}</span> : null}
+                      </div>
+                    </div>
+                    <div className="admin-actionbar-buttons">
+                      {canBuildPreview ? <button type="button" className="admin-secondary-button" onClick={handleBuildPreview} disabled={working || loadingDraft}>Preview</button> : null}
+                      {viewUrl ? <a className="admin-secondary-button" href={viewUrl} target="_blank" rel="noopener noreferrer">View live</a> : null}
+                      {emailEligible ? <button type="button" className="admin-secondary-button" onClick={() => handleOpenEmailComposer()} disabled={working || loadingDraft}>Email subscribers</button> : null}
+                      <button type="button" className="admin-primary-button" onClick={handlePublish} disabled={working || loadingDraft}>{draftIsLive ? "Update live site" : "Publish"}</button>
+                      <MoreMenu>
+                        <MenuItem onClick={() => saveNow().catch(() => undefined)} disabled={working || saveState === "saved"}>Save now (Ctrl+S)</MenuItem>
+                        {draftIsLive ? <MenuItem onClick={handleUnpublish} danger disabled={working}>Take off live site</MenuItem> : null}
+                        <MenuItem onClick={handleDeleteDraft} danger disabled={working}>Delete</MenuItem>
+                      </MoreMenu>
+                    </div>
+                  </header>
+                  {loadingDraft ? <p className="admin-empty-inline">Loading&hellip;</p> : renderActiveForm()}
+                  <DraftNotes draft={draft} onChange={(next) => setDraft(hydrateDraft(activeSection, next))} />
+                  {activeSection === "photography" ? (
+                    <PhotographyFeaturedManager
+                      config={photographyFeaturedConfig}
+                      options={photographyFeaturedOptions}
+                      onChange={setPhotographyFeaturedConfig}
+                      onSave={handleSavePhotographyFeatured}
+                      saving={working}
+                    />
+                  ) : null}
+                </>
+              ) : (
+                <EmptyState
+                  title={activeItems.length ? "Select an item to edit" : `No ${KIND_ITEM_NOUN[activeSection]}s yet`}
+                  action={<button type="button" className="admin-primary-button" onClick={() => handleCreate(activeSection)} disabled={working}>{NEW_LABELS[activeSection]}</button>}
+                >
+                  {activeItems.length ? "Choose one from the list, or start a new one." : "Create your first one to get started."}
+                </EmptyState>
+              )}
+            </div>
+          </div>
         ) : null}
       </section>
+
       <EmailComposerModal
         open={Boolean(emailComposer)}
         kind={emailComposer?.kind}
@@ -3085,6 +2068,9 @@ export default function AdminApp() {
         subscribers={subscribers}
         authEmail={authState.user?.email || ""}
         working={sendingBroadcast}
+        assets={mediaAssets}
+        onUpload={handleUpload}
+        verifiedOnly={isSubscriberVerified}
         onClose={() => setEmailComposer(null)}
         onSend={handleSendBroadcast}
       />

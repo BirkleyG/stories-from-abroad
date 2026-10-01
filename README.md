@@ -279,3 +279,11 @@ src/
   styles/
     global.css
 ```
+
+## Admin: email tracking and analytics
+
+- Every broadcast is logged in `email_sends` (status `sending` / `sent` / `partial` / `failed`) with one `email_recipients` doc per subscriber. Sign-in emails are logged in `email_log`. All are shown under **Emails** in the admin.
+- Opens are counted by a 1x1 pixel served by the `emailOpen` function.
+- Optional delivered / bounced / clicked status: in Resend, add a webhook pointing at `https://us-central1-<project>.cloudfunctions.net/resendWebhook` (events: `email.delivered`, `email.bounced`, `email.complained`, `email.delivery_delayed`, `email.clicked`) and store its signing secret with `firebase functions:secrets:set RESEND_WEBHOOK_SECRET`.
+- Site analytics: public pages send a beacon to the `trackEvent` function, which keeps daily rollups in `analytics_daily` (no IPs or cookies). Visits from a browser that has opened `/admin` are excluded.
+- Deploy with `firebase deploy --only functions,firestore:rules`. The old `schedulePublish` and `processScheduledPublishes` functions are no longer in the code; delete them when the CLI asks.

@@ -59,13 +59,6 @@ function ensureIsoDate(value) {
   return Number.isNaN(parsed.getTime()) ? new Date().toISOString().slice(0, 10) : parsed.toISOString().slice(0, 10);
 }
 
-function ensureIsoDateTime(value) {
-  const raw = cleanString(value);
-  if (!raw) return "";
-  const parsed = new Date(raw);
-  return Number.isNaN(parsed.getTime()) ? "" : parsed.toISOString();
-}
-
 function firstNonEmpty(...values) {
   for (const value of values) {
     const normalized = cleanString(value);
@@ -508,16 +501,6 @@ async function buildPhotographyPublic(draft, slug) {
   };
 }
 
-async function writeVersion(adminRef, reason, actor, snapshot) {
-  const FieldValue = getFieldValue();
-  await adminRef.collection("versions").add({
-    reason,
-    createdAt: FieldValue.serverTimestamp(),
-    createdBy: actor,
-    snapshot,
-  });
-}
-
 export async function publishDraft(kind, id, actor = "system") {
   const db = getDb();
   const FieldValue = getFieldValue();
@@ -590,13 +573,11 @@ export async function publishDraft(kind, id, actor = "system") {
     status: "published",
     publishedAt: FieldValue.serverTimestamp(),
     publishedRecord,
-    scheduledPublishAt: "",
     updatedAt: FieldValue.serverTimestamp(),
     updatedBy: actor,
   }, { merge: true });
 
   await batch.commit();
-  await writeVersion(adminRef, "publish", actor, draft);
   return { slug, publicData };
 }
 
@@ -614,45 +595,12 @@ export async function unpublishDraft(kind, id, actor = "system") {
   batch.set(adminRef, {
     status: "archived",
     publishedRecord: FieldValue.delete(),
-    scheduledPublishAt: "",
     updatedAt: FieldValue.serverTimestamp(),
     updatedBy: actor,
     unpublishedAt: FieldValue.serverTimestamp(),
   }, { merge: true });
   await batch.commit();
   return { id };
-}
-
-export async function scheduleDraft(kind, id, scheduledPublishAt, actor = "system") {
-  const db = getDb();
-  const FieldValue = getFieldValue();
-  const iso = ensureIsoDateTime(scheduledPublishAt);
-  if (!iso) {
-    throw new Error("A valid publish time is required.");
-  }
-  if (new Date(iso).getTime() <= Date.now()) {
-    throw new Error("Scheduled publish time must be in the future.");
-  }
-  await db.collection(ADMIN_COLLECTIONS[kind]).doc(id).set({
-    status: "scheduled",
-    scheduledPublishAt: iso,
-    updatedAt: FieldValue.serverTimestamp(),
-    updatedBy: actor,
-  }, { merge: true });
-  return { scheduledPublishAt: iso };
-}
-
-export async function processScheduledKind(kind, nowIso) {
-  const db = getDb();
-  const snapshot = await db.collection(ADMIN_COLLECTIONS[kind]).where("scheduledPublishAt", "<=", nowIso).limit(20).get();
-  let processed = 0;
-  for (const doc of snapshot.docs) {
-    const draft = doc.data() || {};
-    if (draft.status !== "scheduled") continue;
-    await publishDraft(kind, doc.id, "scheduler");
-    processed += 1;
-  }
-  return processed;
 }
 
 async function repairCollectionCoordinates(adminCollection, publicCollection) {

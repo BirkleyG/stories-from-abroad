@@ -324,7 +324,6 @@ export function prepareDraftForSave(kind, draftInput) {
   const common = {
     status: draft.status,
     slug: slugify(draft.slug || draft.title || draft.profileName || draft.locationName),
-    scheduledPublishAt: ensureIsoDateTime(draft.scheduledPublishAt) || "",
     publishDate: ensureIsoDate(draft.publishDate) || "",
     searchText: collectSearchText(kind, draft),
   };
@@ -420,7 +419,6 @@ export function prepareDraftForSave(kind, draftInput) {
     ...draft,
     status: draft.status,
     slug: slugify(draft.slug || draft.title || draft.locationLabel),
-    scheduledPublishAt: ensureIsoDateTime(draft.scheduledPublishAt) || "",
     searchText: collectSearchText(kind, draft),
     title: String(draft.title || "").trim(),
     description: String(draft.description || draft.notes || "").trim(),
@@ -444,16 +442,6 @@ export function prepareDraftForSave(kind, draftInput) {
     coverPhoto: cleanedPhotos[0] || null,
     blocks: cleanedBlocks,
   };
-}
-
-export function buildVersionSnapshot(kind, draftInput) {
-  const prepared = prepareDraftForSave(kind, draftInput);
-  const snapshot = JSON.parse(JSON.stringify(prepared));
-  delete snapshot.createdAt;
-  delete snapshot.updatedAt;
-  delete snapshot.publishedAt;
-  delete snapshot.lastVersionAt;
-  return snapshot;
 }
 
 export function faceDraftToPublic(draftInput, slugOverride = "") {

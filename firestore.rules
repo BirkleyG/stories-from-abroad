@@ -226,6 +226,24 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
+    // Per-recipient delivery status for each broadcast, and system (sign-in) email log.
+    // Written only by Cloud Functions; the admin can read them.
+    match /email_recipients/{docId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    match /email_log/{docId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // Daily page-view rollups written by the trackEvent Cloud Function.
+    match /analytics_daily/{day} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
     match /admin_faces/{docId} {
       allow read, write: if isAdmin();
 

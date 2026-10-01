@@ -2,14 +2,15 @@ import admin from "firebase-admin";
 import nodemailer from "nodemailer";
 import { setGlobalOptions } from "firebase-functions/v2";
 import { onCall, onRequest, HttpsError } from "firebase-functions/v2/https";
-import { onSchedule } from "firebase-functions/v2/scheduler";
 import { logger } from "firebase-functions";
 import { defineSecret, defineString } from "firebase-functions/params";
-import { publishDraft, processScheduledKind, repairCoordinateData, scheduleDraft, unpublishDraft, rotateShareKey, PUBLIC_COLLECTIONS } from "./publishers.js";
+import { publishDraft, repairCoordinateData, unpublishDraft, rotateShareKey, PUBLIC_COLLECTIONS } from "./publishers.js";
 import { handleGetProtectedWriting } from "./protectedWriting.js";
 import { buildEmailForKind, buildContentUrl } from "./emailTemplates.js";
 import { ensureEmailImageUrl } from "./emailImages.js";
 import { ensureGlobeImageUrl } from "./globe.js";
+
+export { trackEvent, emailOpen, resendWebhook } from "./analytics.js";
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -450,6 +451,17 @@ function resolveEmailProvider() {
   return "gmail_smtp";
 }
 
+async function logSystemEmail(entry) {
+  try {
+    await admin.firestore().collection("email_log").add({
+      ...entry,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  } catch (error) {
+    logger.error("logSystemEmail failed", { error: error.message });
+  }
+}
+
 export const sendSubscriberSignInLinkEmail = onRequest({ secrets: [resendApiKeyParam, gmailSmtpAppPasswordParam] }, async (req, res) => {
   const origin = String(req.headers.origin || "*");
   applyCors(res, origin);
@@ -525,6 +537,15 @@ export const sendSubscriberSignInLinkEmail = onRequest({ secrets: [resendApiKeyP
       });
     }
 
+    await logSystemEmail({
+      type: "verification",
+      to: email,
+      subject: template.subject,
+      provider,
+      providerId: result?.id || null,
+      status: "sent",
+    });
+
     res.status(200).json({
       ok: true,
       provider,
@@ -532,6 +553,14 @@ export const sendSubscriberSignInLinkEmail = onRequest({ secrets: [resendApiKeyP
     });
   } catch (error) {
     logger.error("sendSubscriberSignInLinkEmail failed", { error: error.message });
+    await logSystemEmail({
+      type: "verification",
+      to: normalizeEmail(readRequestBody(req).email),
+      subject: "Confirm your Stories from Abroad subscription",
+      provider: resolveEmailProvider(),
+      status: "failed",
+      error: String(error.message || "").slice(0, 300),
+    });
     const status = error instanceof HttpsError
       ? (error.httpErrorCode?.status || 400)
       : 500;
@@ -775,26 +804,6 @@ export const unpublishContent = onCall(async (request) => {
   }
 });
 
-export const schedulePublish = onCall(async (request) => {
-  const auth = requireAdmin(request);
-  const kind = String(request.data?.kind || "");
-  const id = String(request.data?.id || "");
-  const scheduledPublishAt = String(request.data?.scheduledPublishAt || "");
-  if (!kind || !id || !scheduledPublishAt) {
-    throw new HttpsError("invalid-argument", "kind, id, and scheduledPublishAt are required.");
-  }
-  try {
-    const result = await scheduleDraft(kind, id, scheduledPublishAt, String(auth.token.email || auth.uid || "admin"));
-    return {
-      ...result,
-      message: `Scheduled ${kind} ${id} for ${result.scheduledPublishAt}.`,
-    };
-  } catch (error) {
-    logger.error("schedulePublish failed", { kind, id, error: error.message });
-    throw new HttpsError("internal", error.message || "Schedule failed.");
-  }
-});
-
 export const repairCoordinates = onCall(async (request) => {
   const auth = requireAdmin(request);
   try {
@@ -809,6 +818,25 @@ export const repairCoordinates = onCall(async (request) => {
   }
 });
 
+
+function openPixelUrl(sendId, recipientId) {
+  const project = process.env.GCLOUD_PROJECT || "stories-from-abroad";
+  return `https://us-central1-${project}.cloudfunctions.net/emailOpen?s=${encodeURIComponent(sendId)}&r=${encodeURIComponent(recipientId)}`;
+}
+
+function withOpenPixel(html, url) {
+  const pixel = `<img src="${url}" width="1" height="1" alt="" style="display:block;border:0;width:1px;height:1px;" />`;
+  return html.includes("</body>") ? html.replace("</body>", `${pixel}</body>`) : `${html}${pixel}`;
+}
+
+async function writeInBatches(writes) {
+  for (const group of chunkList(writes, 400)) {
+    const batch = admin.firestore().batch();
+    group.forEach(({ ref, data, merge }) => (merge ? batch.set(ref, data, { merge: true }) : batch.set(ref, data)));
+    await batch.commit();
+  }
+}
+
 export const sendContentBroadcast = onCall({ secrets: [resendApiKeyParam], timeoutSeconds: 300 }, async (request) => {
   const auth = requireAdmin(request);
   const kind = String(request.data?.kind || "general");
@@ -816,7 +844,7 @@ export const sendContentBroadcast = onCall({ secrets: [resendApiKeyParam], timeo
   const subject = normalizeText(request.data?.subject, 200);
   const note = String(request.data?.note || "").slice(0, 4000);
   const testEmail = normalizeEmail(request.data?.testEmail);
-  const heroUrl = normalizeText(request.data?.heroUrl, 500);
+  const heroUrl = normalizeText(request.data?.heroUrl, 800);
   const heroAlt = normalizeText(request.data?.heroAlt, 200);
   const ctaLabel = normalizeText(request.data?.ctaLabel, 60);
   const ctaUrl = normalizeText(request.data?.ctaUrl, 500);
@@ -841,6 +869,9 @@ export const sendContentBroadcast = onCall({ secrets: [resendApiKeyParam], timeo
   }
   const from = sanitizeFromHeader(broadcastSenderNameParam.value(), fromEmail);
   const baseUrl = siteBaseUrlParam.value();
+  const sentBy = String(auth.token.email || auth.uid || "admin");
+  const firestore = admin.firestore();
+  const FieldValue = admin.firestore.FieldValue;
 
   let doc = {};
   if (kind !== "general") {
@@ -853,19 +884,41 @@ export const sendContentBroadcast = onCall({ secrets: [resendApiKeyParam], timeo
     : await buildBroadcastContext(kind, id, doc, { subject, note, baseUrl });
 
   const renderFor = (subscriberName) => buildEmailForKind(kind, { ...baseCtx, subscriberName });
+  const link = kind === "general" ? (ctaUrl || baseUrl) : buildContentUrl(baseUrl, kind, doc.slug || id);
+  const sendBase = {
+    kind,
+    contentId: kind === "general" ? null : id,
+    slug: doc.slug || null,
+    subject,
+    note,
+    link,
+    provider: "resend",
+    sentBy,
+  };
 
   if (testEmail) {
+    const sendRef = firestore.collection("email_sends").doc();
     const rendered = renderFor("");
     try {
-      await sendViaResendBatch({
+      const results = await sendViaResendBatch({
         apiKey,
         messages: [{ from, to: [testEmail], subject: rendered.subject, html: rendered.html, text: rendered.text }],
       });
+      await sendRef.set({
+        ...sendBase, test: true, testRecipient: testEmail, status: "sent",
+        recipientCount: 1, succeeded: 1, failed: 0, resendId: results[0]?.id || null,
+        sentAt: FieldValue.serverTimestamp(), completedAt: FieldValue.serverTimestamp(),
+      });
     } catch (error) {
       logger.error("sendContentBroadcast test send failed", { error: error.message });
+      await sendRef.set({
+        ...sendBase, test: true, testRecipient: testEmail, status: "failed",
+        recipientCount: 1, succeeded: 0, failed: 1, error: String(error.message || "").slice(0, 300),
+        sentAt: FieldValue.serverTimestamp(), completedAt: FieldValue.serverTimestamp(),
+      });
       throw new HttpsError("internal", error.message || "Test email could not be sent.");
     }
-    return { ok: true, test: true, recipientCount: 1 };
+    return { ok: true, test: true, recipientCount: 1, sendId: sendRef.id };
   }
 
   const subscribers = await fetchActiveSubscribers();
@@ -881,60 +934,84 @@ export const sendContentBroadcast = onCall({ secrets: [resendApiKeyParam], timeo
     throw new HttpsError("failed-precondition", "No active subscribers match this send.");
   }
 
+  // Create the send record first so a half-finished or crashed send is still visible in the admin.
+  const sendRef = firestore.collection("email_sends").doc();
+  const sendId = sendRef.id;
+  await sendRef.set({
+    ...sendBase,
+    status: "sending",
+    recipientCount: recipients.length,
+    succeeded: 0,
+    failed: 0,
+    delivered: 0,
+    bounced: 0,
+    opens: 0,
+    uniqueOpens: 0,
+    sentAt: FieldValue.serverTimestamp(),
+  });
+  const recipientRef = (subscriber) => firestore.collection("email_recipients").doc(`${sendId}_${subscriber.id}`);
+  await writeInBatches(recipients.map((subscriber) => ({
+    ref: recipientRef(subscriber),
+    data: {
+      sendId,
+      subscriberId: subscriber.id,
+      email: normalizeEmail(subscriber.email),
+      name: normalizeText(subscriber.name, 80),
+      status: "queued",
+      createdAt: FieldValue.serverTimestamp(),
+    },
+  })));
+
   let succeeded = 0;
   let failed = 0;
-  const batches = chunkList(recipients, BROADCAST_BATCH_SIZE);
-  for (const batch of batches) {
-    const messages = batch.map((subscriber) => {
-      const rendered = renderFor(normalizeText(subscriber.name, 80));
-      return {
-        from,
-        to: [subscriber.email],
-        subject: rendered.subject,
-        html: rendered.html,
-        text: rendered.text,
-      };
-    });
-    try {
-      const results = await sendViaResendBatch({ apiKey, messages });
-      succeeded += results.length || messages.length;
-    } catch (error) {
-      logger.error("Broadcast batch failed", { error: error.message, kind, id });
-      failed += messages.length;
+  let firstError = "";
+  try {
+    const batches = chunkList(recipients, BROADCAST_BATCH_SIZE);
+    for (const batch of batches) {
+      const messages = batch.map((subscriber) => {
+        const rendered = renderFor(normalizeText(subscriber.name, 80));
+        return {
+          from,
+          to: [subscriber.email],
+          subject: rendered.subject,
+          html: withOpenPixel(rendered.html, openPixelUrl(sendId, subscriber.id)),
+          text: rendered.text,
+        };
+      });
+      try {
+        const results = await sendViaResendBatch({ apiKey, messages });
+        succeeded += messages.length;
+        await writeInBatches(batch.map((subscriber, index) => ({
+          ref: recipientRef(subscriber),
+          merge: true,
+          data: { status: "sent", resendId: results[index]?.id || null, statusAt: FieldValue.serverTimestamp() },
+        })));
+      } catch (error) {
+        logger.error("Broadcast batch failed", { error: error.message, kind, id });
+        failed += messages.length;
+        firstError = firstError || String(error.message || "").slice(0, 300);
+        await writeInBatches(batch.map((subscriber) => ({
+          ref: recipientRef(subscriber),
+          merge: true,
+          data: { status: "failed", error: String(error.message || "").slice(0, 300), statusAt: FieldValue.serverTimestamp() },
+        })));
+      }
+      await sendRef.set({ succeeded, failed }, { merge: true });
+      if (batches.length > 1) {
+        await sleep(600);
+      }
     }
-    if (batches.length > 1) {
-      await sleep(600);
-    }
+  } catch (error) {
+    logger.error("Broadcast aborted", { error: error.message, kind, id });
+    firstError = firstError || String(error.message || "").slice(0, 300);
   }
 
-  await admin.firestore().collection("email_sends").add({
-    kind,
-    contentId: kind === "general" ? null : id,
-    slug: doc.slug || null,
-    subject,
-    note,
-    link: kind === "general" ? (ctaUrl || baseUrl) : buildContentUrl(baseUrl, kind, doc.slug || id),
-    recipientCount: recipients.length,
-    succeeded,
-    failed,
-    provider: "resend",
-    sentAt: admin.firestore.FieldValue.serverTimestamp(),
-    sentBy: String(auth.token.email || auth.uid || "admin"),
-  });
+  const settled = succeeded + failed;
+  if (settled < recipients.length) failed += recipients.length - settled;
+  const status = failed === 0 ? "sent" : (succeeded === 0 ? "failed" : "partial");
+  await sendRef.set({
+    status, succeeded, failed, completedAt: FieldValue.serverTimestamp(), ...(firstError ? { error: firstError } : {}),
+  }, { merge: true });
 
-  return { ok: true, recipientCount: recipients.length, succeeded, failed };
-});
-
-export const processScheduledPublishes = onSchedule("every 5 minutes", async () => {
-  const nowIso = new Date().toISOString();
-  let total = 0;
-  for (const kind of ["faces", "papers", "travel", "photography"]) {
-    try {
-      const processed = await processScheduledKind(kind, nowIso);
-      total += processed;
-    } catch (error) {
-      logger.error("Scheduled publish processing failed", { kind, error: error.message });
-    }
-  }
-  logger.info("Scheduled publish cycle complete", { nowIso, total });
+  return { ok: true, recipientCount: recipients.length, succeeded, failed, sendId, status };
 });

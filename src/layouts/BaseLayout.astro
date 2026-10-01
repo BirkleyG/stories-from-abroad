@@ -290,6 +290,73 @@ const jsonLd = siteOrigin
     </div>
 
     <script id="public-firebase-config" type="application/json" set:html={publicFirebaseConfigJson}></script>
+    {isPrivatePage ? null : (
+      <script is:inline>
+        (() => {
+          try {
+            const cfg = JSON.parse(document.getElementById("public-firebase-config")?.textContent || "{}");
+            const host = window.location.hostname;
+            if (!cfg.projectId || host === "localhost" || host === "127.0.0.1" || host.endsWith(".local")) return;
+            if (window.localStorage.getItem("sfa-no-track") === "1") return;
+            const endpoint = "https://" + (cfg.functionsRegion || "us-central1") + "-" + cfg.projectId + ".cloudfunctions.net/trackEvent";
+            const itemOf = () => {
+              const url = new URL(window.location.href);
+              const slug = (v) => String(v || "").trim().toLowerCase();
+              const post = slug(url.searchParams.get("post"));
+              const shoot = slug(url.searchParams.get("shoot"));
+              const paper = slug(url.searchParams.get("paper"));
+              const profile = (url.hash.match(/^#\/profile\/([^/?#]+)/) || [])[1];
+              if (post) return "travel:" + post;
+              if (shoot) return "photography:" + shoot;
+              if (paper) return "papers:" + paper;
+              if (profile) return "faces:" + slug(decodeURIComponent(profile));
+              return "";
+            };
+            let visitor = window.localStorage.getItem("sfa-vid");
+            if (!visitor) {
+              visitor = Math.random().toString(36).slice(2) + Date.now().toString(36);
+              window.localStorage.setItem("sfa-vid", visitor);
+            }
+            const today = new Date().toISOString().slice(0, 10);
+            let lastKey = "";
+            let sentPage = false;
+            const send = (extra) => {
+              const first = window.localStorage.getItem("sfa-seen-day") !== today;
+              if (first) window.localStorage.setItem("sfa-seen-day", today);
+              const payload = Object.assign({ path: window.location.pathname, host: host, ref: document.referrer, first: first }, extra);
+              const blob = new Blob([JSON.stringify(payload)], { type: "text/plain" });
+              if (!(navigator.sendBeacon && navigator.sendBeacon(endpoint, blob))) {
+                fetch(endpoint, { method: "POST", body: blob, keepalive: true, mode: "no-cors" }).catch(() => {});
+              }
+            };
+            const fire = () => {
+              const item = itemOf();
+              const key = window.location.pathname + "|" + item;
+              if (key === lastKey) return;
+              lastKey = key;
+              if (!sentPage) {
+                sentPage = true;
+                const src = new URL(window.location.href).searchParams.get("src") || "";
+                send({ item: item, src: src });
+              } else if (item) {
+                send({ type: "item", item: item, ref: "", first: false });
+              }
+            };
+            ["pushState", "replaceState"].forEach((name) => {
+              const original = history[name];
+              history[name] = function () {
+                const out = original.apply(this, arguments);
+                setTimeout(fire, 0);
+                return out;
+              };
+            });
+            window.addEventListener("popstate", fire);
+            window.addEventListener("hashchange", fire);
+            fire();
+          } catch (error) {}
+        })();
+      </script>
+    )}
     <script>
       import {
         SUBSCRIBER_SEGMENTS,

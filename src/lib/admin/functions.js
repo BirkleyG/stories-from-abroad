@@ -56,11 +56,6 @@ export async function unpublishDraft(kind, id) {
   return result.data;
 }
 
-export async function scheduleDraft(kind, id, scheduledPublishAt) {
-  const callable = getCallable("schedulePublish");
-  const result = await callable({ kind, id, scheduledPublishAt });
-  return result.data;
-}
 
 export async function repairCoordinates() {
   const callable = getCallable("repairCoordinates");

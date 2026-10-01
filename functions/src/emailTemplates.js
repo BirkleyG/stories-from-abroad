@@ -45,13 +45,13 @@ export function buildContentUrl(baseUrl, kind, slug) {
   const safeSlug = encodeURIComponent(cleanString(slug));
   switch (kind) {
     case "papers":
-      return `${base}selected-papers/?paper=${safeSlug}`;
+      return `${base}selected-papers/?paper=${safeSlug}&src=email`;
     case "travel":
-      return `${base}travel-stories/?post=${safeSlug}`;
+      return `${base}travel-stories/?post=${safeSlug}&src=email`;
     case "photography":
-      return `${base}photography/?shoot=${safeSlug}`;
+      return `${base}photography/?shoot=${safeSlug}&src=email`;
     case "faces":
-      return `${base}faces-of-the-world/#/profile/${safeSlug}`;
+      return `${base}faces-of-the-world/?src=email#/profile/${safeSlug}`;
     default:
       return base;
   }

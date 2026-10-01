@@ -11,11 +11,12 @@ import {
   query,
   serverTimestamp,
   setDoc,
+  where,
   writeBatch,
 } from "firebase/firestore";
-import { deleteObject, getDownloadURL, ref, uploadBytes } from "firebase/storage";
+import { deleteObject, getDownloadURL, ref, uploadBytesResumable } from "firebase/storage";
 import { db, firestoreReady, storage } from "../firebaseClient";
-import { buildVersionSnapshot, prepareDraftForSave } from "./contentAdapters";
+import { prepareDraftForSave } from "./contentAdapters";
 import { ADMIN_COLLECTIONS, CONTENT_KINDS, createEmptyDraft, hydrateDraft, SITE_CONFIG_COLLECTION, SITE_CONFIG_DOCS } from "./schemas";
 
 function assertFirestoreReady() {
@@ -327,6 +328,33 @@ export function subscribeSubscribers(callback, onError) {
   );
 }
 
+export function subscribeAnalytics(days, callback, onError) {
+  assertFirestoreReady();
+  return onSnapshot(
+    query(collection(db, "analytics_daily"), orderBy("date", "desc"), limit(Math.max(1, Math.min(400, days)))),
+    (snapshot) => callback(snapshot.docs.map((item) => ({ id: item.id, ...item.data() }))),
+    onError
+  );
+}
+
+export function subscribeEmailRecipients(sendId, callback, onError) {
+  assertFirestoreReady();
+  return onSnapshot(
+    query(collection(db, "email_recipients"), where("sendId", "==", sendId), limit(1000)),
+    (snapshot) => callback(snapshot.docs.map((item) => ({ id: item.id, ...item.data() }))),
+    onError
+  );
+}
+
+export function subscribeSystemEmails(callback, onError) {
+  assertFirestoreReady();
+  return onSnapshot(
+    query(collection(db, "email_log"), orderBy("createdAt", "desc"), limit(50)),
+    (snapshot) => callback(snapshot.docs.map((item) => ({ id: item.id, ...item.data() }))),
+    onError
+  );
+}
+
 export function subscribeEmailSends(callback, onError) {
   assertFirestoreReady();
   return onSnapshot(
@@ -343,12 +371,6 @@ export async function getDraft(kind, id) {
   return hydrateDraft(kind, { id: snapshot.id, ...snapshot.data() });
 }
 
-export async function listVersions(kind, id) {
-  assertFirestoreReady();
-  const snapshot = await getDocs(query(collection(db, collectionName(kind), id, "versions"), orderBy("createdAt", "desc"), limit(25)));
-  return snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
-}
-
 export async function createDraft(kind, user) {
   assertFirestoreReady();
   const ref = doc(collection(db, collectionName(kind)));
@@ -361,22 +383,13 @@ export async function createDraft(kind, user) {
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
-  const batch = writeBatch(db);
-  batch.set(ref, initial);
-  batch.set(doc(collection(ref, "versions")), {
-    reason: "created",
-    createdAt: serverTimestamp(),
-    createdBy: actor(user),
-    snapshot: buildVersionSnapshot(kind, createEmptyDraft(kind)),
-  });
-  await batch.commit();
+  await setDoc(ref, initial);
   return ref.id;
 }
 
-export async function saveDraft(kind, id, draft, user, options = {}) {
+export async function saveDraft(kind, id, draft, user) {
   assertFirestoreReady();
   const prepared = prepareDraftForSave(kind, draft);
-  const ref = doc(db, collectionName(kind), id);
   const payload = sanitize({
     ...prepared,
     id,
@@ -384,36 +397,8 @@ export async function saveDraft(kind, id, draft, user, options = {}) {
     updatedBy: actor(user),
     updatedAt: serverTimestamp(),
   });
-  const batch = writeBatch(db);
-  batch.set(ref, payload, { merge: true });
-  if (options.captureVersion) {
-    batch.set(doc(collection(ref, "versions")), {
-      reason: options.reason || "manual-save",
-      createdAt: serverTimestamp(),
-      createdBy: actor(user),
-      snapshot: buildVersionSnapshot(kind, prepared),
-    });
-  }
-  await batch.commit();
+  await setDoc(doc(db, collectionName(kind), id), payload, { merge: true });
   return payload;
-}
-
-export async function restoreVersion(kind, id, versionId, user) {
-  assertFirestoreReady();
-  const versionRef = doc(db, collectionName(kind), id, "versions", versionId);
-  const versionSnap = await getDoc(versionRef);
-  if (!versionSnap.exists()) {
-    throw new Error("Version not found.");
-  }
-  const snapshot = versionSnap.data()?.snapshot;
-  if (!snapshot || typeof snapshot !== "object") {
-    throw new Error("Version snapshot is empty.");
-  }
-  await saveDraft(kind, id, snapshot, user, {
-    captureVersion: true,
-    reason: `restore:${versionId}`,
-  });
-  return hydrateDraft(kind, snapshot);
 }
 
 export async function uploadMediaAsset(file, user, context = {}) {
@@ -423,13 +408,25 @@ export async function uploadMediaAsset(file, user, context = {}) {
   const extractedMetadata = await extractUploadMetadata(file);
   const bucketPath = ["admin", context.kind || "misc", `${Date.now()}-${safeName}`].join("/");
   const storageRef = ref(storage, bucketPath);
-  await uploadBytes(storageRef, file, {
-    contentType: file.type || "application/octet-stream",
-    customMetadata: {
-      owner: actor(user),
-      kind: String(context.kind || "misc"),
-      field: String(context.field || ""),
-    },
+  await new Promise((resolve, reject) => {
+    const task = uploadBytesResumable(storageRef, file, {
+      contentType: file.type || "application/octet-stream",
+      customMetadata: {
+        owner: actor(user),
+        kind: String(context.kind || "misc"),
+        field: String(context.field || ""),
+      },
+    });
+    task.on(
+      "state_changed",
+      (snapshot) => {
+        if (typeof context.onProgress === "function" && snapshot.totalBytes) {
+          context.onProgress(snapshot.bytesTransferred / snapshot.totalBytes);
+        }
+      },
+      reject,
+      resolve
+    );
   });
   const url = await getDownloadURL(storageRef);
   const assetRef = await addDoc(collection(db, ADMIN_COLLECTIONS.media), {

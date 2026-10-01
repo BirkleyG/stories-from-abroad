@@ -1,5 +1,4 @@
 export const CONTENT_KINDS = ["faces", "papers", "travel", "photography"];
-export const DRAFT_STATUSES = ["draft", "review", "scheduled", "published", "archived"];
 export const PAPER_AUDIENCES = [
   { value: "public", label: "Public - main Selected Writing page" },
   { value: "drafts", label: "Read More: Drafts (red, invite code required)" },
@@ -221,7 +220,6 @@ export function createEmptyFaceDraft() {
     longitude: "",
     latitude: "",
     publishDate: "",
-    scheduledPublishAt: "",
     age: "",
     religion: "",
     occupation: "",
@@ -247,7 +245,6 @@ export function createEmptyPaperDraft() {
     subtitle: "",
     type: "paper",
     publishDate: "",
-    scheduledPublishAt: "",
     publicationName: "",
     publicationLink: "",
     badgeStyle: "Published",
@@ -276,7 +273,6 @@ export function createEmptyTravelDraft() {
     longitude: "",
     latitude: "",
     publishDate: "",
-    scheduledPublishAt: "",
     excerpt: "",
     bodyText: "",
     timeLabel: "",
@@ -295,7 +291,6 @@ export function createEmptyPhotographyDraft() {
     title: "",
     description: "",
     shootDate: "",
-    scheduledPublishAt: "",
     locationLabel: "",
     city: "",
     country: "",
