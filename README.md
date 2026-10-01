@@ -231,7 +231,26 @@ Publishing a Faces/Papers/Travel/Photography item unlocks a **Send Email** butto
 
 ### Templates
 
-Five themed HTML templates live in `functions/src/emailTemplates.js`, one per module (General, Writing/Papers, Photography, Faces of the World, Dispatch/Travel), each mirroring that section's live-site palette and typography. `sendContentBroadcast` (in `functions/src/index.js`) fetches the published content, renders the right template, resolves the matching subscriber segment, and sends via Resend's batch API. Use each compose modal's "Send test to me" button to preview real delivery before sending to the full list.
+Five HTML templates live in `functions/src/emailTemplates.js`, ported from the hand-built designs in "SFA Email Templates": Selected Writing (papers), Faces of the World, Photography ("Seen Felt Kept", uses the shoot's own accent color), Travel dispatch ("The Scrap Sheet", with globe, postmark and the post's photos) and the green General dispatch. They use tables + inline styles (Gmail/Outlook safe), real hosted images, web fonts for clients that support them, and a small mobile media query.
+
+`sendContentBroadcast` (in `functions/src/index.js`) fetches the published content plus its archive (other published items), renders the right template, resolves the matching subscriber segment, and sends via Resend's batch API. Every compose modal has a **Send test to me** button -- use it before sending to the list.
+
+What fills each template:
+
+- **Papers:** title, category, read time, date, summary, keywords, first sentence of the body as the pull quote, two older papers as the archive.
+- **Photography:** cover photo, location, frame count, shoot date, tags, accent color, three older shoots as the archive grid.
+- **Faces:** portrait, name, age, location, occupation, excerpt as the quote, first two paragraphs of the story as the field note.
+- **Travel:** title, location, date, preview, the post's photos, dispatch number (by date) out of total, globe emoji chosen from the coordinates.
+- **General:** subject (headline), optional subtitle, "A note from BTG" (the message box), optional dispatch body and pull quote, optional hero image and button.
+- The optional note box on any content email appears as "A note from BTG" (travel/general), "A Note From The Author" (papers) or in the field/shoot note (faces/photography).
+
+### Go-live checklist
+
+1. Resend domain verified (DNS records added and showing Verified).
+2. `firebase functions:secrets:set RESEND_API_KEY`
+3. `functions/.env.stories-from-abroad` has `BROADCAST_EMAIL_FROM=dispatches@<your-domain>`, `BROADCAST_SENDER_NAME` and `SITE_BASE_URL=https://storiesfromabroad.com/`.
+4. `firebase deploy --only functions,firestore:rules`
+5. Open `/admin`, publish content, click **Send Email**, press **Send test to me**, check it on phone and desktop, then send for real.
 
 ## Security debt (deferred major upgrades)
 

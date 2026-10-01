@@ -325,9 +325,28 @@ async function fetchPublicContent(kind, id) {
   return snap.data() || {};
 }
 
-function buildBroadcastContext(kind, id, doc, { subject, note, baseUrl }) {
+function firstSentenceOf(text) {
+  const clean = String(text || "").replace(/\s+/g, " ").trim();
+  const match = clean.match(/^.*?[.!?](?=\s|$)/);
+  return match ? match[0] : clean.slice(0, 160);
+}
+
+function sortNewestFirst(list, field) {
+  return [...list].sort((a, b) => String(b[field] || "").localeCompare(String(a[field] || "")));
+}
+
+async function fetchPublicList(kind) {
+  const snapshot = await admin.firestore().collection(PUBLIC_COLLECTIONS[kind]).get();
+  return snapshot.docs.map((snap) => ({ id: snap.id, ...snap.data() }));
+}
+
+const TRAVEL_CATEGORY_LABELS = { stories: "Short Story", musings: "Musing" };
+
+async function buildBroadcastContext(kind, id, doc, { subject, note, baseUrl }) {
   const base = { subject, note, baseUrl, slug: doc.slug || id };
+  const siteBase = String(baseUrl || "").endsWith("/") ? baseUrl : `${baseUrl}/`;
   if (kind === "papers") {
+    const others = sortNewestFirst((await fetchPublicList("papers")).filter((item) => item.id !== id), "date").slice(0, 2);
     return {
       ...base,
       title: doc.title,
@@ -336,42 +355,73 @@ function buildBroadcastContext(kind, id, doc, { subject, note, baseUrl }) {
       readTime: doc.readTime,
       date: doc.date,
       summary: doc.summary,
+      keywords: doc.keywords,
+      pullQuote: firstSentenceOf(doc.bodyText),
+      archive: others.map((item) => ({
+        title: item.title,
+        category: item.category,
+        date: item.date,
+        url: buildContentUrl(siteBase, "papers", item.slug || item.id),
+      })),
     };
   }
   if (kind === "photography") {
+    const others = sortNewestFirst((await fetchPublicList("photography")).filter((item) => item.id !== id), "shootDate").slice(0, 3);
     return {
       ...base,
       title: doc.title,
-      description: doc.description,
-      locationLabel: doc.locationLabel,
+      description: doc.description || doc.notes,
+      locationLabel: doc.locationLabel || [doc.city, doc.country].filter(Boolean).join(", "),
       tags: doc.tags,
       frameCount: doc.frameCount,
+      shootDate: doc.shootDate,
       coverUrl: doc.coverPhoto?.url,
       coverAlt: doc.coverPhoto?.alt || doc.title,
       accentColor: doc.accentColor,
+      archive: others.map((item) => ({
+        title: item.title,
+        image: item.coverPhoto?.url || "",
+        location: item.locationLabel || [item.city, item.country].filter(Boolean).join(", "),
+        url: buildContentUrl(siteBase, "photography", item.slug || item.id),
+      })),
     };
   }
   if (kind === "faces") {
+    const article = Array.isArray(doc.article) ? doc.article : [];
+    const firstParagraphs = String(article.find((block) => block?.type === "para" && block.text)?.text || "")
+      .split(/\n{2,}/)
+      .map((part) => part.trim())
+      .filter(Boolean);
     return {
       ...base,
       name: doc.name || doc.storyTitle,
+      age: doc.age,
       city: doc.city,
       country: doc.country,
       occupation: doc.occupation,
       excerpt: doc.excerpt,
-      portraitUrl: doc.portraitUrl || doc.heroUrl,
+      fieldNote: firstParagraphs.slice(0, 2),
+      dateMet: doc.date,
+      portraitUrl: doc.portraitUrl || doc.heroUrl || doc.pic,
       portraitAlt: doc.portraitAlt || doc.name,
     };
   }
   if (kind === "travel") {
+    const all = sortNewestFirst(await fetchPublicList("travel"), "date").reverse();
+    const position = all.findIndex((item) => item.id === id);
+    const lngLat = Array.isArray(doc.lngLat) ? doc.lngLat : [];
     return {
       ...base,
       title: doc.title,
       location: doc.location,
       date: doc.date,
       preview: doc.preview || cleanTravelPreview(doc.full),
-      photoUrl: Array.isArray(doc.photos) ? doc.photos[0]?.url : "",
-      photoAlt: Array.isArray(doc.photos) ? (doc.photos[0]?.caption || doc.photos[0]?.title) : "",
+      photos: (Array.isArray(doc.photos) ? doc.photos : []).map((photo) => ({ url: photo?.url, title: photo?.title || "" })),
+      categoryLabel: TRAVEL_CATEGORY_LABELS[doc.category] || "",
+      longitude: lngLat[0],
+      latitude: lngLat[1],
+      dispatchNumber: position >= 0 ? String(position + 1) : "",
+      totalDispatches: all.length ? String(all.length) : "",
     };
   }
   return base;
@@ -757,6 +807,9 @@ export const sendContentBroadcast = onCall({ secrets: [resendApiKeyParam], timeo
   const heroAlt = normalizeText(request.data?.heroAlt, 200);
   const ctaLabel = normalizeText(request.data?.ctaLabel, 60);
   const ctaUrl = normalizeText(request.data?.ctaUrl, 500);
+  const subtitle = normalizeText(request.data?.subtitle, 200);
+  const body = String(request.data?.body || "").slice(0, 6000);
+  const pullQuote = normalizeText(request.data?.pullQuote, 600);
 
   if (!subject) {
     throw new HttpsError("invalid-argument", "A subject line is required.");
@@ -782,8 +835,8 @@ export const sendContentBroadcast = onCall({ secrets: [resendApiKeyParam], timeo
   }
 
   const baseCtx = kind === "general"
-    ? { subject, note, baseUrl, heroUrl, heroAlt, ctaLabel, ctaUrl }
-    : buildBroadcastContext(kind, id, doc, { subject, note, baseUrl });
+    ? { subject, note, baseUrl, heroUrl, heroAlt, ctaLabel, ctaUrl, subtitle, body, pullQuote }
+    : await buildBroadcastContext(kind, id, doc, { subject, note, baseUrl });
 
   const renderFor = (subscriberName) => buildEmailForKind(kind, { ...baseCtx, subscriberName });
 

@@ -1742,6 +1742,9 @@ function EmailComposerModal({ open, kind, item, subscribers, authEmail, working,
   const [heroAlt, setHeroAlt] = useState("");
   const [ctaLabel, setCtaLabel] = useState("");
   const [ctaUrl, setCtaUrl] = useState("");
+  const [subtitle, setSubtitle] = useState("");
+  const [body, setBody] = useState("");
+  const [pullQuote, setPullQuote] = useState("");
   const [sendingTest, setSendingTest] = useState(false);
   const [confirmingSend, setConfirmingSend] = useState(false);
   const [localError, setLocalError] = useState("");
@@ -1754,6 +1757,9 @@ function EmailComposerModal({ open, kind, item, subscribers, authEmail, working,
     setHeroAlt("");
     setCtaLabel("");
     setCtaUrl("");
+    setSubtitle("");
+    setBody("");
+    setPullQuote("");
     setConfirmingSend(false);
     setLocalError("");
     setSendingTest(false);
@@ -1769,7 +1775,7 @@ function EmailComposerModal({ open, kind, item, subscribers, authEmail, working,
   if (!open) return null;
 
   const basePayload = kind === "general"
-    ? { kind: "general", subject: subject.trim(), note, heroUrl: heroUrl.trim(), heroAlt: heroAlt.trim(), ctaLabel: ctaLabel.trim(), ctaUrl: ctaUrl.trim() }
+    ? { kind: "general", subject: subject.trim(), note, heroUrl: heroUrl.trim(), heroAlt: heroAlt.trim(), ctaLabel: ctaLabel.trim(), ctaUrl: ctaUrl.trim(), subtitle: subtitle.trim(), body, pullQuote: pullQuote.trim() }
     : { kind, id: item?.id, subject: subject.trim(), note };
 
   async function handleTestSend() {
@@ -1831,14 +1837,21 @@ function EmailComposerModal({ open, kind, item, subscribers, authEmail, working,
               </div>
             </div>
           ) : null}
-          <TextInput label="Subject line" value={subject} onChange={setSubject} placeholder="What's the headline?" />
+          <TextInput label={kind === "general" ? "Subject line / headline" : "Subject line"} value={subject} onChange={setSubject} placeholder="What's the headline?" />
+          {kind === "general" ? <TextInput label="Subtitle (optional, bold second headline line)" value={subtitle} onChange={setSubtitle} placeholder="e.g. Stories from Abroad" /> : null}
           <TextArea
-            label={kind === "general" ? "Message" : "Add a note (optional)"}
+            label={kind === "general" ? "A note from BTG" : "Add a note (optional)"}
             value={note}
             onChange={setNote}
             rows={6}
             placeholder={kind === "general" ? "Write the announcement..." : "Anything you'd like to add above the published content..."}
           />
+          {kind === "general" ? (
+            <>
+              <TextArea label="Dispatch body (optional)" value={body} onChange={setBody} rows={5} placeholder="Shown under the This Dispatch heading. Leave blank to skip that section." />
+              <TextInput label="Pull quote (optional)" value={pullQuote} onChange={setPullQuote} />
+            </>
+          ) : null}
           {kind === "general" ? (
             <div className="admin-grid two-up">
               <TextInput label="Image URL (optional)" value={heroUrl} onChange={setHeroUrl} placeholder="https://..." />
