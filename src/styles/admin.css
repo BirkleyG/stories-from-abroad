@@ -912,6 +912,86 @@ body {
   word-break: break-word;
 }
 
+.admin-email-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  background: rgba(10, 8, 7, 0.88);
+  backdrop-filter: blur(8px);
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+}
+
+.admin-email-dialog {
+  width: min(680px, 100%);
+  max-height: 92vh;
+  border: 1px solid var(--admin-line);
+  background: #f6f2ea;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+}
+
+.admin-email-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1.1rem 1.25rem;
+  border-bottom: 1px solid var(--admin-line);
+}
+
+.admin-email-head h2 {
+  margin: 0.2rem 0 0;
+  font-family: "Cormorant Garamond", "Georgia", serif;
+  font-size: 1.5rem;
+}
+
+.admin-email-body {
+  min-height: 0;
+  overflow: auto;
+  padding: 1.25rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.admin-email-preview-card {
+  display: flex;
+  gap: 0.9rem;
+  align-items: center;
+  padding: 0.75rem;
+  border: 1px solid var(--admin-line);
+  background: var(--admin-panel);
+}
+
+.admin-email-preview-card img {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.admin-email-preview-card strong {
+  display: block;
+  font-family: "Cormorant Garamond", "Georgia", serif;
+  font-size: 1.1rem;
+}
+
+.admin-email-preview-card p {
+  margin: 0.2rem 0 0;
+  color: var(--admin-soft);
+  font-size: 0.85rem;
+}
+
+.admin-email-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  align-items: center;
+  padding: 0.9rem 1.25rem;
+  border-top: 1px solid var(--admin-line);
+}
+
 @media (max-width: 1100px) {
   .admin-shell {
     grid-template-columns: 1fr;
@@ -950,6 +1030,10 @@ body {
     height: 100%;
   }
 
+  .admin-email-dialog {
+    max-height: 100%;
+  }
+
   .admin-bulk-body {
     grid-template-columns: 1fr;
   }
@@ -962,4 +1046,11 @@ body {
     flex-wrap: wrap;
     justify-content: stretch;
   }
+}
+
+.admin-inline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
 }

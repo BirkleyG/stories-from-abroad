@@ -2,8 +2,37 @@
 import { siteCopy } from "../content/siteCopy";
 const base = import.meta.env.BASE_URL ?? "/";
 const basePath = base.endsWith("/") ? base : `${base}/`;
-const copy = siteCopy.papers;
-const copyJson = JSON.stringify({ ...copy, fallbackPapers: [] });
+const { mode = "public" } = Astro.props;
+const isProtected = mode === "drafts" || mode === "unpublished";
+const modeCopy = isProtected ? siteCopy.papers.protectedModes[mode] : null;
+const baseCopy = siteCopy.papers;
+const copy = modeCopy
+  ? {
+      ...baseCopy,
+      meta: { title: modeCopy.metaTitle },
+      nav: { ...baseCopy.nav, label: modeCopy.navLabel },
+      hero: { ...baseCopy.hero, kicker: modeCopy.heroKicker, titleMain: modeCopy.titleMain, titleEm: modeCopy.titleEm },
+      typewriterLines: modeCopy.typewriterLines,
+      featured: { ...baseCopy.featured, label: modeCopy.featuredLabel },
+      archive: {
+        ...baseCopy.archive,
+        label: modeCopy.archiveLabel,
+        title: modeCopy.archiveTitle,
+        countSingular: modeCopy.countSingular,
+        countPlural: modeCopy.countPlural,
+      },
+      footer: { ...baseCopy.footer, left: modeCopy.footerLeft },
+      overlay: { ...baseCopy.overlay, backLabel: modeCopy.backLabel },
+    }
+  : baseCopy;
+const copyJson = JSON.stringify({ ...copy, fallbackPapers: [], protectedModes: undefined });
+const functionsRegion = import.meta.env.PUBLIC_FIREBASE_FUNCTIONS_REGION || "us-central1";
+const modeConfigJson = JSON.stringify({
+  mode,
+  endpoint: `https://${functionsRegion}-${import.meta.env.PUBLIC_FIREBASE_PROJECT_ID ?? ""}.cloudfunctions.net/getProtectedWriting`,
+  emptyTitle: modeCopy?.emptyTitle ?? "",
+  emptyText: modeCopy?.emptyText ?? "",
+});
 const publicFirestoreConfigJson = JSON.stringify({
   projectId: import.meta.env.PUBLIC_FIREBASE_PROJECT_ID ?? "",
   apiKey: import.meta.env.PUBLIC_FIREBASE_API_KEY ?? "",
@@ -14,7 +43,7 @@ const initialFeatCounter = copy.featured.counterTemplate
   .replace("{total}", "03");
 ---
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-collection={mode}>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -73,7 +102,31 @@ const initialFeatCounter = copy.featured.counterTemplate
         --gold2: #dfb35a;
         --gold3: #b07d20;
         --border: #e7e0d4;
+        --gold-soft: rgba(199, 154, 51, 0.22);
+        --gold-wash: rgba(212, 175, 55, 0.14);
         --nav-h: 58px;
+      }
+      /* Drafts: the same site, red instead of gold. */
+      html[data-collection="drafts"] {
+        --green: #b8342a;
+        --green2: #dd6a5e;
+        --gold: #b8342a;
+        --gold2: #dd6a5e;
+        --gold3: #902519;
+        --border: #ecd6d2;
+        --gold-soft: rgba(184, 52, 42, 0.22);
+        --gold-wash: rgba(184, 52, 42, 0.12);
+      }
+      /* Unpublished Thoughts: the same site, blue instead of gold. */
+      html[data-collection="unpublished"] {
+        --green: #2d63b0;
+        --green2: #6393d6;
+        --gold: #2d63b0;
+        --gold2: #6393d6;
+        --gold3: #1f4a8a;
+        --border: #d3deec;
+        --gold-soft: rgba(45, 99, 176, 0.22);
+        --gold-wash: rgba(45, 99, 176, 0.12);
       }
       *,
       *::before,
@@ -538,7 +591,7 @@ const initialFeatCounter = copy.featured.counterTemplate
         height: 20px;
       }
       .feat-progress-orb.active::before {
-        background: conic-gradient(var(--green) var(--dot-progress), rgba(199, 154, 51, 0.22) 0);
+        background: conic-gradient(var(--green) var(--dot-progress), var(--gold-soft) 0);
         -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
         mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
       }
@@ -1059,7 +1112,7 @@ const initialFeatCounter = copy.featured.counterTemplate
         transition: background 0.2s ease, color 0.2s ease;
       }
       .papers-subscribe-form button:hover {
-        background: rgba(212, 175, 55, 0.14);
+        background: var(--gold-wash);
         color: var(--gold);
       }
       .papers-subscribe-form button:disabled {
@@ -1363,6 +1416,175 @@ const initialFeatCounter = copy.featured.counterTemplate
         color: #fff;
       }
 
+      #readmore {
+        background: var(--off);
+        border-top: 1px solid var(--border);
+        padding: 80px 52px 90px;
+      }
+      .rm-head {
+        max-width: 640px;
+        margin-bottom: 40px;
+      }
+      .rm-kicker {
+        font-family: "Cormorant Garamond", serif;
+        font-size: 10px;
+        letter-spacing: 0.4em;
+        text-transform: uppercase;
+        color: var(--ink3);
+        margin-bottom: 14px;
+      }
+      .rm-title {
+        font-family: "Cormorant", serif;
+        font-weight: 400;
+        font-size: 46px;
+        letter-spacing: -0.02em;
+        margin-bottom: 14px;
+      }
+      .rm-intro {
+        font-size: 15px;
+        line-height: 1.75;
+        color: var(--ink3);
+      }
+      .rm-cards {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 24px;
+      }
+      .rm-card {
+        --rm: var(--gold);
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding: 34px 32px 30px;
+        background: var(--white);
+        border: 1px solid var(--border);
+        border-top: 3px solid var(--rm);
+        color: var(--ink);
+        text-decoration: none;
+        transition: transform 0.25s, box-shadow 0.25s;
+      }
+      .rm-drafts { --rm: #b8342a; }
+      .rm-unpublished { --rm: #2d63b0; }
+      .rm-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 14px 34px rgba(17, 17, 16, 0.1);
+      }
+      .rm-lock { color: var(--rm); }
+      .rm-card-title {
+        font-family: "Cormorant", serif;
+        font-weight: 500;
+        font-size: 34px;
+        letter-spacing: -0.01em;
+        color: var(--rm);
+      }
+      .rm-card-blurb {
+        font-size: 14.5px;
+        line-height: 1.75;
+        color: var(--ink3);
+        flex: 1;
+      }
+      .rm-card-cta {
+        font-family: "Cormorant Garamond", serif;
+        font-size: 11px;
+        letter-spacing: 0.3em;
+        text-transform: uppercase;
+        color: var(--rm);
+      }
+      #gate {
+        position: fixed;
+        inset: 0;
+        z-index: 9500;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        background: var(--white);
+      }
+      #gate[hidden] { display: none !important; }
+      #gate.checking .gate-box { visibility: hidden; }
+      .gate-back {
+        position: absolute;
+        top: 22px;
+        left: 28px;
+        font-family: "Cormorant Garamond", serif;
+        font-size: 11px;
+        letter-spacing: 0.3em;
+        text-transform: uppercase;
+        color: var(--ink3);
+        text-decoration: none;
+      }
+      .gate-back:hover { color: var(--gold); }
+      .gate-box {
+        width: 100%;
+        max-width: 440px;
+        text-align: center;
+        border: 1px solid var(--border);
+        border-top: 3px solid var(--gold);
+        padding: 44px 36px 38px;
+        background: var(--white);
+      }
+      .gate-lock { color: var(--gold); margin-bottom: 14px; }
+      .gate-kicker {
+        font-family: "Cormorant Garamond", serif;
+        font-size: 10px;
+        letter-spacing: 0.4em;
+        text-transform: uppercase;
+        color: var(--gold);
+        margin-bottom: 10px;
+      }
+      .gate-title {
+        font-family: "Cormorant", serif;
+        font-weight: 400;
+        font-size: 40px;
+        letter-spacing: -0.02em;
+        margin-bottom: 14px;
+      }
+      .gate-text {
+        font-size: 14px;
+        line-height: 1.75;
+        color: var(--ink3);
+        margin-bottom: 26px;
+      }
+      .gate-form { display: flex; gap: 10px; }
+      .gate-input {
+        flex: 1;
+        min-width: 0;
+        padding: 12px 14px;
+        border: 1px solid var(--border);
+        background: var(--white);
+        font-family: "Lora", Georgia, serif;
+        font-size: 15px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--ink);
+      }
+      .gate-input:focus { outline: none; border-color: var(--gold); }
+      .gate-btn {
+        padding: 12px 24px;
+        border: none;
+        background: var(--gold);
+        color: #fff;
+        cursor: pointer;
+        font-family: "Cormorant Garamond", serif;
+        font-size: 11px;
+        letter-spacing: 0.3em;
+        text-transform: uppercase;
+      }
+      .gate-btn:disabled { opacity: 0.6; cursor: default; }
+      .gate-error {
+        min-height: 20px;
+        margin-top: 14px;
+        font-size: 13px;
+        color: var(--gold3);
+      }
+      @media (max-width: 760px) {
+        #readmore { padding: 56px 22px 64px; }
+        .rm-cards { grid-template-columns: 1fr; }
+        .rm-title { font-size: 36px; }
+        .gate-box { padding: 36px 22px 30px; }
+        .gate-form { flex-direction: column; }
+      }
+
       @media (max-width: 1080px) {
         #nav,
         #library,
@@ -1634,7 +1856,7 @@ const initialFeatCounter = copy.featured.counterTemplate
     </svg>
 
     <nav id="nav">
-      <a class="nav-back" href={basePath}>{copy.nav.backLabel}</a>
+      <a class="nav-back" href={isProtected ? `${basePath}selected-papers/` : basePath}>{copy.nav.backLabel}</a>
       <span class="nav-label">{copy.nav.label}</span>
       <button class="nav-subscribe" type="button" data-subscribe-open="papers" data-subscribe-control data-subscribe-segment="Articles & Op-Eds">Subscribe</button>
       <a class="subscriber-profile-link" href={`${basePath}subscriber-settings/`} data-profile-control data-subscribe-segment="Articles & Op-Eds" aria-label="Subscriber settings" hidden>
@@ -1967,6 +2189,29 @@ const initialFeatCounter = copy.featured.counterTemplate
 
     <div style="height: 1px; background: var(--border)"></div>
 
+    {!isProtected && (
+      <section id="readmore">
+        <div class="rm-head">
+          <div class="rm-kicker">{baseCopy.readMore.kicker}</div>
+          <h2 class="rm-title">{baseCopy.readMore.title}</h2>
+          <p class="rm-intro">{baseCopy.readMore.intro}</p>
+        </div>
+        <div class="rm-cards">
+          {baseCopy.readMore.cards.map((card) => (
+            <a class={`rm-card rm-${card.key}`} href={`${basePath}selected-papers/${card.key}/`}>
+              <svg class="rm-lock" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+                <rect x="4" y="11" width="16" height="10" rx="1.5" />
+                <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+              </svg>
+              <h3 class="rm-card-title">{card.label}</h3>
+              <p class="rm-card-blurb">{card.blurb}</p>
+              <span class="rm-card-cta">{baseCopy.readMore.cta} &rarr;</span>
+            </a>
+          ))}
+        </div>
+      </section>
+    )}
+
     <section id="author">
       <div class="author-portrait">
         <span class="portrait-ph" id="papers-author-portrait">{copy.author.portraitLabel}</span>
@@ -2027,6 +2272,26 @@ const initialFeatCounter = copy.featured.counterTemplate
       <p>{copy.footer.right}</p>
     </footer>
 
+    {isProtected && (
+      <div id="gate" class="checking" role="dialog" aria-modal="true" aria-labelledby="gate-title">
+        <a class="gate-back" href={`${basePath}selected-papers/`}>&larr; Back to Selected Writing</a>
+        <div class="gate-box">
+          <svg class="gate-lock" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
+            <rect x="4" y="11" width="16" height="10" rx="1.5" />
+            <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+          </svg>
+          <div class="gate-kicker">By invitation</div>
+          <h1 class="gate-title" id="gate-title">{modeCopy.gateTitle}</h1>
+          <p class="gate-text">{modeCopy.gateText}</p>
+          <form class="gate-form" id="gate-form" autocomplete="off">
+            <input class="gate-input" id="gate-code" type="text" placeholder="Invite code" spellcheck="false" autocapitalize="characters" aria-label="Invite code" />
+            <button class="gate-btn" type="submit">Enter</button>
+          </form>
+          <p class="gate-error" id="gate-error" aria-live="polite"></p>
+        </div>
+      </div>
+    )}
+
     <div id="overlay">
       <div class="ov-nav">
         <button class="ov-close" onclick="closeOverlay()">
@@ -2042,6 +2307,7 @@ const initialFeatCounter = copy.featured.counterTemplate
     </div>
 
     <script id="papers-copy" type="application/json" set:html={copyJson}></script>
+    <script id="papers-mode" type="application/json" set:html={modeConfigJson}></script>
     <script id="public-firestore-config" type="application/json" set:html={publicFirestoreConfigJson}></script>
     <script src={`${basePath}scripts/public-firestore.js`}></script>
     <script>
@@ -2121,6 +2387,10 @@ const initialFeatCounter = copy.featured.counterTemplate
 
         const copy = readJson("papers-copy");
         const publicConfig = readJson("public-firestore-config");
+        const modeConfig = readJson("papers-mode") || { mode: "public" };
+        const collectionMode = modeConfig.mode;
+        const isProtectedMode = collectionMode === "drafts" || collectionMode === "unpublished";
+        let shareMode = false;
         if (!copy) return;
 
         let runtimeTypewriterLines = Array.isArray(copy.typewriterLines) ? copy.typewriterLines.slice() : [];
@@ -2257,6 +2527,7 @@ const initialFeatCounter = copy.featured.counterTemplate
         }
 
         function writeRequestedPaperToken(token) {
+          if (shareMode && !token) return;
           try {
             const url = new URL(window.location.href);
             if (token) {
@@ -2287,8 +2558,8 @@ const initialFeatCounter = copy.featured.counterTemplate
         function setFeaturedEmpty() {
           clearFeaturedTimers();
           document.getElementById("feat-kicker").textContent = "Published Writing";
-          document.getElementById("feat-title").textContent = "No published papers yet";
-          document.getElementById("feat-summary").textContent = "Published papers will appear here as soon as they are live in Firestore.";
+          document.getElementById("feat-title").textContent = modeConfig.emptyTitle || "No published papers yet";
+          document.getElementById("feat-summary").textContent = modeConfig.emptyText || "Published papers will appear here as soon as they are live in Firestore.";
           document.getElementById("feat-kws").innerHTML = "";
           document.getElementById("feat-meta").innerHTML = "";
           document.getElementById("feat-ghost").textContent = "00";
@@ -2758,11 +3029,87 @@ const initialFeatCounter = copy.featured.counterTemplate
           });
         }
 
+        const storageKey = "sfa-writing-code-" + collectionMode;
+
+        async function requestProtected(body) {
+          try {
+            const response = await fetch(modeConfig.endpoint, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(Object.assign({ collection: collectionMode }, body)),
+            });
+            let data = {};
+            try { data = await response.json(); } catch (error) {}
+            return { ok: response.ok, status: response.status, data: data };
+          } catch (error) {
+            return { ok: false, status: 0, data: { message: "Could not reach the server. Check your connection and try again." } };
+          }
+        }
+
+        // Resolves with the list of papers once the visitor is allowed in.
+        function acquireProtectedPapers() {
+          const gate = document.getElementById("gate");
+          const params = new URLSearchParams(window.location.search);
+          const sharedPaper = (params.get("paper") || "").trim();
+          const sharedKey = (params.get("key") || "").trim();
+          document.body.style.overflow = "hidden";
+
+          function admit(papers) {
+            if (gate) gate.hidden = true;
+            document.body.style.overflow = "";
+            return papers;
+          }
+
+          return (async function () {
+            let linkFailed = false;
+            if (sharedPaper && sharedKey) {
+              const result = await requestProtected({ paper: sharedPaper, key: sharedKey });
+              if (result.ok) {
+                shareMode = true;
+                return admit(result.data.papers || []);
+              }
+              linkFailed = true;
+            }
+            let savedCode = "";
+            try { savedCode = window.localStorage.getItem(storageKey) || ""; } catch (error) {}
+            if (savedCode) {
+              const result = await requestProtected({ code: savedCode });
+              if (result.ok) return admit(result.data.papers || []);
+              try { window.localStorage.removeItem(storageKey); } catch (error) {}
+            }
+            return new Promise(function (resolve) {
+              const form = document.getElementById("gate-form");
+              const input = document.getElementById("gate-code");
+              const errorEl = document.getElementById("gate-error");
+              gate.classList.remove("checking");
+              if (linkFailed) errorEl.textContent = "That link is no longer valid. Enter an invite code instead.";
+              input.focus();
+              form.addEventListener("submit", async function (event) {
+                event.preventDefault();
+                const code = input.value.trim();
+                if (!code) return;
+                const button = form.querySelector("button");
+                button.disabled = true;
+                errorEl.textContent = "";
+                const result = await requestProtected({ code: code, unlock: true });
+                button.disabled = false;
+                if (result.ok) {
+                  try { window.localStorage.setItem(storageKey, code); } catch (error) {}
+                  resolve(admit(result.data.papers || []));
+                } else {
+                  errorEl.textContent = result.data.message || "That code didn't work.";
+                  input.select();
+                }
+              });
+            });
+          })();
+        }
+
         async function boot() {
           applyMobileInkCrop();
           const settled = await Promise.allSettled([
             publicFirestore.getDocument(publicConfig, "site_config/section_media"),
-            publicFirestore.listCollection(publicConfig, "papers"),
+            isProtectedMode ? acquireProtectedPapers() : publicFirestore.listCollection(publicConfig, "papers"),
           ]);
 
           const mediaResult = settled[0];

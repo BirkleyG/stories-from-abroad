@@ -2,10 +2,10 @@ import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import "../../styles/admin.css";
 import { firebaseReady } from "../../lib/firebaseClient";
 import { completeAdminSignIn, ensureAdminPersistence, getAdminSession, onAdminAuthChange, sendAdminSignInLink, signOutAdmin } from "../../lib/admin/adminAuth";
-import { assignAdminClaim, publishDraft, repairCoordinates, scheduleDraft, unpublishDraft } from "../../lib/admin/functions";
+import { assignAdminClaim, publishDraft, repairCoordinates, rotateWritingShareKey, scheduleDraft, sendContentBroadcast, unpublishDraft } from "../../lib/admin/functions";
 import { dispatchDraftToPublic, faceDraftToPublic, photographyDraftToPublic, slugify } from "../../lib/admin/contentAdapters";
 import { collectFeaturedPhotoOptions, mediaSummaryFromPhotos } from "../../lib/admin/photographyTemplates";
-import { createDraft, deleteDraft as deleteDraftRecord, deleteMediaAsset as deleteMediaAssetRecord, getDraft, listVersions, restoreVersion, saveDraft, savePhotographyFeaturedConfig, saveSectionMediaConfig, subscribeDraftList, subscribeMediaAssets, subscribePhotographyFeaturedConfig, subscribeSectionMediaConfig, subscribeSubscribers, updateMediaAsset, uploadMediaAsset } from "../../lib/admin/repository";
+import { createDraft, deleteDraft as deleteDraftRecord, deleteMediaAsset as deleteMediaAssetRecord, getDraft, listVersions, restoreVersion, saveDraft, savePhotographyFeaturedConfig, saveSectionMediaConfig, subscribeDraftList, subscribeEmailSends, subscribeWritingInvites, createWritingInvite, setWritingInviteActive, deleteWritingInvite, formatInviteCode, subscribeMediaAssets, subscribePhotographyFeaturedConfig, subscribeSectionMediaConfig, subscribeSubscribers, updateMediaAsset, uploadMediaAsset } from "../../lib/admin/repository";
 import { sendSubscriberSignInLink } from "../../lib/subscriberClient";
 import {
   AUDIENCE_LEVELS,
@@ -19,6 +19,7 @@ import {
   DRAFT_STATUSES,
   hydrateDraft,
   PAPER_TYPES,
+  PAPER_AUDIENCES,
   QUOTE_STYLES,
 } from "../../lib/admin/schemas";
 import { swapCoordinateValues, validateCoordinates } from "../../lib/admin/coordinates";
@@ -30,9 +31,18 @@ const NAV_ITEMS = [
   { id: "travel", label: CONTENT_LABELS.travel },
   { id: "photography", label: CONTENT_LABELS.photography },
   { id: "subscribers", label: "Subscribers" },
+  { id: "broadcasts", label: "Broadcasts" },
+  { id: "invites", label: "Invite Codes" },
   { id: "site-assets", label: "Site Assets" },
   { id: "media", label: "Media Library" },
 ];
+
+const SEGMENT_BY_KIND = {
+  papers: "Articles & Op-Eds",
+  photography: "Photography",
+  faces: "Faces of the World",
+  travel: "Travel",
+};
 
 const STATUS_TONES = {
   draft: "muted",
@@ -1668,6 +1678,194 @@ function SubscribersPanel({ subscribers, onPromptVerify, promptingId }) {
   );
 }
 
+function BroadcastsPanel({ subscribers, emailSends, onCompose, working }) {
+  const activeCount = subscribers.filter(isSubscriberVerified).length;
+  return (
+    <section className="admin-subscriber-layout">
+      <div className="admin-panel full-span">
+        <div className="admin-panel-head">
+          <div>
+            <h2>General Announcement</h2>
+            <p>Write a standalone update that is not tied to a specific piece of content. It sends to every verified subscriber via Resend.</p>
+          </div>
+          <button type="button" className="admin-primary-button" onClick={onCompose} disabled={working}>Compose Email</button>
+        </div>
+        <div className="admin-stat-grid">
+          <article className="admin-stat-card"><strong>{activeCount}</strong><span>Verified subscribers</span></article>
+          <article className="admin-stat-card"><strong>{emailSends.length}</strong><span>Broadcasts sent</span></article>
+        </div>
+      </div>
+
+      <div className="admin-panel full-span">
+        <div className="admin-panel-head tight">
+          <div>
+            <h2>Send History</h2>
+            <p>Most recent broadcasts, newest first.</p>
+          </div>
+        </div>
+        <div className="admin-subscriber-table-wrap">
+          <table className="admin-subscriber-table">
+            <thead>
+              <tr>
+                <th>Sent</th>
+                <th>Type</th>
+                <th>Subject</th>
+                <th>Recipients</th>
+                <th>Result</th>
+                <th>Sent by</th>
+              </tr>
+            </thead>
+            <tbody>
+              {emailSends.map((send) => (
+                <tr key={send.id}>
+                  <td>{formatStamp(send.sentAt, { empty: "Sending..." })}</td>
+                  <td>{send.kind && send.kind !== "general" ? (CONTENT_LABELS[send.kind] || send.kind) : "General"}</td>
+                  <td>{send.subject}</td>
+                  <td>{send.recipientCount}</td>
+                  <td>{send.failed ? `${send.succeeded} sent, ${send.failed} failed` : `${send.succeeded} sent`}</td>
+                  <td>{send.sentBy}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {!emailSends.length ? <p className="admin-empty-inline">No broadcasts sent yet.</p> : null}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function EmailComposerModal({ open, kind, item, subscribers, authEmail, working, onClose, onSend }) {
+  const [subject, setSubject] = useState("");
+  const [note, setNote] = useState("");
+  const [heroUrl, setHeroUrl] = useState("");
+  const [heroAlt, setHeroAlt] = useState("");
+  const [ctaLabel, setCtaLabel] = useState("");
+  const [ctaUrl, setCtaUrl] = useState("");
+  const [sendingTest, setSendingTest] = useState(false);
+  const [confirmingSend, setConfirmingSend] = useState(false);
+  const [localError, setLocalError] = useState("");
+
+  useEffect(() => {
+    if (!open) return;
+    setSubject(kind === "general" ? "" : (item?.title ? `New from Stories From Abroad: ${item.title}` : ""));
+    setNote("");
+    setHeroUrl("");
+    setHeroAlt("");
+    setCtaLabel("");
+    setCtaUrl("");
+    setConfirmingSend(false);
+    setLocalError("");
+    setSendingTest(false);
+  }, [open, kind, item?.id]);
+
+  const recipientCount = useMemo(() => {
+    const verified = subscribers.filter(isSubscriberVerified);
+    const segment = SEGMENT_BY_KIND[kind];
+    if (!segment) return verified.length;
+    return verified.filter((subscriber) => normalizeSubscriberSegments(subscriber).includes(segment)).length;
+  }, [subscribers, kind]);
+
+  if (!open) return null;
+
+  const basePayload = kind === "general"
+    ? { kind: "general", subject: subject.trim(), note, heroUrl: heroUrl.trim(), heroAlt: heroAlt.trim(), ctaLabel: ctaLabel.trim(), ctaUrl: ctaUrl.trim() }
+    : { kind, id: item?.id, subject: subject.trim(), note };
+
+  async function handleTestSend() {
+    if (!subject.trim()) {
+      setLocalError("Add a subject line first.");
+      return;
+    }
+    if (!authEmail) {
+      setLocalError("No signed-in admin email available for the test send.");
+      return;
+    }
+    setLocalError("");
+    setSendingTest(true);
+    try {
+      await onSend({ ...basePayload, testEmail: authEmail });
+    } catch (error) {
+      setLocalError(error.message || "Test send failed.");
+    } finally {
+      setSendingTest(false);
+    }
+  }
+
+  async function handleRealSend() {
+    if (!subject.trim()) {
+      setLocalError("Add a subject line first.");
+      return;
+    }
+    if (!confirmingSend) {
+      setConfirmingSend(true);
+      return;
+    }
+    setLocalError("");
+    try {
+      await onSend(basePayload);
+      onClose();
+    } catch (error) {
+      setLocalError(error.message || "Send failed.");
+      setConfirmingSend(false);
+    }
+  }
+
+  return (
+    <div className="admin-email-overlay" role="dialog" aria-modal="true" aria-label="Compose subscriber email">
+      <section className="admin-email-dialog">
+        <header className="admin-email-head">
+          <div>
+            <p className="admin-topbar-kicker">{kind === "general" ? "General Announcement" : `${CONTENT_LABELS[kind]} Update`}</p>
+            <h2>Compose Email</h2>
+          </div>
+          <button type="button" className="admin-mini-button" onClick={onClose}>Close</button>
+        </header>
+        <div className="admin-email-body">
+          {item ? (
+            <div className="admin-email-preview-card">
+              {item.image ? <img src={item.image} alt="" /> : null}
+              <div>
+                <strong>{item.title}</strong>
+                {item.subtitle ? <p>{item.subtitle}</p> : null}
+              </div>
+            </div>
+          ) : null}
+          <TextInput label="Subject line" value={subject} onChange={setSubject} placeholder="What's the headline?" />
+          <TextArea
+            label={kind === "general" ? "Message" : "Add a note (optional)"}
+            value={note}
+            onChange={setNote}
+            rows={6}
+            placeholder={kind === "general" ? "Write the announcement..." : "Anything you'd like to add above the published content..."}
+          />
+          {kind === "general" ? (
+            <div className="admin-grid two-up">
+              <TextInput label="Image URL (optional)" value={heroUrl} onChange={setHeroUrl} placeholder="https://..." />
+              <TextInput label="Image alt text" value={heroAlt} onChange={setHeroAlt} />
+              <TextInput label="Button label (optional)" value={ctaLabel} onChange={setCtaLabel} placeholder="Visit the Site" />
+              <TextInput label="Button link (optional)" value={ctaUrl} onChange={setCtaUrl} placeholder="https://..." />
+            </div>
+          ) : null}
+          <p className="admin-field-hint">
+            Sending to <strong>{recipientCount}</strong> verified subscriber{recipientCount === 1 ? "" : "s"}
+            {SEGMENT_BY_KIND[kind] ? ` in the "${SEGMENT_BY_KIND[kind]}" segment` : ""}.
+          </p>
+          {localError ? <p className="admin-inline-error">{localError}</p> : null}
+        </div>
+        <footer className="admin-email-actions">
+          <button type="button" className="admin-secondary-button" onClick={handleTestSend} disabled={working || sendingTest}>
+            {sendingTest ? "Sending test..." : "Send test to me"}
+          </button>
+          <button type="button" className={`admin-primary-button${confirmingSend ? " danger" : ""}`} onClick={handleRealSend} disabled={working || !recipientCount}>
+            {confirmingSend ? `Confirm: send to ${recipientCount}` : `Send to ${recipientCount} subscriber${recipientCount === 1 ? "" : "s"}`}
+          </button>
+        </footer>
+      </section>
+    </div>
+  );
+}
+
 function CollectionList({ kind, items, selectedId, onSelect, onCreate }) {
   return (
     <section className="admin-panel admin-list-panel">
@@ -1771,12 +1969,117 @@ function FacesForm({ draft, onChange, onUpload, assets }) {
   );
 }
 
-function PapersForm({ draft, onChange, onUpload, assets, paperTypeOptions }) {
+function copyText(text) {
+  try {
+    return navigator.clipboard.writeText(text);
+  } catch {
+    return Promise.reject(new Error("Clipboard unavailable"));
+  }
+}
+
+function ProtectedShareLink({ draft, onRotate }) {
+  const [copied, setCopied] = useState(false);
+  const live = draft.status === "published" && draft.shareKey && (draft.slug || draft.id);
+  const url = live
+    ? `${window.location.origin}${basePath}selected-papers/${draft.audience}/?paper=${encodeURIComponent(draft.slug || draft.id)}&key=${encodeURIComponent(draft.shareKey)}`
+    : "";
+  return (
+    <section className="admin-panel">
+      <div className="admin-panel-head tight">
+        <div>
+          <h2>Private share link</h2>
+          <p>Anyone with this link opens this one piece directly, with no invite code. They cannot see anything else in the collection.</p>
+        </div>
+      </div>
+      {live ? (
+        <>
+          <input className="admin-input" readOnly value={url} onFocus={(event) => event.target.select()} />
+          <div className="admin-inline-actions">
+            <button type="button" className="admin-mini-button primary" onClick={() => copyText(url).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1800); })}>{copied ? "Copied" : "Copy link"}</button>
+            <button type="button" className="admin-mini-button danger" onClick={onRotate}>Reset link</button>
+          </div>
+        </>
+      ) : <p className="admin-empty-inline">Publish this piece to generate its share link.</p>}
+    </section>
+  );
+}
+
+function InviteCodesPanel({ invites, onCreate, onToggle, onDelete }) {
+  const [label, setLabel] = useState("");
+  const [customCode, setCustomCode] = useState("");
+  const [expiresAt, setExpiresAt] = useState("");
+  const [scopes, setScopes] = useState({ drafts: true, unpublished: true });
+  const [copiedId, setCopiedId] = useState("");
+  const chosen = Object.keys(scopes).filter((key) => scopes[key]);
+  async function submit(event) {
+    event.preventDefault();
+    if (!chosen.length) return;
+    const ok = await onCreate({ label, collections: chosen, customCode, expiresAt: expiresAt ? new Date(expiresAt + "T23:59:59").toISOString() : "" });
+    if (ok) { setLabel(""); setCustomCode(""); setExpiresAt(""); }
+  }
+  const scopeLabel = { drafts: "Drafts", unpublished: "Unpublished Thoughts" };
+  return (
+    <section className="admin-subscriber-layout">
+      <div className="admin-panel full-span">
+        <div className="admin-panel-head tight">
+          <div>
+            <h2>New invite code</h2>
+            <p>Visitors who click Drafts or Unpublished Thoughts on Selected Writing must enter a code. Leave the code blank to generate one.</p>
+          </div>
+        </div>
+        <form className="admin-form-stack" onSubmit={submit}>
+          <div className="admin-grid two-up">
+            <TextInput label="Who is it for? (just a note to yourself)" value={label} onChange={setLabel} placeholder="e.g. Professor Lin" />
+            <TextInput label="Custom code (optional)" value={customCode} onChange={setCustomCode} placeholder="Letters and numbers, 6+ characters" />
+            <TextInput label="Expires (optional)" type="date" value={expiresAt} onChange={setExpiresAt} />
+          </div>
+          <div className="admin-grid two-up toggles">
+            <ToggleField label="Can open Drafts" checked={scopes.drafts} onChange={(next) => setScopes({ ...scopes, drafts: next })} />
+            <ToggleField label="Can open Unpublished Thoughts" checked={scopes.unpublished} onChange={(next) => setScopes({ ...scopes, unpublished: next })} />
+          </div>
+          <div><button type="submit" className="admin-primary-button" disabled={!chosen.length}>Create invite code</button></div>
+        </form>
+      </div>
+      <div className="admin-panel full-span">
+        <div className="admin-panel-head tight"><div><h2>Codes</h2><p>Turn a code off to revoke it without deleting its history.</p></div></div>
+        <div className="admin-subscriber-table-wrap">
+          <table className="admin-subscriber-table">
+            <thead><tr><th>Code</th><th>For</th><th>Access</th><th>Uses</th><th>Expires</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+              {invites.map((invite) => (
+                <tr key={invite.id}>
+                  <td><code>{formatInviteCode(invite.id)}</code></td>
+                  <td>{invite.label || "-"}</td>
+                  <td>{(invite.collections || []).map((key) => scopeLabel[key] || key).join(", ")}</td>
+                  <td>{invite.uses || 0}</td>
+                  <td>{invite.expiresAt ? new Date(invite.expiresAt).toLocaleDateString() : "Never"}</td>
+                  <td>{invite.active === false ? "Off" : "On"}</td>
+                  <td>
+                    <div className="admin-inline-actions">
+                      <button type="button" className="admin-mini-button" onClick={() => copyText(formatInviteCode(invite.id)).then(() => { setCopiedId(invite.id); setTimeout(() => setCopiedId(""), 1500); })}>{copiedId === invite.id ? "Copied" : "Copy"}</button>
+                      <button type="button" className="admin-mini-button" onClick={() => onToggle(invite)}>{invite.active === false ? "Turn on" : "Turn off"}</button>
+                      <button type="button" className="admin-mini-button danger" onClick={() => onDelete(invite)}>Delete</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {!invites.length ? <p className="admin-empty-inline">No invite codes yet.</p> : null}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function PapersForm({ draft, onChange, onUpload, assets, paperTypeOptions, onRotateShareKey }) {
+  const isProtected = draft.audience === "drafts" || draft.audience === "unpublished";
   return (
     <div className="admin-form-stack">
       <section className="admin-panel">
         <div className="admin-panel-head tight"><div><h2>Publication Setup</h2><p>Enough metadata to power the current archive page plus the richer publish payload.</p></div></div>
         <p className="admin-field-hint">Only items in the <strong>Published</strong> state appear on the live Selected Papers page. Saving a draft does not change the public site.</p>
+        <SelectField label="Where it appears" hint="Drafts and Unpublished Thoughts live behind the invite-code gate and are never listed on the public page. Unpublish and republish after changing this on a live piece." value={draft.audience || "public"} onChange={(next) => onChange({ ...draft, audience: next })} options={PAPER_AUDIENCES} />
         <div className="admin-grid two-up">
           <SelectField label="Status" value={draft.status} onChange={(next) => onChange({ ...draft, status: next })} options={DRAFT_STATUSES} />
           <TextInput label="Title" value={draft.title} onChange={(next) => onChange({ ...draft, title: next, slug: draft.slug || slugify(next) })} />
@@ -1804,6 +2107,7 @@ function PapersForm({ draft, onChange, onUpload, assets, paperTypeOptions }) {
         <TextArea label="Summary" value={draft.summary} onChange={(next) => onChange({ ...draft, summary: next })} rows={5} />
         <TextArea label="Body / abstract text" value={draft.bodyText} onChange={(next) => onChange({ ...draft, bodyText: next })} rows={10} />
       </section>
+      {isProtected ? <ProtectedShareLink draft={draft} onRotate={onRotateShareKey} /> : null}
       <StringListEditor label="Keywords" values={draft.keywords || []} onChange={(next) => onChange({ ...draft, keywords: next })} addLabel="Add keyword" />
       <AssetField label="Document upload" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" value={draft.document} assets={assets} onUpload={onUpload} onChange={(next) => onChange({ ...draft, document: next })} kind="papers" field="document" hint="Supports uploaded PDFs now; richer document workflows can expand later." />
     </div>
@@ -1884,6 +2188,10 @@ export default function AdminApp() {
   const [lists, setLists] = useState({ faces: [], papers: [], travel: [], photography: [] });
   const [mediaAssets, setMediaAssets] = useState([]);
   const [subscribers, setSubscribers] = useState([]);
+  const [emailSends, setEmailSends] = useState([]);
+  const [invites, setInvites] = useState([]);
+  const [emailComposer, setEmailComposer] = useState(null);
+  const [sendingBroadcast, setSendingBroadcast] = useState(false);
   const [sectionMediaConfig, setSectionMediaConfig] = useState({
     readStoryPortrait: createMediaValue(),
     papersHeroImage: createMediaValue(),
@@ -2025,7 +2333,9 @@ export default function AdminApp() {
     const unsubscribePhotographyFeatured = subscribePhotographyFeaturedConfig((config) => {
       setPhotographyFeaturedConfig({ items: Array.isArray(config?.items) ? config.items : [] });
     }, (error) => setNotice({ tone: "error", message: `Photography featured failed to load: ${error.message}` }));
-    unsubscribers.push(unsubscribeMedia, unsubscribeSubscribers, unsubscribeSectionMedia, unsubscribePhotographyFeatured);
+    const unsubscribeEmailSends = subscribeEmailSends(setEmailSends, (error) => setNotice({ tone: "error", message: `Send history failed to load: ${error.message}` }));
+    const unsubscribeInvites = subscribeWritingInvites(setInvites, (error) => setNotice({ tone: "error", message: `Invite codes failed to load: ${error.message}` }));
+    unsubscribers.push(unsubscribeInvites, unsubscribeMedia, unsubscribeSubscribers, unsubscribeSectionMedia, unsubscribePhotographyFeatured, unsubscribeEmailSends);
     return () => unsubscribers.forEach((unsubscribe) => typeof unsubscribe === "function" && unsubscribe());
   }, [authState.isAdmin, authState.user?.uid, authState.claims?.iat]);
 
@@ -2210,6 +2520,52 @@ export default function AdminApp() {
     }
   }
 
+  async function handleCreateInvite(input) {
+    try {
+      const code = await createWritingInvite(input, authState.user);
+      setNotice({ tone: "success", message: `Invite code ${formatInviteCode(code)} created.` });
+      return true;
+    } catch (error) {
+      setNotice({ tone: "error", message: error.message || "Invite code could not be created." });
+      return false;
+    }
+  }
+
+  async function handleToggleInvite(invite) {
+    try {
+      await setWritingInviteActive(invite.id, invite.active === false);
+    } catch (error) {
+      setNotice({ tone: "error", message: error.message || "Invite code could not be updated." });
+    }
+  }
+
+  async function handleDeleteInvite(invite) {
+    if (typeof window !== "undefined" && !window.confirm(`Delete invite code ${formatInviteCode(invite.id)}? Anyone using it will lose access.`)) return;
+    try {
+      await deleteWritingInvite(invite.id);
+    } catch (error) {
+      setNotice({ tone: "error", message: error.message || "Invite code could not be deleted." });
+    }
+  }
+
+  async function handleRotateShareKey() {
+    if (!draftId) return;
+    if (typeof window !== "undefined" && !window.confirm("Reset this share link? The old link will stop working immediately.")) return;
+    try {
+      setWorking(true);
+      await rotateWritingShareKey(draftId);
+      const loaded = await getDraft(activeSection, draftId);
+      const hydrated = hydrateDraft(activeSection, loaded || {});
+      setDraft(hydrated);
+      baselineRef.current = fingerprint(hydrated);
+      setNotice({ tone: "success", message: "Share link reset. Copy the new link below." });
+    } catch (error) {
+      setNotice({ tone: "error", message: error.message || "Share link could not be reset." });
+    } finally {
+      setWorking(false);
+    }
+  }
+
   async function handleCreate(kind) {
     try {
       setWorking(true);
@@ -2275,6 +2631,39 @@ export default function AdminApp() {
       setNotice({ tone: "error", message: error.message || "Publish failed." });
     } finally {
       setWorking(false);
+    }
+  }
+
+  function handleOpenEmailComposer() {
+    if (!draft) return;
+    const image = draft.portrait?.url || draft.hero?.url || draft.photos?.[0]?.url || draft.coverPhoto?.url || "";
+    setEmailComposer({
+      kind: activeSection,
+      item: {
+        id: draftId,
+        title: draft.title || draft.profileName || draft.locationName || "Untitled",
+        subtitle: draft.subtitle || draft.locationName || "",
+        image,
+      },
+    });
+  }
+
+  function handleOpenGeneralComposer() {
+    setEmailComposer({ kind: "general", item: null });
+  }
+
+  async function handleSendBroadcast(payload) {
+    setSendingBroadcast(true);
+    try {
+      const result = await sendContentBroadcast(payload);
+      if (payload.testEmail) {
+        setNotice({ tone: "success", message: `Test email sent to ${payload.testEmail}.` });
+      } else {
+        setNotice({ tone: "success", message: `Sent to ${result?.recipientCount || 0} subscriber(s).` });
+      }
+      return result;
+    } finally {
+      setSendingBroadcast(false);
     }
   }
 
@@ -2523,7 +2912,7 @@ export default function AdminApp() {
   function renderActiveForm() {
     if (!draft) return <p className="admin-empty-inline">Create or select a draft to start editing.</p>;
     if (activeSection === "faces") return <FacesForm draft={draft} onChange={(next) => setDraft(hydrateDraft("faces", next))} onUpload={handleUpload} assets={mediaAssets} />;
-    if (activeSection === "papers") return <PapersForm draft={draft} onChange={(next) => setDraft(hydrateDraft("papers", next))} onUpload={handleUpload} assets={mediaAssets} paperTypeOptions={paperTypeOptions} />;
+    if (activeSection === "papers") return <PapersForm draft={draft} onChange={(next) => setDraft(hydrateDraft("papers", next))} onUpload={handleUpload} assets={mediaAssets} paperTypeOptions={paperTypeOptions} onRotateShareKey={handleRotateShareKey} />;
     if (activeSection === "travel") return <TravelForm draft={draft} onChange={(next) => setDraft(hydrateDraft("travel", next))} onUpload={handleUpload} assets={mediaAssets} />;
     if (activeSection === "photography") {
       return (
@@ -2604,7 +2993,7 @@ export default function AdminApp() {
         <header className="admin-topbar">
           <div>
             <p className="admin-topbar-kicker">Protected editorial workspace</p>
-            <h2>{activeSection === "dashboard" ? "Dashboard" : activeSection === "media" ? "Media Library" : activeSection === "site-assets" ? "Site Assets" : activeSection === "subscribers" ? "Subscribers" : CONTENT_LABELS[activeSection]}</h2>
+            <h2>{activeSection === "dashboard" ? "Dashboard" : activeSection === "media" ? "Media Library" : activeSection === "site-assets" ? "Site Assets" : activeSection === "subscribers" ? "Subscribers" : activeSection === "broadcasts" ? "Broadcasts" : activeSection === "invites" ? "Invite Codes" : CONTENT_LABELS[activeSection]}</h2>
           </div>
           <div className="admin-topbar-actions">
             {isContentSection && draft ? <StatusPill status={draft.status || "draft"} /> : null}
@@ -2612,6 +3001,7 @@ export default function AdminApp() {
             {canEdit ? <button type="button" className="admin-secondary-button" onClick={() => handleManualSave()} disabled={working || loadingDraft}>Save version</button> : null}
             {canBuildPreview ? <button type="button" className="admin-secondary-button" onClick={handleBuildPreview} disabled={working || loadingDraft}>Build Preview</button> : null}
             {canEdit ? <button type="button" className="admin-primary-button" onClick={handlePublish} disabled={working || loadingDraft}>Publish now</button> : null}
+            {canEdit && draft && !(activeSection === "papers" && draft.audience && draft.audience !== "public") && (draft.status === "published" || draft.publishedRecord?.slug) ? <button type="button" className="admin-secondary-button" onClick={handleOpenEmailComposer} disabled={working || loadingDraft}>Send Email</button> : null}
             {canEdit ? <button type="button" className="admin-secondary-button" onClick={handleSchedule} disabled={working || loadingDraft}>Schedule</button> : null}
             {canEdit ? <button type="button" className="admin-secondary-button danger" onClick={handleUnpublish} disabled={working || loadingDraft}>Unpublish</button> : null}
             {canEdit ? <button type="button" className="admin-secondary-button danger" onClick={handleDeleteDraft} disabled={working || loadingDraft}>Delete draft</button> : null}
@@ -2620,6 +3010,8 @@ export default function AdminApp() {
         <Notice notice={notice} onDismiss={() => setNotice(null)} />
         {activeSection === "dashboard" ? <Dashboard lists={lists} onCreate={handleCreate} onJump={(kind, id) => { setActiveSection(kind); setSelectedIds((current) => ({ ...current, [kind]: id })); }} /> : null}
         {activeSection === "subscribers" ? <SubscribersPanel subscribers={subscribers} onPromptVerify={handlePromptSubscriberVerify} promptingId={promptingSubscriberId} /> : null}
+        {activeSection === "broadcasts" ? <BroadcastsPanel subscribers={subscribers} emailSends={emailSends} onCompose={handleOpenGeneralComposer} working={sendingBroadcast} /> : null}
+        {activeSection === "invites" ? <InviteCodesPanel invites={invites} onCreate={handleCreateInvite} onToggle={handleToggleInvite} onDelete={handleDeleteInvite} /> : null}
         {activeSection === "media" ? <MediaLibrary assets={mediaAssets} onUpload={handleUpload} onSaveMetadata={handleSaveMediaMetadata} onDeleteAsset={handleDeleteMediaAsset} /> : null}
         {activeSection === "site-assets" ? (
           <SiteAssetsForm
@@ -2673,6 +3065,16 @@ export default function AdminApp() {
           </>
         ) : null}
       </section>
+      <EmailComposerModal
+        open={Boolean(emailComposer)}
+        kind={emailComposer?.kind}
+        item={emailComposer?.item || null}
+        subscribers={subscribers}
+        authEmail={authState.user?.email || ""}
+        working={sendingBroadcast}
+        onClose={() => setEmailComposer(null)}
+        onSend={handleSendBroadcast}
+      />
     </main>
   );
 }

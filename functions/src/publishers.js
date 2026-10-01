@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import admin from "firebase-admin";
 
 function getDb() {
@@ -25,7 +26,18 @@ export const PUBLIC_COLLECTIONS = {
   travelQuotes: "scrap_sheet_quotes",
   photography: "photo_shoots",
 };
+export const PROTECTED_WRITING_COLLECTION = "protected_writing";
+export const PROTECTED_AUDIENCES = ["drafts", "unpublished"];
 const MEDIA_ASSETS_COLLECTION = "media_assets";
+
+export function paperAudience(draft) {
+  const value = String(draft?.audience || "").trim().toLowerCase();
+  return PROTECTED_AUDIENCES.includes(value) ? value : "public";
+}
+
+export function generateShareKey() {
+  return randomBytes(12).toString("base64url");
+}
 
 function cleanString(value) {
   return String(value || "").trim();
@@ -515,7 +527,10 @@ export async function publishDraft(kind, id, actor = "system") {
     throw new Error("Draft not found.");
   }
   const draft = adminSnap.data() || {};
-  const slug = await resolveUniqueSlug(PUBLIC_COLLECTIONS[kind], draft.slug || draft.title || draft.profileName || draft.locationName || id, id);
+  const audience = kind === "papers" ? paperAudience(draft) : "public";
+  const targetCollection = audience === "public" ? PUBLIC_COLLECTIONS[kind] : PROTECTED_WRITING_COLLECTION;
+  const shareKey = audience === "public" ? "" : (cleanString(draft.shareKey) || generateShareKey());
+  const slug = await resolveUniqueSlug(targetCollection, draft.slug || draft.title || draft.profileName || draft.locationName || id, id);
   const batch = db.batch();
   let publicData = null;
 
@@ -524,7 +539,15 @@ export async function publishDraft(kind, id, actor = "system") {
     batch.set(db.collection(PUBLIC_COLLECTIONS.faces).doc(id), publicData);
   } else if (kind === "papers") {
     publicData = buildPaperPublic(draft, slug);
-    batch.set(db.collection(PUBLIC_COLLECTIONS.papers).doc(id), publicData);
+    if (audience === "public") {
+      batch.set(db.collection(PUBLIC_COLLECTIONS.papers).doc(id), publicData);
+      batch.delete(db.collection(PROTECTED_WRITING_COLLECTION).doc(id));
+    } else {
+      // Protected writing is never written to the world-readable `papers` collection.
+      publicData = { ...publicData, collection: audience, shareKey, featured: false, featuredRank: null };
+      batch.set(db.collection(PROTECTED_WRITING_COLLECTION).doc(id), publicData);
+      batch.delete(db.collection(PUBLIC_COLLECTIONS.papers).doc(id));
+    }
   } else if (kind === "travel") {
     publicData = buildTravelPublic(draft, slug);
     const quotesSnap = await db.collection(PUBLIC_COLLECTIONS.travelQuotes).where("postId", "==", id).get();
@@ -544,7 +567,7 @@ export async function publishDraft(kind, id, actor = "system") {
   }
 
   const publishedRecord = {
-    collection: PUBLIC_COLLECTIONS[kind],
+    collection: targetCollection,
     docId: id,
     slug,
     publishedAt: new Date().toISOString(),
@@ -563,6 +586,7 @@ export async function publishDraft(kind, id, actor = "system") {
 
   batch.set(adminRef, {
     slug,
+    ...(audience === "public" ? {} : { shareKey }),
     status: "published",
     publishedAt: FieldValue.serverTimestamp(),
     publishedRecord,
@@ -586,6 +610,7 @@ export async function unpublishDraft(kind, id, actor = "system") {
     quotesSnap.forEach((doc) => batch.delete(doc.ref));
   }
   batch.delete(db.collection(PUBLIC_COLLECTIONS[kind]).doc(id));
+  if (kind === "papers") batch.delete(db.collection(PROTECTED_WRITING_COLLECTION).doc(id));
   batch.set(adminRef, {
     status: "archived",
     publishedRecord: FieldValue.delete(),
@@ -659,4 +684,20 @@ export async function repairCoordinateData() {
   const faces = await repairCollectionCoordinates(ADMIN_COLLECTIONS.faces, PUBLIC_COLLECTIONS.faces);
   const travel = await repairCollectionCoordinates(ADMIN_COLLECTIONS.travel, PUBLIC_COLLECTIONS.travel);
   return { faces, travel, total: faces + travel };
+}
+
+export async function rotateShareKey(id, actor = "system") {
+  const db = getDb();
+  const FieldValue = getFieldValue();
+  const adminRef = db.collection(ADMIN_COLLECTIONS.papers).doc(id);
+  const snap = await adminRef.get();
+  if (!snap.exists) throw new Error("Draft not found.");
+  if (paperAudience(snap.data()) === "public") throw new Error("Only Drafts and Unpublished Thoughts have private share links.");
+  const shareKey = generateShareKey();
+  const batch = db.batch();
+  batch.set(adminRef, { shareKey, updatedAt: FieldValue.serverTimestamp(), updatedBy: actor }, { merge: true });
+  const protectedRef = db.collection(PROTECTED_WRITING_COLLECTION).doc(id);
+  if ((await protectedRef.get()).exists) batch.set(protectedRef, { shareKey }, { merge: true });
+  await batch.commit();
+  return { shareKey };
 }

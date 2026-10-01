@@ -327,6 +327,15 @@ export function subscribeSubscribers(callback, onError) {
   );
 }
 
+export function subscribeEmailSends(callback, onError) {
+  assertFirestoreReady();
+  return onSnapshot(
+    query(collection(db, "email_sends"), orderBy("sentAt", "desc"), limit(100)),
+    (snapshot) => callback(snapshot.docs.map((item) => ({ id: item.id, ...item.data() }))),
+    onError
+  );
+}
+
 export async function getDraft(kind, id) {
   assertFirestoreReady();
   const snapshot = await getDoc(doc(db, collectionName(kind), id));
@@ -656,4 +665,59 @@ export async function deleteMediaAsset(asset, user) {
     id: String(asset.id || asset.assetId || ""),
     deletedBy: actor(user),
   };
+}
+
+const WRITING_INVITES_COLLECTION = "writing_invites";
+const INVITE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+export function normalizeInviteCode(value) {
+  return String(value || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 40);
+}
+
+export function formatInviteCode(code) {
+  return String(code || "").replace(/(.{4})(?=.)/g, "$1-");
+}
+
+export function generateInviteCode(length = 10) {
+  const bytes = new Uint8Array(length);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (byte) => INVITE_ALPHABET[byte % INVITE_ALPHABET.length]).join("");
+}
+
+export function subscribeWritingInvites(callback, onError) {
+  assertFirestoreReady();
+  return onSnapshot(
+    query(collection(db, WRITING_INVITES_COLLECTION), orderBy("createdAt", "desc"), limit(200)),
+    (snapshot) => callback(snapshot.docs.map((item) => ({ id: item.id, ...item.data() }))),
+    onError
+  );
+}
+
+export async function createWritingInvite({ label, collections, customCode, expiresAt }, user) {
+  assertFirestoreReady();
+  const code = normalizeInviteCode(customCode) || generateInviteCode();
+  if (code.length < 6) throw new Error("Invite codes need at least 6 letters or numbers.");
+  const ref = doc(db, WRITING_INVITES_COLLECTION, code);
+  if ((await getDoc(ref)).exists()) throw new Error("That code already exists. Pick another or leave it blank to generate one.");
+  await setDoc(ref, {
+    code,
+    label: String(label || "").trim().slice(0, 80),
+    collections: (collections || []).filter((item) => item === "drafts" || item === "unpublished"),
+    active: true,
+    expiresAt: expiresAt || "",
+    uses: 0,
+    createdAt: serverTimestamp(),
+    createdBy: user?.email || user?.uid || "admin",
+  });
+  return code;
+}
+
+export async function setWritingInviteActive(code, active) {
+  assertFirestoreReady();
+  await setDoc(doc(db, WRITING_INVITES_COLLECTION, code), { active: Boolean(active) }, { merge: true });
+}
+
+export async function deleteWritingInvite(code) {
+  assertFirestoreReady();
+  await deleteDoc(doc(db, WRITING_INVITES_COLLECTION, code));
 }

@@ -67,3 +67,15 @@ export async function repairCoordinates() {
   const result = await callable({});
   return result.data;
 }
+
+export async function sendContentBroadcast(payload) {
+  const callable = getCallable("sendContentBroadcast");
+  const result = await callable(payload);
+  return result.data;
+}
+
+export async function rotateWritingShareKey(id) {
+  const callable = getCallable("rotateWritingShareKey");
+  const result = await callable({ id });
+  return result.data;
+}

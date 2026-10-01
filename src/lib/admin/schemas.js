@@ -1,5 +1,11 @@
 export const CONTENT_KINDS = ["faces", "papers", "travel", "photography"];
 export const DRAFT_STATUSES = ["draft", "review", "scheduled", "published", "archived"];
+export const PAPER_AUDIENCES = [
+  { value: "public", label: "Public - main Selected Writing page" },
+  { value: "drafts", label: "Read More: Drafts (red, invite code required)" },
+  { value: "unpublished", label: "Read More: Unpublished Thoughts (blue, invite code required)" },
+];
+
 export const PAPER_TYPES = ["paper", "op-ed", "essay", "commentary", "report"];
 export const DISPATCH_TYPES = [
   { value: "travel", label: "Travel Dispatch" },
@@ -234,6 +240,8 @@ export function createEmptyPaperDraft() {
   return {
     kind: "papers",
     status: "draft",
+    audience: "public",
+    shareKey: "",
     slug: "",
     title: "",
     subtitle: "",

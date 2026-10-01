@@ -201,6 +201,17 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Drafts / Unpublished Thoughts. Served only through the getProtectedWriting
+    // Cloud Function after an invite code or share key is verified.
+    match /protected_writing/{paperId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    match /writing_invites/{code} {
+      allow read, write: if isAdmin();
+    }
+
     match /faces/{faceId} {
       allow read: if true;
       allow write: if false;
@@ -209,6 +220,10 @@ service cloud.firestore {
     match /photo_shoots/{shootId} {
       allow read: if true;
       allow write: if false;
+    }
+
+    match /email_sends/{docId} {
+      allow read, write: if isAdmin();
     }
 
     match /admin_faces/{docId} {

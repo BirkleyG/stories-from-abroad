@@ -209,6 +209,30 @@ Gmail SMTP uses a Google App Password and is fine for small lists, but has stric
 
 Resend production sending requires a verified domain. A `@gmail.com` address is not supported as the authenticated `from` sender for Resend production traffic.
 
+## Broadcast emails ("Send Email" in admin)
+
+Publishing a Faces/Papers/Travel/Photography item unlocks a **Send Email** button in its admin topbar, and the **Broadcasts** nav tab lets you compose standalone "General" announcements. Both go out through Resend, independently of the `AUTH_EMAIL_*` sign-in-link settings above -- the admin panel's send history lives under the Broadcasts tab.
+
+### One-time setup
+
+1. Sign up at [resend.com](https://resend.com) (free tier: 3,000 emails/month, 100/day).
+2. Domains -> Add Domain, using a domain you own. Add the DNS records Resend shows you at your DNS host, then wait for verification.
+3. Create an API key and set it as a Firebase secret (run this yourself so the key is never pasted into chat/logs):
+   ```bash
+   firebase functions:secrets:set RESEND_API_KEY
+   ```
+4. Add these to `functions/.env.<your-project-id>`:
+   ```dotenv
+   BROADCAST_EMAIL_FROM=dispatches@yourdomain.com
+   BROADCAST_SENDER_NAME=Stories from Abroad
+   SITE_BASE_URL=https://birkleyg.github.io/stories-from-abroad/
+   ```
+5. Deploy: `firebase deploy --only functions,firestore:rules`.
+
+### Templates
+
+Five themed HTML templates live in `functions/src/emailTemplates.js`, one per module (General, Writing/Papers, Photography, Faces of the World, Dispatch/Travel), each mirroring that section's live-site palette and typography. `sendContentBroadcast` (in `functions/src/index.js`) fetches the published content, renders the right template, resolves the matching subscriber segment, and sends via Resend's batch API. Use each compose modal's "Send test to me" button to preview real delivery before sending to the full list.
+
 ## Security debt (deferred major upgrades)
 
 `npm audit --omit=dev` currently reports advisories that require major-version upgrades:
