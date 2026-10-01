@@ -67,8 +67,9 @@ const publicFirebaseApiKey = import.meta.env.PUBLIC_FIREBASE_API_KEY ?? "";
   --a:#FF2D78;
   --dot-color:#FF2D78; /* FIX 1: changes dynamically */
 }
-html,body{height:100%;overflow-x:hidden}
-body{background:var(--k);color:var(--w);font-family:var(--font-b);-webkit-font-smoothing:antialiased;overflow-anchor:none}
+/* Only html may clip overflow-x: if body also sets it (with height:100%) body becomes its own scroller and window scroll breaks. */
+html{overflow-x:hidden}
+body{min-height:100%;background:var(--k);color:var(--w);font-family:var(--font-b);-webkit-font-smoothing:antialiased;overflow-anchor:none}
 body.photo-loading .fslide .fs-img{opacity:0}
 body.photo-loading .fslide .fs-title-block>*{opacity:0}
 body.photo-loading .shoots-grid .sc-img{opacity:0}
