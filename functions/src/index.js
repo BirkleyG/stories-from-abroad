@@ -8,6 +8,8 @@ import { defineSecret, defineString } from "firebase-functions/params";
 import { publishDraft, processScheduledKind, repairCoordinateData, scheduleDraft, unpublishDraft, rotateShareKey, PUBLIC_COLLECTIONS } from "./publishers.js";
 import { handleGetProtectedWriting } from "./protectedWriting.js";
 import { buildEmailForKind, buildContentUrl } from "./emailTemplates.js";
+import { ensureEmailImageUrl } from "./emailImages.js";
+import { ensureGlobeImageUrl } from "./globe.js";
 
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -340,6 +342,13 @@ async function fetchPublicList(kind) {
   return snapshot.docs.map((snap) => ({ id: snap.id, ...snap.data() }));
 }
 
+function shootCoverUrl(shoot) {
+  return shoot?.coverPhoto?.url
+    || (Array.isArray(shoot?.photos) ? shoot.photos.find((photo) => photo?.url)?.url : "")
+    || (Array.isArray(shoot?.allPhotos) ? shoot.allPhotos.find((photo) => photo?.url)?.url : "")
+    || "";
+}
+
 const TRAVEL_CATEGORY_LABELS = { stories: "Short Story", musings: "Musing" };
 
 async function buildBroadcastContext(kind, id, doc, { subject, note, baseUrl }) {
@@ -375,15 +384,15 @@ async function buildBroadcastContext(kind, id, doc, { subject, note, baseUrl }) 
       tags: doc.tags,
       frameCount: doc.frameCount,
       shootDate: doc.shootDate,
-      coverUrl: doc.coverPhoto?.url,
+      coverUrl: await ensureEmailImageUrl(shootCoverUrl(doc), 1200, logger),
       coverAlt: doc.coverPhoto?.alt || doc.title,
       accentColor: doc.accentColor,
-      archive: others.map((item) => ({
+      archive: await Promise.all(others.map(async (item) => ({
         title: item.title,
-        image: item.coverPhoto?.url || "",
+        image: await ensureEmailImageUrl(shootCoverUrl(item), 400, logger),
         location: item.locationLabel || [item.city, item.country].filter(Boolean).join(", "),
         url: buildContentUrl(siteBase, "photography", item.slug || item.id),
-      })),
+      }))),
     };
   }
   if (kind === "faces") {
@@ -402,7 +411,7 @@ async function buildBroadcastContext(kind, id, doc, { subject, note, baseUrl }) 
       excerpt: doc.excerpt,
       fieldNote: firstParagraphs.slice(0, 2),
       dateMet: doc.date,
-      portraitUrl: doc.portraitUrl || doc.heroUrl || doc.pic,
+      portraitUrl: await ensureEmailImageUrl(doc.portraitUrl || doc.heroUrl || doc.pic, 1000, logger),
       portraitAlt: doc.portraitAlt || doc.name,
     };
   }
@@ -416,7 +425,11 @@ async function buildBroadcastContext(kind, id, doc, { subject, note, baseUrl }) 
       location: doc.location,
       date: doc.date,
       preview: doc.preview || cleanTravelPreview(doc.full),
-      photos: (Array.isArray(doc.photos) ? doc.photos : []).map((photo) => ({ url: photo?.url, title: photo?.title || "" })),
+      photos: await Promise.all((Array.isArray(doc.photos) ? doc.photos : []).slice(0, 6).map(async (photo) => ({
+        url: await ensureEmailImageUrl(photo?.url, 640, logger),
+        title: photo?.title || "",
+      }))),
+      globeUrl: await ensureGlobeImageUrl(lngLat[0], lngLat[1], logger),
       categoryLabel: TRAVEL_CATEGORY_LABELS[doc.category] || "",
       longitude: lngLat[0],
       latitude: lngLat[1],
@@ -834,8 +847,9 @@ export const sendContentBroadcast = onCall({ secrets: [resendApiKeyParam], timeo
     doc = await fetchPublicContent(kind, id);
   }
 
+  const resizedHeroUrl = kind === "general" && heroUrl ? await ensureEmailImageUrl(heroUrl, 1200, logger) : heroUrl;
   const baseCtx = kind === "general"
-    ? { subject, note, baseUrl, heroUrl, heroAlt, ctaLabel, ctaUrl, subtitle, body, pullQuote }
+    ? { subject, note, baseUrl, heroUrl: resizedHeroUrl, heroAlt, ctaLabel, ctaUrl, subtitle, body, pullQuote }
     : await buildBroadcastContext(kind, id, doc, { subject, note, baseUrl });
 
   const renderFor = (subscriberName) => buildEmailForKind(kind, { ...baseCtx, subscriberName });

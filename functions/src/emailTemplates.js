@@ -77,6 +77,18 @@ function monthYear(value) {
   return match ? `${match[1]} ${match[2]}` : long;
 }
 
+// Lightens a dark accent so it stays legible as text on the black photo design.
+function readableOnDark(hex) {
+  const m = /^#([0-9a-f]{6})$/i.exec(cleanString(hex));
+  if (!m) return "#c96b28";
+  const [r, g, b] = [0, 2, 4].map((i) => parseInt(m[1].slice(i, i + 2), 16));
+  const lum = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+  if (lum >= 0.38) return cleanString(hex);
+  const mix = Math.min(0.62, (0.5 - lum) * 1.3);
+  const lift = (c) => Math.round(c + (255 - c) * mix).toString(16).padStart(2, "0");
+  return `#${lift(r)}${lift(g)}${lift(b)}`;
+}
+
 function safeHexColor(value, fallback) {
   return /^#[0-9a-f]{6}$/i.test(cleanString(value)) ? cleanString(value) : fallback;
 }
@@ -99,6 +111,61 @@ const MOBILE_CSS = `
     .stack { display:block !important; width:100% !important; padding-right:0 !important; }
   }`;
 
+// Full-bleed bands: every top-level <td class="px"|"c"> keeps its background and
+// borders on a full-width outer cell, while its content sits in a centered 600px
+// column (with an Outlook-desktop fixed-width ghost table). Mobile padding still
+// comes from the .px media query on the inner cell.
+function wrapBand(openTag, inner, classes) {
+  const styleMatch = openTag.match(/style="([^"]*)"/);
+  const decls = (styleMatch ? styleMatch[1] : "").split(";").map((part) => part.trim()).filter(Boolean);
+  const padding = decls.filter((decl) => /^padding/i.test(decl));
+  const rest = decls.filter((decl) => !/^padding/i.test(decl));
+  const otherAttrs = openTag.replace(/^<td/i, "").replace(/>$/, "").replace(/\s*class="[^"]*"/, "").replace(/\s*style="[^"]*"/, "");
+  const innerCell = classes.includes("px") ? `<td class="px" style="${padding.join(";")}">` : "<td>";
+  return `<td${otherAttrs}${rest.length ? ` style="${rest.join(";")}"` : ""}><!--[if mso]><table role="presentation" align="center" width="600"><tr><td><![endif]--><table role="presentation" width="100%" cellpadding="0" cellspacing="0" align="center" style="width:100%;max-width:600px;margin:0 auto;"><tr>${innerCell}${inner}</td></tr></table><!--[if mso]></td></tr></table><![endif]--></td>`;
+}
+
+function bleed(html) {
+  const tagPattern = /<(\/?)(table|td)\b([^>]*)>/gi;
+  let out = "";
+  let last = 0;
+  let tableDepth = 0;
+  let tdDepth = 0;
+  let openIndex = -1;
+  let openTag = "";
+  let innerStart = -1;
+  let match;
+  while ((match = tagPattern.exec(html))) {
+    const closing = match[1] === "/";
+    const name = match[2].toLowerCase();
+    if (name === "table") {
+      tableDepth += closing ? -1 : 1;
+      continue;
+    }
+    if (!closing) {
+      if (tableDepth === 1 && tdDepth === 0) {
+        openIndex = match.index;
+        openTag = match[0];
+        innerStart = tagPattern.lastIndex;
+        tdDepth = 1;
+      } else if (tdDepth > 0) {
+        tdDepth += 1;
+      }
+    } else if (tdDepth > 0) {
+      tdDepth -= 1;
+      if (tdDepth === 0) {
+        const classMatch = openTag.match(/class="([^"]*)"/);
+        const classes = classMatch ? classMatch[1].split(/\s+/) : [];
+        if (classes.includes("px") || classes.includes("c")) {
+          out += html.slice(last, openIndex) + wrapBand(openTag, html.slice(innerStart, match.index), classes);
+          last = match.index + match[0].length;
+        }
+      }
+    }
+  }
+  return out + html.slice(last);
+}
+
 function renderShell({ title, preheader, fontsHref, bodyRows, wrapperBg }) {
   return `<!DOCTYPE html>
 <html lang="en">
@@ -113,8 +180,8 @@ function renderShell({ title, preheader, fontsHref, bodyRows, wrapperBg }) {
 </head>
 <body style="margin:0;padding:0;">
 ${renderPreheader(preheader)}
-<div style="width:100%;max-width:600px;margin:0;background-color:${wrapperBg};text-align:left;">
-${bodyRows}
+<div style="width:100%;background-color:${wrapperBg};text-align:left;">
+${bleed(bodyRows)}
 </div>
 </body>
 </html>`;
@@ -123,11 +190,11 @@ ${bodyRows}
 // "label ———— label" section rule built from a table (no flexbox).
 function ruleRow({ left, right, labelStyle, lineColor, padY, padX, bg, borders }) {
   const px = `${padX}px`;
-  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:${bg};${borders}"><tr>
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:${bg};${borders}"><tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0" align="center" style="width:100%;max-width:600px;margin:0 auto;"><tr>
   <td style="${labelStyle}padding:${padY}px 16px ${padY}px ${px};white-space:nowrap;">${left}</td>
   <td width="100%" style="padding:${padY}px ${right ? "16px" : px} ${padY}px 0;"><div style="height:1px;background-color:${lineColor};line-height:1px;font-size:1px;">&nbsp;</div></td>
   ${right ? `<td style="${labelStyle}padding:${padY}px ${px} ${padY}px 0;white-space:nowrap;">${right}</td>` : ""}
-</tr></table>`;
+</tr></table></td></tr></table>`;
 }
 
 function lead(color, width = 22) {
@@ -180,7 +247,7 @@ export function buildGeneralEmail(ctx) {
   const kicker = cleanString(issueNumber) ? `Dispatch No. ${escapeHtml(issueNumber)}` : "Dispatch";
 
   const heroBlock = cleanString(heroUrl) ? `
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td style="padding:0;"><img src="${escapeHtml(heroUrl)}" alt="${escapeHtml(heroAlt || "")}" width="600" style="display:block;width:100%;max-width:600px;height:auto;" /></td></tr></table>` : "";
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td class="c"><img src="${escapeHtml(heroUrl)}" alt="${escapeHtml(heroAlt || "")}" width="600" style="display:block;width:100%;max-width:600px;height:auto;" /></td></tr></table>` : "";
 
   const hasBody = Boolean(cleanString(body) || cleanString(pullQuote));
   const bodyHtml = hasBody ? `
@@ -264,9 +331,9 @@ export function buildWritingEmail(ctx) {
 
   const bodyRows = `
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#FAFAF7;">
-<tr><td style="border-bottom:1px solid #E2DDD4;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
-  <td class="px" style="font-family:${CG};font-style:italic;font-size:13px;letter-spacing:0.04em;color:#2E2C28;padding:18px 0 18px 48px;">Stories From Abroad</td>
-  <td class="px" align="right" style="font-family:${CG};font-size:9.5px;letter-spacing:0.46em;text-transform:uppercase;color:#C4922A;padding:18px 48px 18px 0;">Papers &amp; Op-Eds</td>
+<tr><td class="px" style="padding:18px 48px;border-bottom:1px solid #E2DDD4;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+  <td style="font-family:${CG};font-style:italic;font-size:13px;letter-spacing:0.04em;color:#2E2C28;">Stories From Abroad</td>
+  <td align="right" style="font-family:${CG};font-size:9.5px;letter-spacing:0.46em;text-transform:uppercase;color:#C4922A;">Papers &amp; Op-Eds</td>
 </tr></table></td></tr>
 <tr><td class="px" style="padding:52px 48px 40px;">
   <div class="wide" style="font-family:${CG};font-size:9.5px;letter-spacing:0.52em;text-transform:uppercase;color:#C4922A;margin-bottom:28px;">${lead("#C4922A", 28)}${label ? `${escapeHtml(label)} &nbsp;&middot;&nbsp; ` : ""}New Writing</div>
@@ -312,7 +379,8 @@ export function buildPhotographyEmail(ctx) {
     title, description, locationLabel, tags, frameCount, shootDate, coverUrl, coverAlt, accentColor, archive,
   } = ctx;
   const link = buildContentUrl(baseUrl, "photography", slug);
-  const accent = safeHexColor(accentColor, "#FF2D78");
+  const accent = safeHexColor(accentColor, "#c96b28");
+  const accentText = readableOnDark(accent);
   const preheaderText = plainText(description).slice(0, 140) || subject;
   const place = cleanString(locationLabel);
   const [city, ...rest] = place.split(",").map((part) => part.trim());
@@ -338,20 +406,21 @@ export function buildPhotographyEmail(ctx) {
     <td align="right" style="font-family:${MONO};font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:rgba(255,255,255,0.25);">${escapeHtml(monthYear(shootDate) || monthYear(new Date().toISOString()))}</td>
   </tr></table>
 </td></tr>
-${coverUrl ? `<tr><td><a href="${escapeHtml(link)}" style="display:block;"><img src="${escapeHtml(coverUrl)}" alt="${escapeHtml(coverAlt || title || "")}" width="600" style="display:block;width:100%;max-width:600px;height:auto;" /></a></td></tr>` : ""}
-<tr><td style="background-color:#0d0d0d;border-top:1px solid rgba(255,255,255,0.06);border-bottom:1px solid rgba(255,255,255,0.06);"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
-  <td class="px" style="font-family:${MONO};font-size:10px;letter-spacing:0.22em;text-transform:uppercase;color:rgba(255,255,255,0.5);padding:12px 0 12px 40px;">${escapeHtml(city || "")}${country ? `<span style="color:rgba(255,255,255,0.3);margin-left:6px;">, ${escapeHtml(country)}</span>` : ""}</td>
+${coverUrl ? `<tr><td class="c"><a href="${escapeHtml(link)}" style="display:block;"><img src="${escapeHtml(coverUrl)}" alt="${escapeHtml(coverAlt || title || "")}" width="600" style="display:block;width:100%;max-width:600px;height:auto;" /></a></td></tr>
+<tr><td style="height:4px;line-height:4px;font-size:4px;background-color:${accent};">&nbsp;</td></tr>` : ""}
+<tr><td class="c" style="background-color:#0d0d0d;border-top:1px solid rgba(255,255,255,0.06);border-bottom:1px solid rgba(255,255,255,0.06);"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+  <td class="px" style="font-family:${MONO};font-size:10px;letter-spacing:0.22em;text-transform:uppercase;color:${accentText};padding:12px 0 12px 40px;">${escapeHtml(city || "")}${country ? `<span style="color:rgba(255,255,255,0.4);margin-left:6px;">, ${escapeHtml(country)}</span>` : ""}</td>
   <td class="px" align="right" style="font-family:${MONO};font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:rgba(255,255,255,0.3);padding:12px 40px 12px 0;">${frameCount ? `${escapeHtml(frameCount)} frames` : ""}${frameCount && dateLabel ? " &nbsp;&middot;&nbsp; " : ""}${escapeHtml(dateLabel)}</td>
 </tr></table></td></tr>
 <tr><td class="px" style="padding:40px 40px 28px;">
-  <div style="font-family:${MONO};font-size:10px;letter-spacing:0.28em;text-transform:uppercase;color:rgba(255,255,255,0.35);margin-bottom:18px;">New Shoot &middot; Photography</div>
+  <div style="font-family:${MONO};font-size:10px;letter-spacing:0.28em;text-transform:uppercase;color:${accentText};margin-bottom:18px;">New Shoot &middot; Photography</div>
   <h1 class="t1" style="margin:0 0 22px;font-family:${SERIF};font-size:48px;font-weight:400;line-height:0.96;letter-spacing:-0.02em;color:#ffffff;">${escapeHtml(title)}</h1>
   <div style="font-family:${MONO};font-size:13.5px;line-height:1.76;color:rgba(255,255,255,0.6);">${nl2p(description, "margin:0 0 14px;")}${note ? nl2p(note, "margin:0 0 14px;color:rgba(255,255,255,0.75);") : ""}</div>
 </td></tr>
 <tr><td class="px" style="padding:0 40px 28px;border-bottom:1px solid rgba(255,255,255,0.06);">
   ${[["Location", place], ["Frames", frameCount], ["Date", dateLabel]].filter(([, value]) => cleanString(value)).map(([key, value]) => `<div style="display:inline-block;vertical-align:top;margin:0 32px 8px 0;"><span style="display:block;font-family:${MONO};font-size:9px;letter-spacing:0.28em;text-transform:uppercase;color:rgba(255,255,255,0.3);margin-bottom:4px;">${key}</span><span style="font-family:${MONO};font-size:13px;letter-spacing:0.06em;color:rgba(255,255,255,0.7);">${escapeHtml(value)}</span></div>`).join("")}
 </td></tr>
-${tagList.length ? `<tr><td class="px" style="padding:22px 40px;border-bottom:1px solid rgba(255,255,255,0.06);">${tagList.map((tag) => `<span style="display:inline-block;font-family:${MONO};font-size:10px;letter-spacing:0.16em;text-transform:uppercase;color:rgba(255,255,255,0.55);border:1px solid ${accent};padding:5px 12px;margin:0 8px 8px 0;">${escapeHtml(tag)}</span>`).join("")}</td></tr>` : ""}
+${tagList.length ? `<tr><td class="px" style="padding:22px 40px;border-bottom:1px solid rgba(255,255,255,0.06);">${tagList.map((tag) => `<span style="display:inline-block;font-family:${MONO};font-size:10px;letter-spacing:0.16em;text-transform:uppercase;color:${accentText};border:1px solid ${accent};padding:5px 12px;margin:0 8px 8px 0;">${escapeHtml(tag)}</span>`).join("")}</td></tr>` : ""}
 <tr><td class="px" style="padding:32px 40px 44px;"><a href="${escapeHtml(link)}" style="display:inline-block;background-color:${accent};color:#ffffff;font-family:${MONO};font-size:11px;letter-spacing:0.2em;text-transform:uppercase;padding:14px 32px;">View the Shoot &rarr;</a></td></tr>
 ${archiveGrid}
 <tr><td class="px" style="padding:22px 40px 36px;border-top:1px solid rgba(255,255,255,0.06);">
@@ -445,7 +514,7 @@ function formatCoordinate(value, positive, negative) {
 export function buildDispatchEmail(ctx) {
   const {
     subject, note, baseUrl, slug,
-    title, location, date, preview, photos, categoryLabel, longitude, latitude, dispatchNumber, totalDispatches,
+    title, location, date, preview, photos, categoryLabel, longitude, latitude, dispatchNumber, totalDispatches, globeUrl,
   } = ctx;
   const link = buildContentUrl(baseUrl, "travel", slug);
   const preheaderText = plainText(preview).slice(0, 140) || subject;
@@ -475,7 +544,7 @@ export function buildDispatchEmail(ctx) {
     ${dispatchNumber ? `<td align="right" style="font-family:${CG};font-size:10px;letter-spacing:0.28em;text-transform:uppercase;color:${RED};">Dispatch No. ${escapeHtml(dispatchNumber)}</td>` : ""}
   </tr></table>
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
-    <td valign="top" width="112" style="padding-right:16px;"><div style="width:96px;height:96px;border:1px solid #3a3a3a;border-radius:48px;background-color:#1a1a1a;text-align:center;"><div style="padding-top:14px;font-size:46px;line-height:50px;">${globeGlyph(longitude)}</div>${coords ? `<div style="font-family:Georgia,serif;font-size:8px;letter-spacing:0.08em;color:${RED};padding-top:4px;line-height:10px;">&#9679; ${coords}</div>` : ""}</div></td>
+    <td valign="top" width="124" style="padding-right:16px;">${globeUrl ? `<img src="${escapeHtml(globeUrl)}" width="108" height="108" alt="Globe pinned to ${escapeHtml(place)}" style="display:block;width:108px;height:108px;" />` : `<div style="width:96px;height:96px;border:1px solid #3a3a3a;border-radius:48px;background-color:#1a1a1a;text-align:center;"><div style="padding-top:14px;font-size:46px;line-height:50px;">${globeGlyph(longitude)}</div>${coords ? `<div style="font-family:Georgia,serif;font-size:8px;letter-spacing:0.08em;color:${RED};padding-top:4px;line-height:10px;">&#9679; ${coords}</div>` : ""}</div>`}</td>
     <td valign="middle">
       <div class="t3" style="font-family:${CG};font-size:28px;font-weight:300;font-style:italic;line-height:1.1;color:#FAFAF7;margin-bottom:8px;">Scrap Notes<br>from the road.</div>
       ${place ? `<div style="font-family:${CG};font-size:9.5px;letter-spacing:0.38em;text-transform:uppercase;color:rgba(250,250,247,0.45);margin-bottom:14px;">Written from ${escapeHtml(place)}</div>
