@@ -25,7 +25,7 @@ const authReplyToEmailParam = defineString("AUTH_EMAIL_REPLY_TO", { default: "" 
 const authSenderNameParam = defineString("AUTH_EMAIL_SENDER_NAME", { default: "Stories from Abroad" });
 const broadcastEmailFromParam = defineString("BROADCAST_EMAIL_FROM", { default: "" });
 const broadcastSenderNameParam = defineString("BROADCAST_SENDER_NAME", { default: "Stories from Abroad" });
-const siteBaseUrlParam = defineString("SITE_BASE_URL", { default: "https://birkleyg.github.io/stories-from-abroad/" });
+const siteBaseUrlParam = defineString("SITE_BASE_URL", { default: "https://storiesfromabroad.com/" });
 const SUBSCRIBER_SEGMENTS = ["Articles & Op-Eds", "Photography", "Faces of the World", "Travel"];
 const BROADCAST_KIND_SEGMENT = {
   papers: "Articles & Op-Eds",

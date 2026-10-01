@@ -41,6 +41,33 @@ const publicFirebaseConfigJson = JSON.stringify({
   functionsRegion: import.meta.env.PUBLIC_FIREBASE_FUNCTIONS_REGION ?? "us-central1",
 });
 const publicFirebaseApiKey = import.meta.env.PUBLIC_FIREBASE_API_KEY ?? "";
+
+const AUTHOR_NAME = "Birkley Grunewald";
+const siteOrigin = Astro.site ? Astro.site.origin : "";
+const canonicalUrl = siteOrigin ? new URL(Astro.url.pathname, Astro.site).href : "";
+const isPrivatePage = /\/(admin|subscriber-settings|unsubscribe|email-verified)\/?$/.test(Astro.url.pathname);
+const isHome = currentRoute === "/";
+const jsonLd = siteOrigin
+  ? [
+      {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        name: copy.siteTitle,
+        url: `${siteOrigin}${basePath}`,
+        description: copy.defaultDescription,
+        author: { "@type": "Person", name: AUTHOR_NAME },
+      },
+      {
+        "@context": "https://schema.org",
+        "@type": "Person",
+        name: AUTHOR_NAME,
+        url: `${siteOrigin}${basePath}`,
+        jobTitle: "Writer and Photographer",
+        description: `${AUTHOR_NAME} is the writer and photographer behind ${copy.siteTitle}.`,
+        mainEntityOfPage: `${siteOrigin}${basePath}read-the-story/`,
+      },
+    ]
+  : [];
 ---
 
 <!DOCTYPE html>
@@ -50,6 +77,18 @@ const publicFirebaseApiKey = import.meta.env.PUBLIC_FIREBASE_API_KEY ?? "";
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{pageTitle}</title>
     <meta name="description" content={description} />
+    <meta name="author" content={AUTHOR_NAME} />
+    {canonicalUrl ? <link rel="canonical" href={canonicalUrl} /> : null}
+    {isPrivatePage ? <meta name="robots" content="noindex, nofollow" /> : null}
+    <meta property="og:type" content={isHome ? "website" : "article"} />
+    <meta property="og:site_name" content={copy.siteTitle} />
+    <meta property="og:title" content={pageTitle} />
+    <meta property="og:description" content={description} />
+    {canonicalUrl ? <meta property="og:url" content={canonicalUrl} /> : null}
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content={pageTitle} />
+    <meta name="twitter:description" content={description} />
+    {!isPrivatePage && jsonLd.length ? <script type="application/ld+json" set:html={JSON.stringify(jsonLd)}></script> : null}
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link

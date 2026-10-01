@@ -32,8 +32,8 @@ jobs:
       - name: Build
         run: npm run build
         env:
-          ASTRO_BASE: /stories-from-abroad/
-          SITE_URL: https://birkleyg.github.io/stories-from-abroad/
+          ASTRO_BASE: /
+          SITE_URL: https://storiesfromabroad.com/
           PUBLIC_FIREBASE_API_KEY: AIzaSyBCqnYFg7zLCvEbHUl4Fu37gPh5pxdobYA
           PUBLIC_FIREBASE_AUTH_DOMAIN: stories-from-abroad.firebaseapp.com
           PUBLIC_FIREBASE_PROJECT_ID: stories-from-abroad

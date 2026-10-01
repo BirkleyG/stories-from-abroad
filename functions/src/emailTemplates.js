@@ -33,7 +33,7 @@ function plainText(text) {
 }
 
 function ensureTrailingSlash(url) {
-  const raw = cleanString(url) || "https://birkleyg.github.io/stories-from-abroad/";
+  const raw = cleanString(url) || "https://storiesfromabroad.com/";
   return raw.endsWith("/") ? raw : `${raw}/`;
 }
 

@@ -118,7 +118,7 @@ If Firestore is not configured or not reachable, the site renders the fallback c
 - Comment writes are rate-limited to **3 comments / 60 seconds** via `comment_throttles/{uid}` rule validation.
 - Reactions stay anonymous and write to `anon_reactions` subdocuments only.
 - Firestore security is defined in `firestore.rules`.
-- This project is configured for Firebase email-link auth. Authorized domains should include `localhost`, `127.0.0.1`, `stories-from-abroad.firebaseapp.com`, `stories-from-abroad.web.app`, and `birkleyg.github.io`.
+- This project is configured for Firebase email-link auth. Authorized domains should include `localhost`, `127.0.0.1`, `stories-from-abroad.firebaseapp.com`, `stories-from-abroad.web.app`, `birkleyg.github.io`, `storiesfromabroad.com`, and `www.storiesfromabroad.com`.
 
 ### Rules deploy
 
@@ -133,7 +133,7 @@ This repo includes a GitHub Actions workflow at `.github/workflows/deploy.yml`.
 The workflow now carries the public Firebase web config directly, so no GitHub secrets are required for the site build.
 
 1. Push to `main` to trigger deployment.
-2. GitHub Pages will publish to `https://birkleyg.github.io/stories-from-abroad/`.
+2. GitHub Pages will publish to `https://storiesfromabroad.com/`.
 
 ## Admin backend deploy
 
@@ -225,7 +225,7 @@ Publishing a Faces/Papers/Travel/Photography item unlocks a **Send Email** butto
    ```dotenv
    BROADCAST_EMAIL_FROM=dispatches@yourdomain.com
    BROADCAST_SENDER_NAME=Stories from Abroad
-   SITE_BASE_URL=https://birkleyg.github.io/stories-from-abroad/
+   SITE_BASE_URL=https://storiesfromabroad.com/
    ```
 5. Deploy: `firebase deploy --only functions,firestore:rules`.
 

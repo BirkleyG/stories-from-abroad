@@ -22,7 +22,7 @@ export const siteCopy = {
         { label: "Selected Papers", path: "selected-papers" },
         { label: "Photography", path: "photography" },
       ],
-      copyright: "\u00a9 2026 Stories From Abroad. All rights reserved.",
+      copyright: "\u00a9 2026 Birkley Grunewald. Stories From Abroad. All rights reserved.",
     },
     subscribeModal: {
       closeLabel: "Close",
@@ -50,8 +50,8 @@ export const siteCopy = {
   },
   home: {
     meta: {
-      title: "Stories From Abroad",
-      description: "Essays, photography, and field notes from every corner of the map I've been lucky enough to walk.",
+      title: "Birkley Grunewald, Writer & Photographer",
+      description: "Stories From Abroad is the writing, photography, and travel journal of Birkley Grunewald: essays, images, and field notes from every corner of the map.",
     },
     hero: {
       eyebrowHtml: "Est. 2024 &middot; Dispatches from the World",
@@ -96,17 +96,18 @@ export const siteCopy = {
   },
   readStory: {
     meta: {
-      title: "Read the Story",
-      description: "The author and the project.",
+      title: "About Birkley Grunewald",
+      description: "About Birkley Grunewald, the writer and photographer behind Stories From Abroad.",
     },
     header: {
       label: "About",
       title: "Read the Story",
-      subtitle: "The author and the project behind Stories From Abroad.",
+      subtitle: "Birkley Grunewald and the project behind Stories From Abroad.",
     },
     body: {
       title: "The Author and the Project",
       paragraphs: [
+        "I'm Birkley Grunewald, a writer and photographer, and this is Stories From Abroad.",
         "There is a particular clarity that comes from being away from home. From having traveled so much that the meaning home loses its significance. Living in places where the only recognizable thing is a human smile.",
         "Stories From Abroad is a personal dispatch, part literary journal, part field notebook, part brain dump. My simple attempt to record as much as possible, for story telling, regardless of its medium, brings life to living. I have not the skill of a journalist, nor the qualifications of an scholar. I have only eyes with which to observe.",
         "The photography is simply an attempt to capture a moment to be held forever. The essays are my raw thoughts. Each section has its own logic, but they share a common conviction: that the world is worth observing.",
