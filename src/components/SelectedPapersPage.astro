@@ -1417,79 +1417,41 @@ const initialFeatCounter = copy.featured.counterTemplate
       }
 
       #readmore {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 14px 24px;
         background: var(--off);
         border-top: 1px solid var(--border);
-        padding: 80px 52px 90px;
+        padding: 22px 52px;
       }
-      .rm-head {
-        max-width: 640px;
-        margin-bottom: 40px;
-      }
-      .rm-kicker {
-        font-family: "Cormorant Garamond", serif;
-        font-size: 10px;
-        letter-spacing: 0.4em;
-        text-transform: uppercase;
-        color: var(--ink3);
-        margin-bottom: 14px;
-      }
-      .rm-title {
+      .rm-label {
         font-family: "Cormorant", serif;
-        font-weight: 400;
-        font-size: 46px;
-        letter-spacing: -0.02em;
-        margin-bottom: 14px;
+        font-style: italic;
+        font-size: 22px;
+        color: var(--ink2);
       }
-      .rm-intro {
-        font-size: 15px;
-        line-height: 1.75;
-        color: var(--ink3);
-      }
-      .rm-cards {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 24px;
-      }
-      .rm-card {
-        --rm: var(--gold);
+      .rm-btns {
         display: flex;
-        flex-direction: column;
-        gap: 12px;
-        padding: 34px 32px 30px;
-        background: var(--white);
-        border: 1px solid var(--border);
-        border-top: 3px solid var(--rm);
-        color: var(--ink);
+        gap: 10px;
+      }
+      .rm-btn {
+        padding: 9px 22px;
+        color: #fff;
         text-decoration: none;
-        transition: transform 0.25s, box-shadow 0.25s;
-      }
-      .rm-drafts { --rm: #b8342a; }
-      .rm-unpublished { --rm: #2d63b0; }
-      .rm-card:hover {
-        transform: translateY(-4px);
-        box-shadow: 0 14px 34px rgba(17, 17, 16, 0.1);
-      }
-      .rm-lock { color: var(--rm); }
-      .rm-card-title {
-        font-family: "Cormorant", serif;
-        font-weight: 500;
-        font-size: 34px;
-        letter-spacing: -0.01em;
-        color: var(--rm);
-      }
-      .rm-card-blurb {
-        font-size: 14.5px;
-        line-height: 1.75;
-        color: var(--ink3);
-        flex: 1;
-      }
-      .rm-card-cta {
         font-family: "Cormorant Garamond", serif;
         font-size: 11px;
         letter-spacing: 0.3em;
         text-transform: uppercase;
-        color: var(--rm);
+        transition: filter 0.2s, transform 0.2s;
       }
+      .rm-btn:hover {
+        filter: brightness(1.12);
+        transform: translateY(-1px);
+      }
+      .rm-drafts { background: #b8342a; }
+      .rm-unpublished { background: #2d63b0; }
       #gate {
         position: fixed;
         inset: 0;
@@ -1578,9 +1540,7 @@ const initialFeatCounter = copy.featured.counterTemplate
         color: var(--gold3);
       }
       @media (max-width: 760px) {
-        #readmore { padding: 56px 22px 64px; }
-        .rm-cards { grid-template-columns: 1fr; }
-        .rm-title { font-size: 36px; }
+        #readmore { padding: 20px 22px; }
         .gate-box { padding: 36px 22px 30px; }
         .gate-form { flex-direction: column; }
       }
@@ -2191,22 +2151,10 @@ const initialFeatCounter = copy.featured.counterTemplate
 
     {!isProtected && (
       <section id="readmore">
-        <div class="rm-head">
-          <div class="rm-kicker">{baseCopy.readMore.kicker}</div>
-          <h2 class="rm-title">{baseCopy.readMore.title}</h2>
-          <p class="rm-intro">{baseCopy.readMore.intro}</p>
-        </div>
-        <div class="rm-cards">
+        <span class="rm-label">{baseCopy.readMore.title}</span>
+        <div class="rm-btns">
           {baseCopy.readMore.cards.map((card) => (
-            <a class={`rm-card rm-${card.key}`} href={`${basePath}selected-papers/${card.key}/`}>
-              <svg class="rm-lock" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
-                <rect x="4" y="11" width="16" height="10" rx="1.5" />
-                <path d="M8 11V7a4 4 0 0 1 8 0v4" />
-              </svg>
-              <h3 class="rm-card-title">{card.label}</h3>
-              <p class="rm-card-blurb">{card.blurb}</p>
-              <span class="rm-card-cta">{baseCopy.readMore.cta} &rarr;</span>
-            </a>
+            <a class={`rm-btn rm-${card.key}`} href={`${basePath}selected-papers/${card.key}/`}>{card.label}</a>
           ))}
         </div>
       </section>

@@ -191,7 +191,7 @@ export const siteCopy = {
     },
     readMore: {
       kicker: "Read More from the Author",
-      title: "Beyond the published page",
+      title: "Beyond the published page:",
       intro: "Two private rooms for the writing that hasn't gone out into the world. Access is by invitation.",
       cta: "Enter with invite code",
       cards: [
