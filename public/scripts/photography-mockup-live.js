@@ -880,28 +880,9 @@
       var total = allTiles.length;
       var current = 0;
       var snapping = false;
-      var trackpadSpikeThreshold = 3;
-      var wheelRateThreshold = 1.0;
-      var minDeltaTrackpad = 2;
-      var minDeltaWheel = 20;
       var lastWheelTs = 0;
-      var lastDeltaY = 0;
-      var prevRate = 0;
-      var wheelDebug = false;
-      try {
-        wheelDebug = String(new URL(window.location.href).searchParams.get("wheelDebug") || "") === "1";
-      } catch {
-        wheelDebug = false;
-      }
-      function logWheel(reason, extra) {
-        if (!wheelDebug) return;
-        var payload = Object.assign({ reason: reason }, extra || {});
-        console.log("[photo-wheel]", payload);
-      }
-      function isLikelyTrackpad(event) {
-        // Trackpads usually emit pixel-mode wheel deltas with relatively small increments.
-        return event.deltaMode === 0 && Math.abs(event.deltaY) < 60;
-      }
+      var lastWheelAbs = 0;
+      var lastWheelSign = 0;
       function restartKB(tile) {
         return;
       }
@@ -969,48 +950,25 @@
 
       positionTiles(0, false);
 
+      // Derivative wheel gesture: one step per spike. A spike is a wheel restart after a pause,
+      // a direction reversal, or a jump in magnitude (positive derivative). Inertia tails decay,
+      // so they never retrigger, and input is ignored while a transition runs so a photo is never skipped.
       function onWheel(event) {
         event.preventDefault();
-        if (snapping) return;
-
         var now = performance.now();
-        var dt = Math.max(1, now - (lastWheelTs || now));
-        var deltaY = event.deltaY;
+        var mult = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? window.innerHeight : 1;
+        var deltaY = event.deltaY * mult;
         var absDelta = Math.abs(deltaY);
-        var rate = absDelta / dt;
-        var trackpad = isLikelyTrackpad(event);
-        var minDelta = trackpad ? minDeltaTrackpad : minDeltaWheel;
-
-        logWheel("wheel", {
-          dt: Number(dt.toFixed(2)),
-          rate: Number(rate.toFixed(3)),
-          prevRate: Number(prevRate.toFixed(3)),
-          trackpad: trackpad,
-        });
-
-        if (trackpad) {
-          if (absDelta >= minDelta && prevRate <= trackpadSpikeThreshold && rate > trackpadSpikeThreshold) {
-            if (deltaY > 0) {
-              logWheel("snap-next", { mode: "trackpad-derivative", threshold: trackpadSpikeThreshold });
-              snapTo(current + 1, true);
-            } else if (deltaY < 0) {
-              logWheel("snap-prev", { mode: "trackpad-derivative", threshold: trackpadSpikeThreshold });
-              snapTo(current - 1, true);
-            }
-          }
-        } else if (absDelta >= minDelta && prevRate <= wheelRateThreshold && rate > wheelRateThreshold) {
-          if (deltaY > 0) {
-            logWheel("snap-next", { mode: "wheel-derivative", threshold: wheelRateThreshold });
-            snapTo(current + 1, true);
-          } else if (deltaY < 0) {
-            logWheel("snap-prev", { mode: "wheel-derivative", threshold: wheelRateThreshold });
-            snapTo(current - 1, true);
-          }
-        }
-
+        var sign = deltaY > 0 ? 1 : deltaY < 0 ? -1 : 0;
+        var gap = now - lastWheelTs;
+        var fresh = gap > 140;
+        var rising = absDelta > lastWheelAbs * 1.6 + 2;
+        var reversed = sign !== 0 && lastWheelSign !== 0 && sign !== lastWheelSign;
+        var trigger = !snapping && absDelta >= 4 && (fresh || rising || reversed);
         lastWheelTs = now;
-        lastDeltaY = deltaY;
-        prevRate = rate;
+        lastWheelAbs = absDelta;
+        if (sign !== 0) lastWheelSign = sign;
+        if (trigger) snapTo(sign > 0 ? current + 1 : current - 1, true);
       }
 
       var touchStartY = null;
