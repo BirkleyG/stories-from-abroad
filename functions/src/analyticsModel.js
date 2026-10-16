@@ -28,7 +28,6 @@ export const EVENT_DEFS = {
   paper_read_pct: "v",      // max scroll depth inside the overlay (percent points, summed per open)
   paper_read_full: "c",     // scrolled to the bottom of the overlay
   paper_full_click: "c",    // clicked through to the full paper (PDF / publication)
-  paper_full_sec: "v",      // seconds away from the site after that click (best estimate of reading time)
   paper_text_dl: "c",       // downloaded the clean text
   paper_cite_copy: "c",     // copied a citation (detail = style)
   search_papers: "c", filter_papers: "c",

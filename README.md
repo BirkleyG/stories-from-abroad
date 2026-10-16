@@ -287,7 +287,7 @@ src/
 - Optional delivered / bounced / clicked status: in Resend, add a webhook pointing at `https://us-central1-<project>.cloudfunctions.net/resendWebhook` (events: `email.delivered`, `email.bounced`, `email.complained`, `email.delivery_delayed`, `email.clicked`) and store its signing secret with `firebase functions:secrets:set RESEND_WEBHOOK_SECRET`.
 - Site analytics: every public page loads `public/scripts/sfa-track.js` (via `src/components/TrackingScript.astro`), which batches small engagement events to the `trackEvent` function. It keeps daily rollups in `analytics_daily` (no cookies, IPs or visitor ids reach the server). Visits from a browser that has opened `/admin`, localhost, and invite-only Drafts / Unpublished pages are not counted.
   - Tracked everywhere: visits, unique visitors, time on page, active time, scroll depth, referrers, devices, hour of day, outbound clicks, subscribe prompts and sign-ups.
-  - Stories: clicks into an article, abstract time, read depth, full-paper (PDF / publication) clicks and time away, Clean Text downloads, citations copied (by style), searches (and misses), filters.
+  - Stories: clicks into an article, abstract time, read depth, full-paper (PDF / publication) clicks, Clean Text downloads, citations copied (by style), searches (and misses), filters.
   - Photography: shoot clicks and time, photo views / zooms / downloads, entire-shoot views.
   - Faces: map scrolls, full scrolls, scroll percent, pins revealed / clicked, archive opens and scrolls, stories clicked / time / full scrolls.
   - Travel: full page scroll, dispatch clicks, filters, time, read percent, photo clicks, reactions, comments.

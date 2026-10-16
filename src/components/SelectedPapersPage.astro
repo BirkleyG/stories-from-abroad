@@ -3082,7 +3082,6 @@ const initialFeatCounter = copy.featured.counterTemplate
           if (action === "pdf" || action === "publication") {
             if (tracker && item) {
               tracker.event("paper_full_click", { item: item, detail: action });
-              tracker.away("paper_full", item);
             }
           } else if (action === "text") {
             const blob = new Blob([paperPlainText(paper)], { type: "text/plain;charset=utf-8" });

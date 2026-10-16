@@ -82,9 +82,8 @@ function KindTab({ kind, rows, agg, docs, days, pageViewsSeries, insights, onGo 
     const opens = Number(t.paper_open || 0);
     sectionTiles = [
       { value: fmtInt(opens), label: "Clicks into articles", hint: `${fmtInt(t.paper_open_u)} unique` },
-      { value: fmtDuration(ratio(t.paper_abs_sec, opens)), label: "Avg abstract reading time", hint: `${fmtDuration(ratio(t.paper_abs_act, opens))} active` },
+      { value: fmtDuration(ratio(t.paper_abs_sec, opens)), label: "Avg time on paper page", hint: `${fmtDuration(ratio(t.paper_abs_act, opens))} active` },
       { value: fmtInt(t.paper_full_click), label: "Full-paper clicks", hint: `${fmtPct(ratio(t.paper_full_click, opens))} of opens` },
-      { value: fmtDuration(ratio(t.paper_full_sec, t.paper_full_click)), label: "Avg time on full paper", hint: "Time away after the click" },
       { value: fmtInt(t.paper_text_dl), label: "Clean text downloads" },
       { value: fmtInt(t.paper_cite_copy), label: "Citations copied", hint: topDims(dims.paper_cite_copy, 1)[0] ? `Most: ${topDims(dims.paper_cite_copy, 1)[0].label.toUpperCase()}` : "" },
       { value: fmtInt(t.search_papers), label: "Searches", hint: `${fmtInt(topDims(dims.search_miss).filter((r) => r.label.startsWith("papers")).reduce((s, r) => s + r.value, 0))} found nothing` },

@@ -11,7 +11,6 @@
  *   sfaTrack.event(name, { item, detail, value })      -> one event (counts; auto first-today "unique" flag)
  *   sfaTrack.dwell(name, item)  -> { stop() }          -> visible + active seconds as name_sec / name_act
  *   sfaTrack.progress(name, item, pct, fullAt)         -> max depth as name_pct, plus name_full when pct >= fullAt
- *   sfaTrack.away(name, item)                          -> seconds spent away after a link opens elsewhere (name_sec)
  *   sfaTrack.search(section, term, hits)               -> debounced search + miss tracking
  *   sfaTrack.flush()
  *
@@ -34,7 +33,7 @@
   var looksAutomated = /bot|crawl|spider|slurp|headless|lighthouse|prerender/i.test(navigator.userAgent || "");
   var canSend = Boolean(endpoint) && !isLocal && !optedOut && !looksAutomated;
   var collect = !optedOut;  // keep collecting locally for debugging even when not sending
-  if (!collect) { window.sfaTrack = { event: noop, dwell: function () { return { stop: noop }; }, progress: noop, away: noop, search: noop, flush: noop, key: function () { return ""; }, enabled: false }; return; }
+  if (!collect) { window.sfaTrack = { event: noop, dwell: function () { return { stop: noop }; }, progress: noop, search: noop, flush: noop, key: function () { return ""; }, enabled: false }; return; }
   function noop() {}
 
   var log = window.__sfaLog = [];
@@ -89,7 +88,6 @@
   var timers = {};     // dwell timers keyed by name|item
   var progresses = {}; // progress trackers keyed by name|item
   var queue = [];
-  var awaiting = null; // pending "away" measurement
 
   function markActive() { lastActive = Date.now(); }
   ["pointerdown", "pointermove", "keydown", "wheel", "touchstart", "scroll", "click"].forEach(function (type) {
@@ -200,16 +198,9 @@
 
   document.addEventListener("visibilitychange", function () {
     if (document.visibilityState === "hidden") {
-      if (awaiting && !awaiting.hiddenAt && Date.now() - awaiting.at < 6000) awaiting.hiddenAt = Date.now();
       flush(true);
     } else {
       lastTick = Date.now();
-      if (awaiting && awaiting.hiddenAt) {
-        var away = (Date.now() - awaiting.hiddenAt) / 1000;
-        push({ n: awaiting.name + "_sec", i: awaiting.item, v: Math.min(1800, round1(away)) });
-        awaiting = null;
-        flush(false);
-      }
     }
   });
   window.addEventListener("pagehide", function () { flush(true); });
@@ -277,9 +268,6 @@
     delete progresses[id];
   }
 
-  function away(name, item) {
-    awaiting = { name: name, item: item, at: Date.now(), hiddenAt: 0 };
-  }
 
   // Debounced search tracking: logs the final term once typing pauses, plus a miss when nothing matched.
   var searchTimers = {};
@@ -353,7 +341,6 @@
     dwell: dwell,
     progress: progress,
     resetProgress: resetProgress,
-    away: away,
     search: search,
     flush: function () { flush(false); },
     campaign: sessionCamp,
