@@ -1656,7 +1656,7 @@ function initNavSearch() {
 /* === ARCHIVE === */
 let archPs = [], lastArchIdx = -1;
 const PER    = 3;
-const PH_BLUR = 0.18, PH_HOLD = 0.44, PH_SLIDE = 0.68, PH_DONE = 0.96;
+const PH_BLUR = 0, PH_HOLD = 0.44, PH_SLIDE = 0.68, PH_DONE = 0.96;
 
 function filterInterviews() {
   const q  = (document.getElementById('af-search')?.value  || '').toLowerCase().trim();
@@ -1720,7 +1720,7 @@ function renderArchive(data) {
       const driver = document.getElementById('archive-scroll-driver');
       if (!driver) return;
       const driverTop = driver.getBoundingClientRect().top + window.scrollY;
-      const targetY = driverTop + i * PER * window.innerHeight + PER * window.innerHeight * PH_BLUR;
+      const targetY = driverTop + i * PER * window.innerHeight + PER * window.innerHeight * PH_HOLD;
       window.scrollTo({ top: targetY, behavior: 'smooth' });
     });
     bubblesEl.appendChild(b);
@@ -1813,8 +1813,10 @@ function initArchiveFilters() {
   });
 }
 
+let archRaf = 0;
 window.addEventListener('scroll', () => {
-  if (document.getElementById('archive-view').style.display !== 'none') runArch();
+  if (archRaf || document.getElementById('archive-view').style.display === 'none') return;
+  archRaf = requestAnimationFrame(() => { archRaf = 0; runArch(); });
 }, {passive:true});
 
 /* === PROFILE === */
