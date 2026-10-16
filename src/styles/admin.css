@@ -1869,3 +1869,232 @@ button:disabled {
     max-height: 100%;
   }
 }
+
+/* ---------- Analytics: tabs, tables, metrics, recommendations ---------- */
+.admin-analytics-tab {
+  display: grid;
+  gap: var(--admin-gap);
+}
+
+.admin-toolbar .admin-segmented[role="tablist"] {
+  flex-wrap: wrap;
+}
+
+.admin-tab-badge {
+  display: inline-block;
+  min-width: 1.3rem;
+  margin-left: 0.4rem;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  background: var(--admin-accent);
+  color: #fff;
+  font-size: 0.7rem;
+  line-height: 1.3rem;
+  text-align: center;
+}
+
+.admin-subhead {
+  margin: 1rem 0 0.5rem;
+  color: var(--admin-soft);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.admin-subhead:first-child {
+  margin-top: 0;
+}
+
+.admin-table.is-data th,
+.admin-table.is-data td {
+  white-space: nowrap;
+}
+
+.admin-table.is-data td:first-child {
+  white-space: normal;
+  min-width: 11rem;
+}
+
+.admin-table .is-right {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-table tr.is-clickable {
+  cursor: pointer;
+}
+
+.admin-table tr.is-clickable:hover td,
+.admin-table tr.is-selected td {
+  background: var(--admin-accent-soft);
+}
+
+.admin-th-sort {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+}
+
+.admin-th-sort:hover,
+.admin-th-sort.is-active {
+  color: var(--admin-ink);
+}
+
+.admin-table-more {
+  margin-top: 0.6rem;
+}
+
+.admin-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--cols, 4), minmax(0, 1fr));
+  gap: 0.6rem;
+  margin: 0;
+}
+
+.admin-metric {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 0.15rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--admin-line);
+  border-radius: var(--admin-radius-sm);
+  background: #fff;
+}
+
+.admin-metric dd {
+  margin: 0;
+  font-size: 1.3rem;
+  font-weight: 600;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-metric dt {
+  color: var(--admin-soft);
+  font-size: 0.74rem;
+}
+
+.admin-barstrip {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 130px;
+  padding-bottom: 1.1rem;
+}
+
+.admin-barstrip-col {
+  position: relative;
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  justify-content: flex-end;
+  height: 100%;
+}
+
+.admin-barstrip-fill {
+  display: block;
+  width: 100%;
+  border-radius: 3px 3px 0 0;
+  background: var(--admin-accent);
+  opacity: 0.78;
+}
+
+.admin-barstrip-col:hover .admin-barstrip-fill {
+  opacity: 1;
+}
+
+.admin-barstrip-col small {
+  position: absolute;
+  bottom: -1.1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  color: var(--admin-faint);
+  font-size: 0.68rem;
+  white-space: nowrap;
+}
+
+.admin-sparkline {
+  width: 160px;
+  height: 40px;
+}
+
+.admin-sparkline svg {
+  width: 100%;
+  height: 100%;
+}
+
+.admin-item-detail {
+  display: grid;
+  gap: 1rem;
+}
+
+.admin-item-detail-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.admin-item-trend {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--admin-soft);
+}
+
+.admin-item-expanded {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--admin-line);
+}
+
+.admin-insight-list {
+  display: grid;
+  gap: 0.7rem;
+  margin: 0 0 0.9rem;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-insight-list li {
+  display: grid;
+  gap: 0.2rem;
+  justify-items: start;
+  padding: 0.8rem 1rem;
+  border-left: 3px solid var(--admin-faint);
+  border-radius: 0 var(--admin-radius-sm) var(--admin-radius-sm) 0;
+  background: rgba(29, 24, 20, 0.035);
+}
+
+.admin-insight-list li p {
+  margin: 0;
+  color: var(--admin-soft);
+}
+
+.admin-insight-list li small {
+  color: var(--admin-faint);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.admin-insight-list li.tone-good { border-left-color: var(--admin-green); background: var(--admin-green-soft); }
+.admin-insight-list li.tone-warn { border-left-color: var(--admin-accent); background: var(--admin-red-soft); }
+.admin-insight-list li.tone-tip { border-left-color: var(--admin-gold); background: var(--admin-gold-soft); }
+
+.admin-item-performance .admin-section-header {
+  align-items: center;
+}
+
+@media (max-width: 900px) {
+  .admin-metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

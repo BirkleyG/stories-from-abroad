@@ -1,4 +1,5 @@
 ---
+import TrackingScript from "../components/TrackingScript.astro";
 const base = import.meta.env.BASE_URL ?? "/";
 const basePath = base.endsWith("/") ? base : `${base}/`;
 const publicFirestoreConfigJson = JSON.stringify({
@@ -16,6 +17,7 @@ const publicFirebaseApiKey = import.meta.env.PUBLIC_FIREBASE_API_KEY ?? "";
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<TrackingScript />
 <script is:inline data-firebase-api-key={publicFirebaseApiKey}>
 (() => {
   const apiKey = document.currentScript?.dataset?.firebaseApiKey || "";
@@ -346,6 +348,10 @@ body.segment-subscribe-open{overflow:hidden}
 .sg-exif-row{display:flex;justify-content:space-between;align-items:baseline}
 .sg-exif-k{font-family:var(--font-m);font-size:7.5px;letter-spacing:2px;text-transform:uppercase;color:var(--g3)}
 .sg-exif-v{font-family:var(--font-b);font-size:15px;color:var(--a)}
+.sg-download{align-self:flex-start;margin-top:22px;background:transparent;border:1px solid var(--g3,#3a3a3a);color:var(--g4,#8a8a8a);font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:2.5px;text-transform:uppercase;padding:9px 14px;cursor:pointer;transition:color .2s,border-color .2s}
+.sg-download:hover{color:var(--a,#fff);border-color:var(--a,#fff)}
+.inspect-download{position:absolute;top:18px;right:72px;z-index:3;background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.35);color:#fff;font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:2px;text-transform:uppercase;padding:9px 14px;cursor:pointer}
+.inspect-download:hover{background:rgba(255,255,255,.14)}
 .sg-note{font-family:var(--font-b);font-size:13px;font-style:italic;line-height:1.6;margin-top:auto;padding-top:20px;border-top:1px solid var(--g2);color:var(--g4)}
 .panel-accent-line{margin-top:20px;height:3px}
 .panel-accent-mono{font-family:var(--font-m);font-size:7px;letter-spacing:4px;margin-top:auto;padding-top:20px;word-break:break-all;line-height:1.8;opacity:.15}
@@ -580,6 +586,7 @@ body.segment-subscribe-open{overflow:hidden}
           <div class="sg-exif-row"><span class="sg-exif-k">Aperture</span><span class="sg-exif-v" id="sg-aperture"></span></div>
           <div class="sg-exif-row"><span class="sg-exif-k">ISO</span><span class="sg-exif-v" id="sg-iso"></span></div>
         </div>
+        <button class="sg-download" id="sg-download" type="button">Download photo &darr;</button>
         <div class="sg-note" id="sg-note"></div>
       </div>
       <div id="sg-panel-accent"></div>

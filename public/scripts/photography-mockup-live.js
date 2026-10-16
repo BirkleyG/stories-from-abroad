@@ -46,6 +46,64 @@
     }
   }
 
+  /* ---- engagement tracking (shoot opens, time, photo views/zooms/downloads, completion) ---- */
+  var shootTrack = null;
+
+  function trackerReady() {
+    return Boolean(window.sfaTrack && typeof window.sfaTrack.event === "function");
+  }
+
+  function startShootTracking(shoot, source) {
+    stopShootTracking();
+    if (!trackerReady()) return;
+    var item = window.sfaTrack.key("photography", shoot.slug);
+    if (!item) return;
+    shootTrack = { item: item, slug: shoot.slug, seen: {}, dwell: window.sfaTrack.dwell("shoot", item) };
+    window.sfaTrack.event("shoot_open", { item: item, detail: source || "link" });
+  }
+
+  function stopShootTracking() {
+    if (!shootTrack) return;
+    shootTrack.dwell.stop();
+    window.sfaTrack.resetProgress("shoot", shootTrack.item);
+    shootTrack = null;
+  }
+
+  function trackShootPosition(index, total, photoId) {
+    if (!shootTrack) return;
+    var pct = total > 1 ? (index / (total - 1)) * 100 : 100;
+    window.sfaTrack.progress("shoot", shootTrack.item, pct, 100);
+    if (photoId && !shootTrack.seen[photoId]) {
+      shootTrack.seen[photoId] = true;
+      window.sfaTrack.event("photo_view", { item: shootTrack.item, detail: photoId });
+    }
+  }
+
+  function trackShootEvent(name, photoId) {
+    if (shootTrack) window.sfaTrack.event(name, { item: shootTrack.item, detail: photoId || "" });
+  }
+
+  function downloadPhoto(src, photoId, shootSlug, index) {
+    trackShootEvent("photo_download", photoId);
+    var fallback = function () { window.open(src, "_blank", "noopener"); };
+    var extMatch = String(src).split("?")[0].match(/\.(jpe?g|png|webp|avif)$/i);
+    var fileBase = (shootSlug || "photo") + "-" + String(index + 1).padStart(2, "0");
+    if (!window.fetch) { fallback(); return; }
+    fetch(src, { mode: "cors" })
+      .then(function (response) { if (!response.ok) throw new Error("bad response"); return response.blob(); })
+      .then(function (blob) {
+        var ext = extMatch ? extMatch[1].toLowerCase() : (blob.type.split("/")[1] || "jpg").replace("jpeg", "jpg");
+        var link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = fileBase + "." + ext;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(function () { URL.revokeObjectURL(link.href); }, 4000);
+      })
+      .catch(fallback);
+  }
+
   function installRuntimeGlobals() {
     if (typeof window.setDotColor !== "function") {
       window.setDotColor = function setDotColorFallback(color) {
@@ -99,6 +157,7 @@
       }
 
       if (id !== "shoot") {
+        stopShootTracking();
         if (suppressInitialShootParamClear) {
           suppressInitialShootParamClear = false;
         } else {
@@ -316,7 +375,7 @@
       card.addEventListener("click", function () {
         if (typeof window.showShoot !== "function") return;
         var slug = String(card.getAttribute("data-shoot-slug") || "").trim();
-        if (slug) window.showShoot(slug);
+        if (slug) window.showShoot(slug, "archive");
       });
     });
   }
@@ -346,7 +405,7 @@
       card.addEventListener("click", function () {
         if (typeof window.showShoot !== "function") return;
         var slug = String(card.getAttribute("data-shoot-slug") || "").trim();
-        if (slug) window.showShoot(slug);
+        if (slug) window.showShoot(slug, "about");
       });
     });
   }
@@ -481,7 +540,8 @@
       if (wrap) {
         wrap.setAttribute("data-shoot-slug", item.shootSlug);
         wrap.onclick = function () {
-          if (typeof window.showShoot === "function") window.showShoot(item.shootSlug);
+          if (trackerReady()) window.sfaTrack.event("feat_click", { item: window.sfaTrack.key("photography", item.shootSlug), detail: "image" });
+          if (typeof window.showShoot === "function") window.showShoot(item.shootSlug, "featured");
         };
       }
 
@@ -501,7 +561,8 @@
       if (cta) {
         cta.setAttribute("data-shoot-slug", item.shootSlug);
         cta.onclick = function () {
-          if (typeof window.showShoot === "function") window.showShoot(item.shootSlug);
+          if (trackerReady()) window.sfaTrack.event("feat_click", { item: window.sfaTrack.key("photography", item.shootSlug), detail: "button" });
+          if (typeof window.showShoot === "function") window.showShoot(item.shootSlug, "featured");
         };
       }
     });
@@ -611,6 +672,7 @@
         overlay.innerHTML = '' +
           '<div class="inspect-stage" id="inspect-stage">' +
             '<button class="inspect-close" id="inspect-close" type="button" aria-label="Close inspect">X</button>' +
+            '<button class="inspect-download" id="inspect-download" type="button">Download &darr;</button>' +
             '<img class="inspect-img" id="inspect-img" alt="Inspect photo" />' +
           "</div>";
         document.body.appendChild(overlay);
@@ -680,8 +742,16 @@
       };
     }
 
-    function openInspect(src, alt) {
+    function openInspect(src, alt, photoId, photoIndex) {
       var overlay = ensureInspectOverlay();
+      trackShootEvent("photo_zoom", photoId);
+      var inspectDownload = overlay.querySelector("#inspect-download");
+      if (inspectDownload) {
+        inspectDownload.onclick = function (event) {
+          event.stopPropagation();
+          downloadPhoto(src, photoId, shootTrack ? shootTrack.slug : "", photoIndex || 0);
+        };
+      }
       var image = overlay.querySelector("#inspect-img");
       var stage = overlay.querySelector("#inspect-stage");
       var close = overlay.querySelector("#inspect-close");
@@ -739,10 +809,11 @@
       }, 160);
     }
 
-    window.showShoot = function showShoot(slug) {
+    window.showShoot = function showShoot(slug, source) {
       var shoot = LIVE_SHOOTS[slug];
       if (!shoot) return;
       writeShootParam(shoot.slug);
+      startShootTracking(shoot, source);
       if (typeof cleanup === "function") {
         cleanup();
         cleanup = null;
@@ -758,6 +829,7 @@
           if (!src) return null;
           return {
             idx: index,
+            id: String(photo?.id || "p" + (index + 1)),
             src: src,
             title: String(photo?.title || "Frame " + String(index + 1).padStart(2, "0")),
             caption: String(photo?.caption || ""),
@@ -820,6 +892,7 @@
         return '' +
           '<div class="sg-tile sg-photo-tile' + (index % 2 === 1 ? " kb-b" : "") + '"' +
             ' data-index="' + index + '"' +
+            ' data-pid="' + esc(photo.id) + '"' +
             ' data-title="' + encodeURIComponent(photo.title) + '"' +
             ' data-caption="' + encodeURIComponent(photo.caption) + '"' +
             ' data-note="' + encodeURIComponent(photo.note) + '"' +
@@ -880,28 +953,9 @@
       var total = allTiles.length;
       var current = 0;
       var snapping = false;
-      var trackpadSpikeThreshold = 3;
-      var wheelRateThreshold = 1.0;
-      var minDeltaTrackpad = 2;
-      var minDeltaWheel = 20;
       var lastWheelTs = 0;
-      var lastDeltaY = 0;
-      var prevRate = 0;
-      var wheelDebug = false;
-      try {
-        wheelDebug = String(new URL(window.location.href).searchParams.get("wheelDebug") || "") === "1";
-      } catch {
-        wheelDebug = false;
-      }
-      function logWheel(reason, extra) {
-        if (!wheelDebug) return;
-        var payload = Object.assign({ reason: reason }, extra || {});
-        console.log("[photo-wheel]", payload);
-      }
-      function isLikelyTrackpad(event) {
-        // Trackpads usually emit pixel-mode wheel deltas with relatively small increments.
-        return event.deltaMode === 0 && Math.abs(event.deltaY) < 60;
-      }
+      var lastWheelAbs = 0;
+      var lastWheelSign = 0;
       function restartKB(tile) {
         return;
       }
@@ -931,6 +985,7 @@
 
         var tile = allTiles[index];
         var isPhoto = !tile.dataset.isTitle && !tile.dataset.isEnd;
+        trackShootPosition(index, total, isPhoto ? tile.dataset.pid : "");
         document.getElementById("sg-pc").style.opacity = isPhoto ? "1" : "0.12";
         document.getElementById("sg-counter").style.opacity = isPhoto ? "1" : "0";
         if (isPhoto) {
@@ -969,48 +1024,25 @@
 
       positionTiles(0, false);
 
+      // Derivative wheel gesture: one step per gesture. A new gesture is detected when the
+      // wheel stream restarts after a pause, reverses direction, or its magnitude jumps up
+      // (positive derivative). Inertia tails decay, so they never retrigger.
       function onWheel(event) {
         event.preventDefault();
-        if (snapping) return;
-
         var now = performance.now();
-        var dt = Math.max(1, now - (lastWheelTs || now));
-        var deltaY = event.deltaY;
+        var mult = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? window.innerHeight : 1;
+        var deltaY = event.deltaY * mult;
         var absDelta = Math.abs(deltaY);
-        var rate = absDelta / dt;
-        var trackpad = isLikelyTrackpad(event);
-        var minDelta = trackpad ? minDeltaTrackpad : minDeltaWheel;
-
-        logWheel("wheel", {
-          dt: Number(dt.toFixed(2)),
-          rate: Number(rate.toFixed(3)),
-          prevRate: Number(prevRate.toFixed(3)),
-          trackpad: trackpad,
-        });
-
-        if (trackpad) {
-          if (absDelta >= minDelta && prevRate <= trackpadSpikeThreshold && rate > trackpadSpikeThreshold) {
-            if (deltaY > 0) {
-              logWheel("snap-next", { mode: "trackpad-derivative", threshold: trackpadSpikeThreshold });
-              snapTo(current + 1, true);
-            } else if (deltaY < 0) {
-              logWheel("snap-prev", { mode: "trackpad-derivative", threshold: trackpadSpikeThreshold });
-              snapTo(current - 1, true);
-            }
-          }
-        } else if (absDelta >= minDelta && prevRate <= wheelRateThreshold && rate > wheelRateThreshold) {
-          if (deltaY > 0) {
-            logWheel("snap-next", { mode: "wheel-derivative", threshold: wheelRateThreshold });
-            snapTo(current + 1, true);
-          } else if (deltaY < 0) {
-            logWheel("snap-prev", { mode: "wheel-derivative", threshold: wheelRateThreshold });
-            snapTo(current - 1, true);
-          }
-        }
-
+        var sign = deltaY > 0 ? 1 : deltaY < 0 ? -1 : 0;
+        var gap = now - lastWheelTs;
+        var fresh = gap > 140;
+        var rising = absDelta > lastWheelAbs * 1.6 + 2;
+        var reversed = sign !== 0 && lastWheelSign !== 0 && sign !== lastWheelSign;
+        var trigger = !snapping && absDelta >= 4 && (fresh || rising || reversed);
         lastWheelTs = now;
-        lastDeltaY = deltaY;
-        prevRate = rate;
+        lastWheelAbs = absDelta;
+        if (sign !== 0) lastWheelSign = sign;
+        if (trigger) snapTo(sign > 0 ? current + 1 : current - 1, true);
       }
 
       var touchStartY = null;
@@ -1054,6 +1086,15 @@
       window.addEventListener("keydown", onKey);
       var restart = document.getElementById("sg-restart");
       if (restart) restart.addEventListener("click", function () { snapTo(0, true); });
+      var panelDownload = document.getElementById("sg-download");
+      if (panelDownload) {
+        panelDownload.onclick = function () {
+          var activeTile = allTiles[current];
+          if (!activeTile || activeTile.dataset.isTitle || activeTile.dataset.isEnd) return;
+          var activeImg = activeTile.querySelector("img");
+          if (activeImg) downloadPhoto(activeImg.getAttribute("src") || "", activeTile.dataset.pid, shoot.slug, parseInt(activeTile.dataset.index, 10) || 0);
+        };
+      }
       Array.from(document.querySelectorAll(".pdot")).forEach(function (dot) {
         dot.style.cursor = "pointer";
         dot.addEventListener("click", function () {
@@ -1064,7 +1105,8 @@
       });
       Array.from(photosEl.querySelectorAll(".sg-photo-tile img")).forEach(function (img) {
         img.addEventListener("click", function () {
-          openInspect(img.getAttribute("src") || "", img.getAttribute("alt") || "");
+          var tileEl = img.closest(".sg-photo-tile");
+          openInspect(img.getAttribute("src") || "", img.getAttribute("alt") || "", tileEl ? tileEl.dataset.pid : "", tileEl ? parseInt(tileEl.dataset.index, 10) : 0);
         });
       });
 
@@ -1139,7 +1181,7 @@
         requestedShoot = "";
       }
       if (requestedShoot && bySlug[requestedShoot] && typeof window.showShoot === "function") {
-        window.showShoot(requestedShoot);
+        window.showShoot(requestedShoot, new URL(window.location.href).searchParams.get("src") === "email" ? "email" : "link");
       } else if (requestedShoot && !bySlug[requestedShoot]) {
         writeShootParam("");
       }

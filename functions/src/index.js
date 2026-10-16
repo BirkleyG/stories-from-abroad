@@ -824,6 +824,28 @@ function openPixelUrl(sendId, recipientId) {
   return `https://us-central1-${project}.cloudfunctions.net/emailOpen?s=${encodeURIComponent(sendId)}&r=${encodeURIComponent(recipientId)}`;
 }
 
+// Tag every link back to the site with src=email and the send id (c=...), so the site's analytics can
+// attribute click-throughs and measure what each campaign's readers do afterwards.
+// Sign-in, settings and unsubscribe links are left alone.
+function tagEmailLinks(html, sendId, baseUrl) {
+  let origin = "";
+  try { origin = new URL(baseUrl).origin; } catch { return html; }
+  const wwwOrigin = origin.replace("://", "://www.");
+  return html.replace(/href="([^"]+)"/g, (match, href) => {
+    const raw = href.replace(/&amp;/g, "&");
+    if (!(raw.startsWith(origin) || raw.startsWith(wwwOrigin))) return match;
+    if (/\/(unsubscribe|subscriber-settings|email-verified)\//.test(raw)) return match;
+    try {
+      const url = new URL(raw);
+      if (!url.searchParams.has("src")) url.searchParams.set("src", "email");
+      url.searchParams.set("c", sendId);
+      return `href="${url.toString().replace(/&/g, "&amp;")}"`;
+    } catch {
+      return match;
+    }
+  });
+}
+
 function withOpenPixel(html, url) {
   const pixel = `<img src="${url}" width="1" height="1" alt="" style="display:block;border:0;width:1px;height:1px;" />`;
   return html.includes("</body>") ? html.replace("</body>", `${pixel}</body>`) : `${html}${pixel}`;
@@ -974,7 +996,7 @@ export const sendContentBroadcast = onCall({ secrets: [resendApiKeyParam], timeo
           from,
           to: [subscriber.email],
           subject: rendered.subject,
-          html: withOpenPixel(rendered.html, openPixelUrl(sendId, subscriber.id)),
+          html: withOpenPixel(tagEmailLinks(rendered.html, sendId, baseUrl), openPixelUrl(sendId, subscriber.id)),
           text: rendered.text,
         };
       });

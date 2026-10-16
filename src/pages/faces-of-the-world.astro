@@ -1,4 +1,5 @@
 ---
+import TrackingScript from "../components/TrackingScript.astro";
 const base = import.meta.env.BASE_URL ?? "/";
 const basePath = base.endsWith("/") ? base : `${base}/`;
 
@@ -21,6 +22,7 @@ const publicFirebaseApiKey = import.meta.env.PUBLIC_FIREBASE_API_KEY ?? "";
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Faces of the World</title>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,500;1,600&family=EB+Garamond:ital,wght@0,400;0,500;1,400;1,500&display=swap" rel="stylesheet">
+<TrackingScript />
 <script is:inline data-firebase-api-key={publicFirebaseApiKey}>
 (() => {
   const apiKey = document.currentScript?.dataset?.firebaseApiKey || "";
@@ -845,6 +847,7 @@ const facesInspect = (() => {
   }
 
   function open(src, alt) {
+    if (sfa() && storyTrack) sfa().event('story_photo_zoom', { item: storyTrack.item });
     image.src = String(src || '');
     image.alt = String(alt || 'Inspect portrait');
     if (image.complete && image.naturalWidth > 0) {
@@ -1238,6 +1241,7 @@ function resetAllPinsImmediate() {
 function revealAllPinsImmediate() {
   byDate.forEach(iv => {
     revealed.add(iv.slug);
+    trackPinReveal(iv.slug);
     showPinImmediate(document.querySelector('.pin[data-slug="' + iv.slug + '"]'));
   });
 }
@@ -1310,6 +1314,80 @@ function resetPin(pin) {
     pb.style.strokeDashoffset = l + 'px';
     pin.style.opacity = '0'; pin.classList.remove('show'); pin.style.filter = '';
   }
+}
+
+/* === ENGAGEMENT TRACKING (scrolls, pins, archive, stories) === */
+const sfa = () => window.sfaTrack || null;
+const trackedPins = new Set();
+const trackedArchive = new Set();
+let heroStarted = false;
+let storyTrack = null;
+let storySource = '';
+let firstRoute = true;
+
+function faceKey(slug) { return sfa() ? sfa().key('faces', slug) : ''; }
+
+function trackPinReveal(slug) {
+  if (!sfa() || trackedPins.has(slug)) return;
+  trackedPins.add(slug);
+  sfa().event('pin_reveal', { item: faceKey(slug), detail: 'map' });
+}
+
+function trackHeroProgress(p) {
+  if (!sfa()) return;
+  if (!heroStarted && p > 0.02) {
+    heroStarted = true;
+    sfa().event('faces_hero_start');
+  }
+  if (heroStarted) sfa().progress('faces_hero', '', Math.min(100, (p / ALL_AT) * 100), 99);
+}
+
+function trackArchiveProgress(idx, prog, total, isLast) {
+  if (!sfa() || !total) return;
+  if (!sfa().__archiveStarted && (idx > 0 || prog > 0.04)) {
+    sfa().__archiveStarted = true;
+    sfa().event('archive_start');
+  }
+  const pct = isLast ? 100 : ((idx + prog) / total) * 100;
+  sfa().progress('archive', '', pct, 99);
+}
+
+function trackArchivePortrait(iv) {
+  if (!sfa() || !iv || trackedArchive.has(iv.slug)) return;
+  trackedArchive.add(iv.slug);
+  sfa().event('archive_view', { item: faceKey(iv.slug) });
+}
+
+function stopStoryTracking() {
+  if (!storyTrack) return;
+  window.removeEventListener('scroll', onStoryScroll);
+  storyTrack.dwell.stop();
+  sfa().resetProgress('story', storyTrack.item);
+  storyTrack = null;
+}
+
+function onStoryScroll() {
+  if (!storyTrack) return;
+  const doc = document.documentElement;
+  const max = Math.max(doc.scrollHeight, document.body.scrollHeight) - window.innerHeight;
+  const pct = max <= 20 ? 100 : (window.scrollY / max) * 100;
+  sfa().progress('story', storyTrack.item, pct, 94);
+}
+
+function startStoryTracking(iv, source) {
+  stopStoryTracking();
+  if (!sfa()) return;
+  const item = faceKey(iv.slug);
+  if (!item) return;
+  sfa().event('story_open', { item: item, detail: source || 'link' });
+  storyTrack = { item: item, dwell: sfa().dwell('story', item) };
+  window.addEventListener('scroll', onStoryScroll, { passive: true });
+  setTimeout(onStoryScroll, 300);
+}
+
+function trackFacesFilter(label, id) {
+  const el = document.getElementById(id);
+  if (sfa() && el && el.value) sfa().event('filter_faces', { detail: label + ': ' + el.value });
 }
 
 /* === HERO SCROLL (1400vh total, all pacing below is a fraction of it) === */
@@ -1519,6 +1597,7 @@ function initScroll() {
     }
     const max = heroEl.offsetHeight - window.innerHeight; if (max <= 0) return;
     const p = Math.min(1, Math.max(0, (window.scrollY * HERO_SCROLL_SPEED) / max));
+    trackHeroProgress(p);
     updateMapPan(p);
 
     /* Lock at ALL_AT: snap back if user somehow scrolled past */
@@ -1541,7 +1620,7 @@ function initScroll() {
       const typeStart = pinStart + TYPE_DELAY;
       const rev = p >= pinStart || showAll;
       if (rev) {
-        if (!revealed.has(iv.slug)) { revealed.add(iv.slug); drawPin(pin); }
+        if (!revealed.has(iv.slug)) { revealed.add(iv.slug); drawPin(pin); trackPinReveal(iv.slug); }
         /* All pins show their name; burst pins show it immediately after draw */
         if (pin.dataset.drawn) {
           const chars = Math.ceil(Math.min(1, Math.max(0, (p - typeStart) / (TYPE_DUR || 0.001))) * iv.name.length);
@@ -1560,6 +1639,7 @@ function initScroll() {
 let activePv = null;
 function showPreview(iv, pinEl) {
   closePreview();
+  if (sfa()) sfa().event('pin_click', { item: faceKey(iv.slug), detail: 'map' });
   const card = document.createElement('div'); card.className = 'pin-preview';
   const layer = document.getElementById('pin-layer');
   const pr = pinEl.getBoundingClientRect(), lr = layer.getBoundingClientRect();
@@ -1573,7 +1653,7 @@ function showPreview(iv, pinEl) {
   card.style.top  = (tv - lr.top)  + 'px';
   card.innerHTML = '<button class="pv-close">\u2715</button><p class="pv-loc">' + esc(iv.city) + ', ' + esc(iv.country) + '</p><p class="pv-name">' + esc(iv.name) + '</p><p class="pv-occ">' + esc(iv.occupation) + '</p><p class="pv-excerpt">' + esc(iv.excerpt) + '</p><button class="pv-btn">Read their story \u2192</button>';
   card.querySelector('.pv-close').addEventListener('click', e => { e.stopPropagation(); closePreview(); });
-  card.querySelector('.pv-btn').addEventListener('click', () => goProfile(iv.slug));
+  card.querySelector('.pv-btn').addEventListener('click', () => { storySource = 'pin'; goProfile(iv.slug); });
   layer.appendChild(card); activePv = card;
 }
 function closePreview() { if (activePv) { activePv.remove(); activePv = null; } }
@@ -1605,6 +1685,7 @@ function initNavSearch() {
         c.addEventListener('mousedown', e => {
           e.preventDefault(); // don't blur input
           closeSearch();
+          storySource = 'search';
           goProfile(decodeURIComponent(c.dataset.slug || ''));
         });
       });
@@ -1620,6 +1701,7 @@ function initNavSearch() {
         )
       : [...interviews].sort((a,b) => new Date(b.date) - new Date(a.date));
     renderDropdown(hits, inp.value.trim());
+    if (q && sfa()) sfa().search('faces', q, hits.length);
   }
 
   function closeSearch() {
@@ -1656,7 +1738,7 @@ function initNavSearch() {
 /* === ARCHIVE === */
 let archPs = [], lastArchIdx = -1;
 const PER    = 3;
-const PH_BLUR = 0.18, PH_HOLD = 0.44, PH_SLIDE = 0.68, PH_DONE = 0.96;
+const PH_BLUR = 0, PH_HOLD = 0.44, PH_SLIDE = 0.68, PH_DONE = 0.96;
 
 function filterInterviews() {
   const q  = (document.getElementById('af-search')?.value  || '').toLowerCase().trim();
@@ -1697,7 +1779,7 @@ function makeSlide(iv, idx, total) {
   const panel = document.createElement('div'); panel.className='ptp '+(isRight?'ptp-r':'ptp-l');
   panel.style.opacity = '0'; // start hidden; scroll-driven blur phase fades it in
   panel.innerHTML='<p class="ptp-idx">Portrait '+String(idx+1).padStart(2,'0')+' / '+String(total).padStart(2,'0')+'</p><p class="ptp-loc">'+esc(iv.city)+', '+esc(iv.country)+'</p><h2 class="ptp-name">'+esc(iv.name)+'</h2><div class="ptp-div"></div><p class="ptp-occ">'+esc(iv.occupation)+'</p><p class="ptp-exc">'+esc(iv.excerpt)+'</p><button class="ptp-rb" data-slug="'+encodeURIComponent(iv.slug)+'">Read their story \u2192</button>';
-  panel.querySelector('.ptp-rb').addEventListener('click', () => goProfile(iv.slug));
+  panel.querySelector('.ptp-rb').addEventListener('click', () => { storySource = 'archive'; goProfile(iv.slug); });
   div.appendChild(panel);
   return div;
 }
@@ -1720,8 +1802,7 @@ function renderArchive(data) {
       const driver = document.getElementById('archive-scroll-driver');
       if (!driver) return;
       const driverTop = driver.getBoundingClientRect().top + window.scrollY;
-      const targetY = driverTop + i * PER * window.innerHeight + PER * window.innerHeight * PH_BLUR;
-      window.scrollTo({ top: targetY, behavior: 'smooth' });
+      window.scrollTo({ top: driverTop + i * PER * window.innerHeight + PER * window.innerHeight * PH_HOLD, behavior: 'smooth' });
     });
     bubblesEl.appendChild(b);
   });
@@ -1762,9 +1843,11 @@ function runArch() {
       bs.style.cssText = 'position:absolute;inset:0';
       back.appendChild(bs);
     }
+    trackArchivePortrait(archPs[idx]);
     /* Update active bubble */
     document.querySelectorAll('.arch-bub').forEach((b,i) => b.classList.toggle('active', i === idx));
   }
+  trackArchiveProgress(idx, prog, archPs.length, isLast);
   animSlide(front.firstElementChild, prog, idx % 2 === 1, back, isLast);
 }
 
@@ -1809,12 +1892,21 @@ function animSlide(slide, prog, isRight, backEl, isLast) {
 function initArchiveFilters() {
   ['af-search','af-faith','af-occ','af-year'].forEach(id => {
     const el = document.getElementById(id); if (!el) return;
-    el.addEventListener(el.tagName==='INPUT' ? 'input' : 'change', () => { lastArchIdx=-1; renderArchive(filterInterviews()); });
+    el.addEventListener(el.tagName==='INPUT' ? 'input' : 'change', () => {
+      lastArchIdx=-1;
+      const results = filterInterviews();
+      renderArchive(results);
+      if (!sfa()) return;
+      if (el.tagName === 'INPUT') sfa().search('faces', el.value, results.length);
+      else trackFacesFilter(id === 'af-faith' ? 'faith' : id === 'af-occ' ? 'occupation' : 'year', id);
+    });
   });
 }
 
+let archRaf = 0;
 window.addEventListener('scroll', () => {
-  if (document.getElementById('archive-view').style.display !== 'none') runArch();
+  if (archRaf || document.getElementById('archive-view').style.display === 'none') return;
+  archRaf = requestAnimationFrame(() => { archRaf = 0; runArch(); });
 }, {passive:true});
 
 /* === PROFILE === */
@@ -1860,23 +1952,31 @@ function goAbout()    { window.location.hash = '#/about'; }
 
 function handleRoute() {
   const h = window.location.hash;
+  stopStoryTracking();
+  const routeSource = storySource || (firstRoute && new URLSearchParams(window.location.search).get('src') === 'email' ? 'email' : (firstRoute ? 'link' : 'nav'));
+  storySource = '';
+  firstRoute = false;
   ['main-view','archive-view','about-view','profile-view'].forEach(id => document.getElementById(id).style.display='none');
   document.getElementById('archive-stage').style.display = 'none';
   document.getElementById('arch-bubbles').style.display = 'none';
   setHeroPan(0, 0);
   if (h.startsWith('#/profile/')) {
     const iv = interviews.find(i => i.slug === h.slice(10));
-    if (iv) { renderProfile(iv); document.getElementById('profile-view').style.display='block'; syncHeroMode(); window.scrollTo(0,0); return; }
+    if (iv) { renderProfile(iv); document.getElementById('profile-view').style.display='block'; syncHeroMode(); window.scrollTo(0,0); startStoryTracking(iv, routeSource); return; }
   }
   if (h === '#/archive') {
     document.getElementById('archive-view').style.display = 'block';
-    lastArchIdx = -1; renderArchive(filterInterviews()); syncHeroMode(); window.scrollTo(0,0); return;
+    lastArchIdx = -1; renderArchive(filterInterviews()); syncHeroMode(); window.scrollTo(0,0);
+    if (sfa()) { trackedArchive.clear(); sfa().resetProgress('archive', ''); sfa().__archiveStarted = false; sfa().event('archive_open', { detail: routeSource }); }
+    return;
   }
   if (h === '#/about') {
     document.getElementById('about-view').style.display = 'block';
     if (proj && !document.getElementById('about-map-left').firstElementChild) buildAboutMap();
     syncHeroMode();
-    window.scrollTo(0,0); return;
+    window.scrollTo(0,0);
+    if (sfa()) sfa().event('about_open');
+    return;
   }
   document.getElementById('main-view').style.display = 'block';
   positionPins();

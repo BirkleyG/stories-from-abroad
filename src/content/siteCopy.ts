@@ -276,7 +276,7 @@ export const siteCopy = {
       citationKey: "grunewald",
       citationStyles: ["APA", "MLA", "Chicago", "Harvard", "BibTeX"],
       abstractLabel: "Abstract",
-      downloadButtons: ["Download PDF", "Clean Text", "Export Citation"],
+      downloadButtons: ["Download PDF", "Clean Text", "Copy Citation"],
       placeholder: {
         abstractParagraphs: [
           "The argument is situated within broader debates in comparative political economy and international relations, drawing on historical case studies and theoretical frameworks to illuminate patterns often obscured by narrowly empirical approaches.",

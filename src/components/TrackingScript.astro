@@ -1,0 +1,9 @@
+---
+// Loads the engagement tracker (public/scripts/sfa-track.js). Included on every public page.
+const base = import.meta.env.BASE_URL ?? "/";
+const basePath = base.endsWith("/") ? base : `${base}/`;
+const project = import.meta.env.PUBLIC_FIREBASE_PROJECT_ID ?? "";
+const region = import.meta.env.PUBLIC_FIREBASE_FUNCTIONS_REGION || "us-central1";
+const endpoint = project ? `https://${region}-${project}.cloudfunctions.net/trackEvent` : "";
+---
+<script is:inline src={`${basePath}scripts/sfa-track.js`} data-endpoint={endpoint}></script>
