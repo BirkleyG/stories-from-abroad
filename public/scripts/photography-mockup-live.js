@@ -1024,9 +1024,9 @@
 
       positionTiles(0, false);
 
-      // Derivative wheel gesture: one step per gesture. A new gesture is detected when the
-      // wheel stream restarts after a pause, reverses direction, or its magnitude jumps up
-      // (positive derivative). Inertia tails decay, so they never retrigger.
+      // Derivative wheel gesture: one step per spike. A spike is a wheel restart after a pause,
+      // a direction reversal, or a jump in magnitude (positive derivative). Inertia tails decay,
+      // so they never retrigger, and input is ignored while a transition runs so a photo is never skipped.
       function onWheel(event) {
         event.preventDefault();
         var now = performance.now();

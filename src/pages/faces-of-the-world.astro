@@ -1802,7 +1802,8 @@ function renderArchive(data) {
       const driver = document.getElementById('archive-scroll-driver');
       if (!driver) return;
       const driverTop = driver.getBoundingClientRect().top + window.scrollY;
-      window.scrollTo({ top: driverTop + i * PER * window.innerHeight + PER * window.innerHeight * PH_HOLD, behavior: 'smooth' });
+      const targetY = driverTop + i * PER * window.innerHeight + PER * window.innerHeight * PH_HOLD;
+      window.scrollTo({ top: targetY, behavior: 'smooth' });
     });
     bubblesEl.appendChild(b);
   });
