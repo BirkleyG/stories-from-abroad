@@ -28,6 +28,9 @@ function setSceneStatus(scene, message, tone = "muted") {
   if (!status) return;
   status.textContent = message;
   status.dataset.tone = tone;
+  if (tone === "ok" && /inbox|updated/i.test(message) && window.sfaTrack) {
+    window.sfaTrack.event("subscribe_ok", { detail: scene.dataset.subscribeId || "scene" });
+  }
 }
 
 function setControlVisibility(root, segment, profile) {

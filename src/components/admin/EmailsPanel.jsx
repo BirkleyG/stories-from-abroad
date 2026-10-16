@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { CONTENT_LABELS, createMediaValue } from "../../lib/admin/schemas";
 import { subscribeEmailRecipients } from "../../lib/admin/repository";
 import { AssetField } from "./AssetUpload";
+import { MetricGrid } from "./AnalyticsCharts";
+import { aggregate, fmtDecimal, fmtDuration, fmtPct, ratio } from "../../lib/admin/analyticsModel";
 import { EmptyState, StatTile, StatusPill, TextArea, TextInput, formatNumber, formatRelative, formatStamp } from "./ui";
 
 const SEGMENT_BY_KIND = {
@@ -96,7 +98,28 @@ function RecipientTable({ sendId, send }) {
   );
 }
 
-function BroadcastHistory({ emailSends }) {
+function CampaignEngagement({ send, camp }) {
+  const reached = Number(send.succeeded || 0);
+  const landings = Number(camp?.landings || 0);
+  return (
+    <div className="admin-send-engagement">
+      <h4 className="admin-subhead">After the click</h4>
+      {landings ? (
+        <MetricGrid columns={4} metrics={[
+          { label: "Click-throughs", value: landings, hint: "Visits that started from a link in this email." },
+          { label: "Click-through rate", value: fmtPct(ratio(landings, reached), 1), hint: "Click-throughs divided by people reached." },
+          { label: "Click-to-open", value: fmtPct(ratio(landings, send.uniqueOpens)) },
+          { label: "Pages per visit", value: fmtDecimal(ratio(camp.views, landings)) },
+          { label: "Avg time on site", value: fmtDuration(ratio(camp.sec, landings)) },
+          { label: "Avg active time", value: fmtDuration(ratio(camp.act, landings)) },
+          { label: "Actions per visit", value: fmtDecimal(ratio(camp.actions, landings)), hint: "Opens, clicks, downloads and reactions after landing." },
+        ]} />
+      ) : <p className="admin-empty-inline">No click-throughs recorded for this email yet. Links in emails sent after this update are tagged so visits and engagement can be traced back to the email.</p>}
+    </div>
+  );
+}
+
+function BroadcastHistory({ emailSends, camps }) {
   const [openId, setOpenId] = useState("");
   const [showTests, setShowTests] = useState(false);
   const sends = emailSends.filter((send) => showTests || !send.test);
@@ -120,7 +143,7 @@ function BroadcastHistory({ emailSends }) {
               </div>
               <div className="admin-send-meta">
                 <span>{sendSummary(send)}</span>
-                {!send.test && send.status !== "sending" ? <span>{formatNumber(send.uniqueOpens || 0)} opened</span> : null}
+                {!send.test && send.status !== "sending" ? <span>{formatNumber(send.uniqueOpens || 0)} opened{camps?.[send.id]?.landings ? ` · ${formatNumber(camps[send.id].landings)} clicked through` : ""}</span> : null}
               </div>
               <div className="admin-send-state">
                 {send.test ? <StatusPill status="test" /> : null}
@@ -128,6 +151,7 @@ function BroadcastHistory({ emailSends }) {
               </div>
             </button>
             {send.error && send.status !== "sent" ? <p className="admin-send-error">{send.error}</p> : null}
+            {expanded ? <CampaignEngagement send={send} camp={camps?.[send.id]} /> : null}
             {expanded ? <RecipientTable sendId={send.id} send={send} /> : null}
           </article>
         );
@@ -158,8 +182,9 @@ function SystemEmails({ items }) {
   );
 }
 
-export default function EmailsPanel({ subscribers, emailSends, systemEmails, onCompose, working, verifiedOnly }) {
+export default function EmailsPanel({ subscribers, emailSends, systemEmails, onCompose, working, verifiedOnly, analytics = [] }) {
   const [tab, setTab] = useState("broadcasts");
+  const camps = useMemo(() => aggregate(analytics).camps || {}, [analytics]);
   const verified = subscribers.filter(verifiedOnly).length;
   const real = emailSends.filter((send) => !send.test);
   const last = real[0];
@@ -192,7 +217,7 @@ export default function EmailsPanel({ subscribers, emailSends, systemEmails, onC
           </div>
         </header>
         <div className="admin-section-body">
-          {tab === "broadcasts" ? <BroadcastHistory emailSends={emailSends} /> : <SystemEmails items={systemEmails} />}
+          {tab === "broadcasts" ? <BroadcastHistory emailSends={emailSends} camps={camps} /> : <SystemEmails items={systemEmails} />}
         </div>
       </section>
     </div>

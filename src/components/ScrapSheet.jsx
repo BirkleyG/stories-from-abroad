@@ -41,6 +41,15 @@ const UI_STORAGE_KEY = "sfa-subscriber-ui-v1";
 
 // ── HELPERS ───────────────────────────────────────────────────────────────────
 
+function tracker() {
+  return typeof window !== "undefined" && window.sfaTrack && window.sfaTrack.enabled ? window.sfaTrack : null;
+}
+
+function postItemKey(post) {
+  var t = tracker();
+  return t && post ? t.key("travel", post.slug || post.id) : "";
+}
+
 function getElapsed(newer, older) {
   var days = Math.round(Math.abs(newer - older) / 86400000);
   if (days < 30) return days + " day" + (days !== 1 ? "s" : "");
@@ -977,7 +986,7 @@ function PostModal({
 
   return (
     <>
-      <div className="overlay" style={{position:"fixed",inset:0,background:"rgba(27,20,16,0.72)",backdropFilter:"blur(6px)",zIndex:1000,display:"flex",alignItems:"flex-start",justifyContent:"center",padding:"44px 16px 60px",overflowY:"auto"}} onClick={onClose}>
+      <div className="overlay" id="post-modal-overlay" style={{position:"fixed",inset:0,background:"rgba(27,20,16,0.72)",backdropFilter:"blur(6px)",zIndex:1000,display:"flex",alignItems:"flex-start",justifyContent:"center",padding:"44px 16px 60px",overflowY:"auto"}} onClick={onClose}>
         <div className="mbox" style={{background:"var(--paper)",maxWidth:660,width:"100%",border:"1px solid var(--rule)",boxShadow:"0 24px 72px rgba(0,0,0,0.3)",overflow:"hidden"}} onClick={function(e){e.stopPropagation();}}>
 
           <div style={{padding:"28px 28px 0"}}>
@@ -1004,7 +1013,11 @@ function PostModal({
 
           {post.photos&&post.photos.length>0&&(
             <div style={{padding:"0 28px 24px",borderTop:"1px solid var(--rule)",paddingTop:20}}>
-              <PhotoFilmstrip photos={post.photos} onPhotoClick={function(i){setLbIdx(i);}}/>
+              <PhotoFilmstrip photos={post.photos} onPhotoClick={function(i){
+                var t = tracker(), item = postItemKey(post);
+                if (t && item) t.event("dispatch_photo_click", { item: item, detail: String(i + 1) });
+                setLbIdx(i);
+              }}/>
             </div>
           )}
 
@@ -1181,6 +1194,7 @@ export default function ScrapSheet({ backHref = "/" }) {
   var searchOpenS=useState(false),searchOpen=searchOpenS[0],setSearchOpen=searchOpenS[1];
   var anonS=useState(""),anonId=anonS[0],setAnonId=anonS[1];
   var threadRef=useRef(null);
+  var openSourceRef=useRef("card");
   var searchInputRef=useRef(null);
 
   function writePostParam(token) {
@@ -1201,6 +1215,7 @@ export default function ScrapSheet({ backHref = "/" }) {
   function openPostById(postId) {
     var match = posts.find(function(post) { return post.id === String(postId); });
     if (!match) return;
+    openSourceRef.current = "card";
     setExpandedId(match.id);
     writePostParam(match.slug || match.id);
   }
@@ -1351,6 +1366,7 @@ export default function ScrapSheet({ backHref = "/" }) {
       return String(post.id || "") === target || String(post.slug || "") === target;
     });
     if (!match) return;
+    openSourceRef.current = new URL(window.location.href).searchParams.get("src") === "email" ? "email" : "link";
     setExpandedId(match.id);
     var card = document.getElementById("dispatch-" + match.id);
     if (card) card.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -1421,6 +1437,39 @@ export default function ScrapSheet({ backHref = "/" }) {
     setCommentWarning("");
   }, [expandedId]);
 
+  // Engagement: dispatch opens, time spent, and how far down the post people read.
+  useEffect(function(){
+    var t = tracker();
+    if (!t || !expandedId) return;
+    var post = posts.find(function(p){return p.id===String(expandedId);});
+    var item = postItemKey(post);
+    if (!item) return;
+    t.event("dispatch_open", { item: item, detail: openSourceRef.current });
+    openSourceRef.current = "card";
+    var dwell = t.dwell("dispatch", item);
+    var overlay = null, box = null;
+    function measure() {
+      var scrollers = [overlay, box].filter(function(el){ return el && el.scrollHeight - el.clientHeight > 8; });
+      var pct = 100;
+      if (scrollers.length) {
+        pct = Math.max.apply(null, scrollers.map(function(el){ return (el.scrollTop / (el.scrollHeight - el.clientHeight)) * 100; }));
+      }
+      t.progress("dispatch", item, pct, 94);
+    }
+    var timer = setTimeout(function(){
+      overlay = document.getElementById("post-modal-overlay");
+      box = overlay ? overlay.querySelector(".mbox") : null;
+      if (overlay) overlay.addEventListener("scroll", measure, true);
+      measure();
+    }, 200);
+    return function(){
+      clearTimeout(timer);
+      if (overlay) overlay.removeEventListener("scroll", measure, true);
+      dwell.stop();
+      t.resetProgress("dispatch", item);
+    };
+  }, [expandedId]);
+
   useEffect(function(){
     if (typeof document === "undefined") return;
     if (!expandedId) return;
@@ -1440,6 +1489,7 @@ export default function ScrapSheet({ backHref = "/" }) {
     var next=Object.assign({},cur);next[emoji]=already?Math.max(0,(cur[emoji]||0)-1):(cur[emoji]||0)+1;
     var nr=Object.assign({},reactions);nr[postId]=next;
     var nu=Object.assign({},userReacted);nu[key]=!already;
+    if (!already && tracker() && postItemKey(post)) tracker().event("dispatch_react", { item: postItemKey(post), detail: emoji });
     setReactions(nr);setUserReacted(nu);
     if (!firestoreReady || !db || !anonId) return;
     try {
@@ -1521,6 +1571,8 @@ export default function ScrapSheet({ backHref = "/" }) {
       var c={id:Date.now(),text:trimmed,author:authorName,time:formatTime(new Date()),isAuthor:true};
       var next=Object.assign({},comments);next[postId]=[...(comments[postId]||[]),c];
       setComments(next);
+      var commentedPost = posts.find(function(p){return p.id===String(postId);});
+      if (tracker() && postItemKey(commentedPost)) tracker().event("dispatch_comment", { item: postItemKey(commentedPost) });
       setNewComment("");
       setTimeout(function(){if(threadRef.current)threadRef.current.scrollTop=threadRef.current.scrollHeight;},80);
     } catch (e) {
@@ -1628,6 +1680,7 @@ export default function ScrapSheet({ backHref = "/" }) {
         if (result.updated) {
           setSubscribed(true);
           setSubStatus("Subscription updated.");
+          if (tracker()) tracker().event("subscribe_ok", { detail: "travel" });
         } else {
           setSubscribed(true);
           setSubStatus("You are already following the journey!");
@@ -1649,6 +1702,7 @@ export default function ScrapSheet({ backHref = "/" }) {
       }
       setSubscribed(false);
       setSubStatus("Check your inbox to confirm your subscription.");
+      if (tracker()) tracker().event("subscribe_ok", { detail: "travel" });
     } catch (error) {
       setSubStatus("Subscription failed. Try again in a moment.");
     } finally {
@@ -1658,6 +1712,9 @@ export default function ScrapSheet({ backHref = "/" }) {
 
   var handleQuoteClick=function(postId){
     var pid = String(postId);
+    var quotePost = posts.find(function(p){return p.id===pid;});
+    var quoteItem = postItemKey(quotePost);
+    if (tracker() && quoteItem) tracker().event("feat_click", { item: quoteItem, detail: "quote" });
     var el=document.getElementById("dispatch-"+pid);
     if(el){el.scrollIntoView({behavior:"smooth",block:"center"});setHighlightId(pid);setTimeout(function(){setHighlightId(null);},2000);}
   };
@@ -1665,6 +1722,9 @@ export default function ScrapSheet({ backHref = "/" }) {
   var base = filter==="all"?posts:posts.filter(function(p){return p.category===filter;});
   var filtered = searchQ.trim() ? base.filter(function(p){return matchesSearch(p,searchQ);}) : base;
   var expanded = expandedId?posts.find(function(p){return p.id===String(expandedId);}):null;
+  useEffect(function(){
+    if (tracker() && searchQ.trim()) tracker().search("travel", searchQ, filtered.length);
+  }, [searchQ]);
   var currentLocation = deriveCurrentLocation(posts);
   var heroLastReported = currentLocation.hasData
     ? copy.hero.lastReported.replace("{location}", currentLocation.name)
@@ -1790,7 +1850,10 @@ export default function ScrapSheet({ backHref = "/" }) {
         <div className="dispatch-filter-inner" style={{maxWidth:720,margin:"0 auto",padding:"22px 48px 20px",display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
           <span style={{fontFamily:"'Jost',sans-serif",fontSize:"9px",fontWeight:600,letterSpacing:".18em",textTransform:"uppercase",color:"var(--muted)",marginRight:4}}>{copy.filters.label}</span>
           {copy.filters.buttons.map(function(item){
-            return <button key={item.key} className={"fbtn"+(filter===item.key?" on":"")} onClick={function(){setFilter(item.key);}}>{item.label}</button>;
+            return <button key={item.key} className={"fbtn"+(filter===item.key?" on":"")} onClick={function(){
+              setFilter(item.key);
+              if (item.key !== "all" && tracker()) tracker().event("filter_travel", { detail: item.label });
+            }}>{item.label}</button>;
           })}
         </div>
       </div>

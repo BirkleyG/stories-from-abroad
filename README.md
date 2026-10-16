@@ -285,5 +285,13 @@ src/
 - Every broadcast is logged in `email_sends` (status `sending` / `sent` / `partial` / `failed`) with one `email_recipients` doc per subscriber. Sign-in emails are logged in `email_log`. All are shown under **Emails** in the admin.
 - Opens are counted by a 1x1 pixel served by the `emailOpen` function.
 - Optional delivered / bounced / clicked status: in Resend, add a webhook pointing at `https://us-central1-<project>.cloudfunctions.net/resendWebhook` (events: `email.delivered`, `email.bounced`, `email.complained`, `email.delivery_delayed`, `email.clicked`) and store its signing secret with `firebase functions:secrets:set RESEND_WEBHOOK_SECRET`.
-- Site analytics: public pages send a beacon to the `trackEvent` function, which keeps daily rollups in `analytics_daily` (no IPs or cookies). Visits from a browser that has opened `/admin` are excluded.
+- Site analytics: every public page loads `public/scripts/sfa-track.js` (via `src/components/TrackingScript.astro`), which batches small engagement events to the `trackEvent` function. It keeps daily rollups in `analytics_daily` (no cookies, IPs or visitor ids reach the server). Visits from a browser that has opened `/admin`, localhost, and invite-only Drafts / Unpublished pages are not counted.
+  - Tracked everywhere: visits, unique visitors, time on page, active time, scroll depth, referrers, devices, hour of day, outbound clicks, subscribe prompts and sign-ups.
+  - Stories: clicks into an article, abstract time, read depth, full-paper (PDF / publication) clicks, Clean Text downloads, citations copied (by style), searches (and misses), filters.
+  - Photography: shoot clicks and time, photo views / zooms / downloads, entire-shoot views.
+  - Faces: map scrolls, full scrolls, scroll percent, pins revealed / clicked, archive opens and scrolls, stories clicked / time / full scrolls.
+  - Travel: full page scroll, dispatch clicks, filters, time, read percent, photo clicks, reactions, comments.
+  - Email: broadcast links are tagged `src=email&c=<sendId>`, so click-throughs and what readers do afterwards are shown per email (Analytics -> Email, and in each send under Emails).
+  - Admin: **Analytics** has Overview, Stories, Photography, Faces, Travel, Email and Insights (recommendations and best performers) tabs. Each Papers / Photography / Faces / Dispatches item also shows its own **Performance** card.
+  - Event names live in `functions/src/analyticsModel.js` (server) and `src/lib/admin/analyticsModel.js` (admin).
 - Deploy with `firebase deploy --only functions,firestore:rules`. The old `schedulePublish` and `processScheduledPublishes` functions are no longer in the code; delete them when the CLI asks.

@@ -17,6 +17,7 @@ import {
 import { validateCoordinates } from "../../lib/admin/coordinates";
 import { AssetField, IMAGE_ACCEPT, UploadDropzone, screenFiles } from "./AssetUpload";
 import AnalyticsPanel from "./AnalyticsPanel";
+import ItemPerformance from "./ItemPerformance";
 import EmailsPanel, { EmailComposerModal } from "./EmailsPanel";
 import { DraftNotes, FacesForm, PapersForm, PhotographyForm, StringListEditor, TravelForm } from "./Forms";
 import {
@@ -1200,6 +1201,7 @@ export default function AdminApp() {
   const [emailSends, setEmailSends] = useState([]);
   const [systemEmails, setSystemEmails] = useState([]);
   const [analytics, setAnalytics] = useState([]);
+  const [analyticsTab, setAnalyticsTab] = useState("overview");
   const [invites, setInvites] = useState([]);
   const [emailComposer, setEmailComposer] = useState(null);
   const [sendingBroadcast, setSendingBroadcast] = useState(false);
@@ -1991,9 +1993,9 @@ export default function AdminApp() {
         {activeSection === "dashboard" ? (
           <Dashboard lists={lists} analytics={analytics} subscribers={subscribers} emailSends={emailSends} systemEmails={systemEmails} onCreate={handleCreate} onNavigate={navigate} onJump={(kind, id) => { setSelectedIds((current) => ({ ...current, [kind]: id })); navigate(kind); }} />
         ) : null}
-        {activeSection === "analytics" ? <AnalyticsPanel analytics={analytics} subscribers={subscribers} emailSends={emailSends} lists={lists} verifiedOnly={isSubscriberVerified} /> : null}
+        {activeSection === "analytics" ? <AnalyticsPanel analytics={analytics} subscribers={subscribers} emailSends={emailSends} lists={lists} verifiedOnly={isSubscriberVerified} tab={analyticsTab} onTabChange={setAnalyticsTab} /> : null}
         {activeSection === "subscribers" ? <SubscribersPanel subscribers={subscribers} onPromptVerify={handlePromptSubscriberVerify} promptingId={promptingSubscriberId} /> : null}
-        {activeSection === "emails" ? <EmailsPanel subscribers={subscribers} emailSends={emailSends} systemEmails={systemEmails} onCompose={handleOpenGeneralComposer} working={sendingBroadcast} verifiedOnly={isSubscriberVerified} /> : null}
+        {activeSection === "emails" ? <EmailsPanel analytics={analytics} subscribers={subscribers} emailSends={emailSends} systemEmails={systemEmails} onCompose={handleOpenGeneralComposer} working={sendingBroadcast} verifiedOnly={isSubscriberVerified} /> : null}
         {activeSection === "invites" ? <InviteCodesPanel invites={invites} onCreate={handleCreateInvite} onToggle={handleToggleInvite} onDelete={handleDeleteInvite} /> : null}
         {activeSection === "media" ? <MediaLibrary assets={mediaAssets} onUpload={handleUpload} onSaveMetadata={handleSaveMediaMetadata} onDeleteAsset={handleDeleteMediaAsset} /> : null}
         {activeSection === "site-assets" ? (
@@ -2037,6 +2039,7 @@ export default function AdminApp() {
                     </div>
                   </header>
                   {loadingDraft ? <p className="admin-empty-inline">Loading&hellip;</p> : renderActiveForm()}
+                  <ItemPerformance kind={activeSection} item={draft} analytics={analytics} onOpenAnalytics={(kind) => { setAnalyticsTab(kind); navigate("analytics"); }} />
                   <DraftNotes draft={draft} onChange={(next) => setDraft(hydrateDraft(activeSection, next))} />
                   {activeSection === "photography" ? (
                     <PhotographyFeaturedManager

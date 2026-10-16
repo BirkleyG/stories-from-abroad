@@ -1,5 +1,6 @@
 ---
 import { siteCopy } from "../content/siteCopy";
+import TrackingScript from "./TrackingScript.astro";
 const base = import.meta.env.BASE_URL ?? "/";
 const basePath = base.endsWith("/") ? base : `${base}/`;
 const { mode = "public" } = Astro.props;
@@ -53,6 +54,7 @@ const initialFeatCounter = copy.featured.counterTemplate
       href="https://fonts.googleapis.com/css2?family=Cormorant:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,500;1,600&family=Lora:ital,wght@0,400;0,500;1,400;1,500&display=swap"
       rel="stylesheet"
     />
+    {isProtected ? null : <TrackingScript />}
     <script is:inline data-firebase-api-key={publicFirebaseApiKey}>
       (() => {
         const apiKey = document.currentScript?.dataset?.firebaseApiKey || "";
@@ -2768,7 +2770,7 @@ const initialFeatCounter = copy.featured.counterTemplate
           const button = document.getElementById("feat-btn");
           button.textContent = copy.featured.button;
           button.disabled = false;
-          button.onclick = function () { openPaper(paper.id); };
+          button.onclick = function () { openPaper(paper.id, "featured"); };
 
           const swipeDirection = Number(direction || 0);
           clearSwipeClasses(content);
@@ -2837,7 +2839,7 @@ const initialFeatCounter = copy.featured.counterTemplate
           list.forEach(function (paper, index) {
             const row = document.createElement("div");
             row.className = "paper-row";
-            row.onclick = function () { openPaper(paper.id); };
+            row.onclick = function () { openPaper(paper.id, "list"); };
             row.innerHTML =
               '<div class="row-n">' + String(index + 1).padStart(2, "0") + "</div>" +
               '<div class="row-body">' +
@@ -2873,12 +2875,19 @@ const initialFeatCounter = copy.featured.counterTemplate
           const cat = document.getElementById("f-cat").value;
           const year = document.getElementById("f-yr").value;
           const type = document.getElementById("f-tp").value;
-          buildList(state.papers.filter(function (paper) {
+          const matches = state.papers.filter(function (paper) {
             const textMatch = !query || [paper.title, paper.summary].concat(paper.kw || [], [paper.cat]).some(function (value) {
               return String(value || "").toLowerCase().includes(query);
             });
             return textMatch && (!cat || paper.cat === cat) && (!year || paper.year === Number(year)) && (!type || paper.type === type);
-          }));
+          });
+          buildList(matches);
+          if (window.sfaTrack && query) window.sfaTrack.search("papers", query, matches.length);
+        }
+
+        function trackFilterChange(label, id) {
+          const value = document.getElementById(id).value;
+          if (value && window.sfaTrack) window.sfaTrack.event("filter_papers", { detail: label + ": " + value });
         }
 
         function cite(paper, style) {
@@ -2907,10 +2916,11 @@ const initialFeatCounter = copy.featured.counterTemplate
           });
         }
 
-        function openPaper(id) {
+        function openPaper(id, source) {
           const paper = state.papers.find(function (item) { return item.id === id; });
           if (!paper) return;
           writeRequestedPaperToken(getPaperToken(paper));
+          trackPaperOpen(paper, source);
           const dateLabel = paper.date || String(paper.year);
           const timeLabel = paper.time ? paper.time + copy.overlay.timeSuffix : "";
           const kwLabel = paper.kw.length ? paper.kw.join(copy.overlay.kwSeparator) : copy.overlay.keywordsEmpty;
@@ -2936,12 +2946,13 @@ const initialFeatCounter = copy.featured.counterTemplate
               "<p>" + esc(copy.overlay.placeholder.bodyParagraphs[4]) + "</p>";
           const downloadMarkup = [
             paper.documentUrl
-              ? '<a class="btn-dl dl-pdf" href="' + esc(paper.documentUrl) + '" target="_blank" rel="noreferrer">' + esc(paper.documentName || copy.overlay.downloadButtons[0]) + "</a>"
+              ? '<a class="btn-dl dl-pdf" href="' + esc(paper.documentUrl) + '" target="_blank" rel="noreferrer" data-paper-action="pdf">' + esc(paper.documentName || copy.overlay.downloadButtons[0]) + "</a>"
               : '<button class="btn-dl dl-pdf" disabled>' + esc(copy.overlay.downloadButtons[0]) + "</button>",
+            '<button class="btn-dl dl-txt" type="button" data-paper-action="text"' + (paper.bodyText || paper.summary ? "" : " disabled") + ">" + esc(copy.overlay.downloadButtons[1]) + "</button>",
+            '<button class="btn-dl dl-cit" type="button" data-paper-action="cite">' + esc(copy.overlay.downloadButtons[2]) + "</button>",
             paper.publicationLink
-              ? '<a class="btn-dl dl-txt" href="' + esc(paper.publicationLink) + '" target="_blank" rel="noreferrer">' + esc(paper.publicationName || copy.overlay.downloadButtons[1]) + "</a>"
-              : '<button class="btn-dl dl-txt" disabled>' + esc(copy.overlay.downloadButtons[1]) + "</button>",
-            '<button class="btn-dl dl-cit" disabled>' + esc(copy.overlay.downloadButtons[2]) + "</button>",
+              ? '<a class="btn-dl dl-txt dl-pub" href="' + esc(paper.publicationLink) + '" target="_blank" rel="noreferrer" data-paper-action="publication">' + esc(paper.publicationName || "Publication") + "</a>"
+              : "",
           ].join("");
 
           document.getElementById("ov-label").textContent = dateLabel + " - " + timeLabel;
@@ -2971,15 +2982,128 @@ const initialFeatCounter = copy.featured.counterTemplate
               setCit(decodeURIComponent(button.dataset.pid || ""), button.dataset.s || "APA");
             });
           });
+          document.querySelectorAll("#ov-body [data-paper-action]").forEach(function (node) {
+            node.addEventListener("click", function () { handlePaperAction(paper, node); });
+          });
           document.getElementById("overlay").classList.add("open");
           document.getElementById("overlay").scrollTop = 0;
           document.body.style.overflow = "hidden";
+          startPaperReadTracking(paper);
         }
 
         function closeOverlay() {
           document.getElementById("overlay").classList.remove("open");
           document.body.style.overflow = "";
           writeRequestedPaperToken("");
+          stopPaperReadTracking();
+        }
+
+        /* ---- engagement tracking (abstract time, read depth, full-paper clicks, downloads, citations) ---- */
+        let paperTrack = null;
+
+        function paperItemKey(paper) {
+          return window.sfaTrack ? window.sfaTrack.key("papers", getPaperToken(paper)) : "";
+        }
+
+        function trackPaperOpen(paper, source) {
+          if (!window.sfaTrack) return;
+          const item = paperItemKey(paper);
+          if (!item) return;
+          window.sfaTrack.event("paper_open", { item: item, detail: source || "list" });
+        }
+
+        function onOverlayScroll() {
+          if (!paperTrack) return;
+          const overlay = document.getElementById("overlay");
+          const max = overlay.scrollHeight - overlay.clientHeight;
+          const pct = max <= 8 ? 100 : (overlay.scrollTop / max) * 100;
+          window.sfaTrack.progress("paper_read", paperTrack.item, pct, 92);
+        }
+
+        function startPaperReadTracking(paper) {
+          stopPaperReadTracking();
+          if (!window.sfaTrack) return;
+          const item = paperItemKey(paper);
+          if (!item) return;
+          paperTrack = { item: item, dwell: window.sfaTrack.dwell("paper_abs", item) };
+          document.getElementById("overlay").addEventListener("scroll", onOverlayScroll, { passive: true });
+          window.setTimeout(onOverlayScroll, 120);
+        }
+
+        function stopPaperReadTracking() {
+          if (!paperTrack) return;
+          document.getElementById("overlay").removeEventListener("scroll", onOverlayScroll);
+          paperTrack.dwell.stop();
+          window.sfaTrack.resetProgress("paper_read", paperTrack.item);
+          paperTrack = null;
+        }
+
+        function plainCitation(paper, style) {
+          const holder = document.createElement("div");
+          holder.innerHTML = cite(paper, style);
+          return holder.textContent || "";
+        }
+
+        function paperPlainText(paper) {
+          const lines = [paper.title];
+          if (paper.subtitle) lines.push(paper.subtitle);
+          lines.push("By " + copy.hero.byName + " - " + (paper.date || paper.year), "");
+          if (paper.summary) lines.push(paper.summary, "");
+          if (paper.bodyText) lines.push(String(paper.bodyText).trim(), "");
+          lines.push("Cite: " + plainCitation(paper, "APA"), "Stories From Abroad - " + window.location.origin + window.location.pathname);
+          return lines.join("\n");
+        }
+
+        function flashButton(node, label) {
+          const original = node.getAttribute("data-label") || node.textContent;
+          node.setAttribute("data-label", original);
+          node.textContent = label;
+          window.clearTimeout(node._flash);
+          node._flash = window.setTimeout(function () { node.textContent = original; }, 1800);
+        }
+
+        function copyToClipboard(text) {
+          if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(text);
+          return new Promise(function (resolve, reject) {
+            const area = document.createElement("textarea");
+            area.value = text;
+            area.style.cssText = "position:fixed;opacity:0";
+            document.body.appendChild(area);
+            area.select();
+            try { document.execCommand("copy") ? resolve() : reject(new Error("copy failed")); } catch (error) { reject(error); }
+            area.remove();
+          });
+        }
+
+        function handlePaperAction(paper, node) {
+          const action = node.getAttribute("data-paper-action");
+          const item = paperItemKey(paper);
+          const tracker = window.sfaTrack;
+          if (action === "pdf" || action === "publication") {
+            if (tracker && item) {
+              tracker.event("paper_full_click", { item: item, detail: action });
+            }
+          } else if (action === "text") {
+            const blob = new Blob([paperPlainText(paper)], { type: "text/plain;charset=utf-8" });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = (String(getPaperToken(paper)).replace(/[^a-z0-9_-]+/gi, "-").toLowerCase() || "paper") + ".txt";
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.setTimeout(function () { URL.revokeObjectURL(link.href); }, 4000);
+            flashButton(node, "Downloaded");
+            if (tracker && item) tracker.event("paper_text_dl", { item: item });
+          } else if (action === "cite") {
+            const active = document.querySelector("#ov-body .cs-btn.active");
+            const style = active ? active.getAttribute("data-s") || "APA" : "APA";
+            copyToClipboard(plainCitation(paper, style)).then(function () {
+              flashButton(node, "Copied (" + style + ")");
+            }).catch(function () {
+              flashButton(node, "Copy failed");
+            });
+            if (tracker && item) tracker.event("paper_cite_copy", { item: item, detail: style });
+          }
         }
 
         function applyMobileInkCrop() {
@@ -3107,7 +3231,7 @@ const initialFeatCounter = copy.featured.counterTemplate
           buildList(state.papers);
           const requestedPaper = getPaperByToken(readRequestedPaperToken());
           if (requestedPaper) {
-            openPaper(requestedPaper.id);
+            openPaper(requestedPaper.id, new URLSearchParams(window.location.search).get("src") === "email" ? "email" : "link");
           }
           applyAdaptiveMasks();
         }
@@ -3126,6 +3250,9 @@ const initialFeatCounter = copy.featured.counterTemplate
         });
 
         document.getElementById("s-in").addEventListener("input", doFilter);
+        document.getElementById("f-cat").addEventListener("change", function () { trackFilterChange("category", "f-cat"); });
+        document.getElementById("f-yr").addEventListener("change", function () { trackFilterChange("year", "f-yr"); });
+        document.getElementById("f-tp").addEventListener("change", function () { trackFilterChange("type", "f-tp"); });
         document.getElementById("f-cat").addEventListener("change", doFilter);
         document.getElementById("f-yr").addEventListener("change", doFilter);
         document.getElementById("f-tp").addEventListener("change", doFilter);

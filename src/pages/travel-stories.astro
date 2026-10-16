@@ -1,5 +1,6 @@
 ---
 import ScrapSheet from "../components/ScrapSheet.jsx";
+import TrackingScript from "../components/TrackingScript.astro";
 
 const base = import.meta.env.BASE_URL ?? "/";
 const basePath = base.endsWith("/") ? base : `${base}/`;
@@ -10,6 +11,7 @@ const basePath = base.endsWith("/") ? base : `${base}/`;
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Travel Stories</title>
+    <TrackingScript />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
