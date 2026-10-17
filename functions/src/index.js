@@ -1,3 +1,4 @@
+import { isAnalyticsExcluded } from "./analyticsExclusions.js";
 import admin from "firebase-admin";
 import nodemailer from "nodemailer";
 import { setGlobalOptions } from "firebase-functions/v2";
@@ -969,6 +970,7 @@ export const sendContentBroadcast = onCall({ secrets: [resendApiKeyParam], timeo
     bounced: 0,
     opens: 0,
     uniqueOpens: 0,
+    analyticsExcluded: recipients.filter((subscriber) => isAnalyticsExcluded(subscriber.email)).length,
     sentAt: FieldValue.serverTimestamp(),
   });
   const recipientRef = (subscriber) => firestore.collection("email_recipients").doc(`${sendId}_${subscriber.id}`);

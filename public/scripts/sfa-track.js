@@ -29,7 +29,13 @@
   var MAX_QUEUE = 30;
 
   var optedOut = false;
-  try { optedOut = window.localStorage.getItem("sfa-no-track") === "1"; } catch (error) { /* storage blocked */ }
+  try {
+    // Visit any page with ?sfa-no-track=1 once on a device to exclude it from analytics (=0 undoes it).
+    var optParam = new URL(window.location.href).searchParams.get("sfa-no-track");
+    if (optParam === "1") window.localStorage.setItem("sfa-no-track", "1");
+    else if (optParam === "0") window.localStorage.removeItem("sfa-no-track");
+    optedOut = window.localStorage.getItem("sfa-no-track") === "1";
+  } catch (error) { /* storage blocked */ }
   var looksAutomated = /bot|crawl|spider|slurp|headless|lighthouse|prerender/i.test(navigator.userAgent || "");
   var canSend = Boolean(endpoint) && !isLocal && !optedOut && !looksAutomated;
   var collect = !optedOut;  // keep collecting locally for debugging even when not sending

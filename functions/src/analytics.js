@@ -13,8 +13,15 @@ import { onRequest } from "firebase-functions/v2/https";
 import { logger } from "firebase-functions";
 import { defineSecret } from "firebase-functions/params";
 import { buildAnalyticsUpdate } from "./analyticsModel.js";
+import { isAnalyticsExcluded } from "./analyticsExclusions.js";
 
 export const resendWebhookSecretParam = defineSecret("RESEND_WEBHOOK_SECRET");
+
+// Mail systems fetch tracking images on their own (Apple Mail privacy protection, security scanners,
+// link checkers), which looks like an instant "open". Obvious machines and anything that "opens" within
+// seconds of sending is counted separately as automated, not as a reader.
+const AUTOMATED_UA = /bot|crawl|spider|scanner|proofpoint|mimecast|barracuda|symantec|mailscanner|trendmicro|python|curl|wget|headless|go-http|java\//i;
+const QUICK_OPEN_MS = 60 * 1000;
 
 const PIXEL_GIF = Buffer.from("R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7", "base64");
 
@@ -62,8 +69,16 @@ export const emailOpen = onRequest({ maxInstances: 10 }, async (req, res) => {
     if (sendId && recipientId) {
       const recipientRef = db().collection("email_recipients").doc(`${sendId}_${recipientId}`);
       const snap = await recipientRef.get();
-      if (snap.exists && snap.data()?.sendId === sendId) {
+      if (snap.exists && snap.data()?.sendId === sendId && !isAnalyticsExcluded(snap.data().email)) {
         const FieldValue = admin.firestore.FieldValue;
+        const sentMs = snap.data().statusAt?.toMillis?.() || 0;
+        const automated = AUTOMATED_UA.test(String(req.get("user-agent") || "")) || (sentMs && Date.now() - sentMs < QUICK_OPEN_MS);
+        if (automated) {
+          await recipientRef.set({ autoOpens: inc() }, { merge: true });
+          await db().collection("email_sends").doc(sendId).set({ autoOpens: inc() }, { merge: true });
+          res.status(200).send(PIXEL_GIF);
+          return;
+        }
         const first = !snap.data().openedAt;
         await recipientRef.set({
           opens: inc(),

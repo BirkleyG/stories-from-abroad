@@ -3,7 +3,7 @@ import { CONTENT_LABELS, createMediaValue } from "../../lib/admin/schemas";
 import { subscribeEmailRecipients } from "../../lib/admin/repository";
 import { AssetField } from "./AssetUpload";
 import { MetricGrid } from "./AnalyticsCharts";
-import { aggregate, fmtDecimal, fmtDuration, fmtPct, ratio } from "../../lib/admin/analyticsModel";
+import { aggregate, fmtDecimal, fmtDuration, fmtPct, isExcludedEmail, ratio } from "../../lib/admin/analyticsModel";
 import { EmptyState, StatTile, StatusPill, TextArea, TextInput, formatNumber, formatRelative, formatStamp } from "./ui";
 
 const SEGMENT_BY_KIND = {
@@ -67,7 +67,7 @@ function RecipientTable({ sendId, send }) {
       <div className="admin-stat-grid compact">
         <StatTile value={`${view.total - view.problems}/${view.total}`} label="Accepted by mail provider" />
         <StatTile value={view.delivered || (send.delivered ?? 0)} label="Confirmed delivered" hint={send.delivered === undefined && !view.delivered ? "Needs the delivery webhook" : ""} />
-        <StatTile value={view.opened} label="Opened" hint={view.total ? `${Math.round((view.opened / view.total) * 100)}% of recipients` : ""} />
+        <StatTile value={view.opened} label="Opened (estimate)" hint={view.total ? `${Math.round((view.opened / view.total) * 100)}% of recipients` : ""} />
         <StatTile value={view.problems} label="Failed or bounced" tone={view.problems ? "bad" : ""} />
       </div>
       <div className="admin-toolbar">
@@ -86,7 +86,7 @@ function RecipientTable({ sendId, send }) {
               <tr key={row.id}>
                 <td>{row.email}{row.name ? <small className="admin-cell-sub">{row.name}</small> : null}</td>
                 <td><StatusPill status={rowStatus(row)} /></td>
-                <td>{row.openedAt ? `${formatStamp(row.openedAt)}${row.opens > 1 ? ` (${row.opens}x)` : ""}` : "—"}</td>
+                <td>{isExcludedEmail(row.email) ? <small className="admin-cell-sub">Excluded from analytics</small> : row.openedAt ? `${formatStamp(row.openedAt)}${row.opens > 1 ? ` (${row.opens}x)` : ""}` : "—"}{!isExcludedEmail(row.email) && row.autoOpens ? <small className="admin-cell-sub">{row.autoOpens} automated, ignored</small> : null}</td>
                 <td className="admin-cell-error">{row.error || ""}</td>
               </tr>
             ))}
@@ -143,7 +143,7 @@ function BroadcastHistory({ emailSends, camps }) {
               </div>
               <div className="admin-send-meta">
                 <span>{sendSummary(send)}</span>
-                {!send.test && send.status !== "sending" ? <span>{formatNumber(send.uniqueOpens || 0)} opened{camps?.[send.id]?.landings ? ` · ${formatNumber(camps[send.id].landings)} clicked through` : ""}</span> : null}
+                {!send.test && send.status !== "sending" ? <span>{formatNumber(send.uniqueOpens || 0)} opened (est.){camps?.[send.id]?.landings ? ` · ${formatNumber(camps[send.id].landings)} clicked through` : ""}</span> : null}
               </div>
               <div className="admin-send-state">
                 {send.test ? <StatusPill status="test" /> : null}

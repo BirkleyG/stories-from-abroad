@@ -27,6 +27,12 @@ export const KIND_TITLES = { papers: "Stories & Papers", photography: "Photograp
 
 const num = (value) => Number(value) || 0;
 
+// The site owner's own addresses never count toward analytics (mirrors functions/src/analyticsExclusions.js).
+export const ANALYTICS_EXCLUDED_EMAILS = new Set(["birkley.grunewald@gmail.com"]);
+export function isExcludedEmail(email) {
+  return ANALYTICS_EXCLUDED_EMAILS.has(String(email || "").trim().toLowerCase());
+}
+
 export function pageKey(path) {
   return String(path).replace(/[.\/\[\]*`~\s]/g, "_");
 }
@@ -316,13 +322,14 @@ export function emailRows(emailSends, agg) {
     .filter((send) => !send.test)
     .map((send) => {
       const camp = agg?.camps?.[send.id] || {};
-      const reached = num(send.succeeded);
+      const reached = Math.max(0, num(send.succeeded) - num(send.analyticsExcluded));
       const opened = num(send.uniqueOpens);
       const landings = num(camp.landings);
       return {
         ...send,
         reached,
         opened,
+        autoOpens: num(send.autoOpens),
         openRate: ratio(opened, reached),
         landings,
         ctr: ratio(landings, reached),
