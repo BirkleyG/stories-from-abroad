@@ -3,7 +3,7 @@ import { CONTENT_LABELS } from "../../lib/admin/schemas";
 import {
   KINDS, KIND_COLUMNS, KIND_NOUN, KIND_PAGE, KIND_TITLES, OPEN_EVENT,
   aggregate, allPageStats, buildDays, buildInsights, buildItemRows, change, docsForDays, emailRows, fmtDecimal, fmtDuration, fmtInt, fmtPct,
-  formatMetric, groupDimsByPrefix, pageStats, ratio, series, siteStats, topDims,
+  formatMetric, groupDimsByPrefix, isExcludedEmail, pageStats, ratio, series, siteStats, topDims,
 } from "../../lib/admin/analyticsModel";
 import { BarStrip, DataTable, MetricGrid, RankList, TrendChart } from "./AnalyticsCharts";
 import { KindItemDetail } from "./ItemPerformance";
@@ -305,13 +305,14 @@ function EmailTab({ emails, agg, rangeStart }) {
     <div className="admin-analytics-tab">
       <div className="admin-stat-grid compact">
         <StatTile value={fmtInt(inRange.length)} label="Emails sent" hint={`${fmtInt(reached)} people reached`} />
-        <StatTile value={fmtPct(ratio(opened, reached))} label="Open rate" hint="Image-based, so it undercounts" />
+        <StatTile value={fmtPct(ratio(opened, reached))} label="Open rate (estimate)" hint={`${fmtInt(inRange.reduce((sum, row) => sum + row.autoOpens, 0))} automated opens filtered out`} />
         <StatTile value={fmtInt(landings)} label="Click-throughs" hint={`${fmtPct(ratio(landings, reached), 1)} of people reached`} />
         <StatTile value={fmtPct(ratio(landings, opened))} label="Click-to-open rate" />
         <StatTile value={fmtDuration(ratio(sumSec, landings))} label="Avg time after click" hint={`${fmtDuration(ratio(sumAct, landings))} active`} />
         <StatTile value={fmtDecimal(ratio(sumActions, landings))} label="Actions per visit" hint="After clicking through" />
       </div>
       <Panel title="Every email" description="Click-throughs are visits that start from a link in the email. Engagement after the click follows the reader through the site. Click-through data starts with emails sent after this update.">
+        <p className="admin-field-hint">Opens are only an estimate. Apple Mail, Gmail and security scanners load the tracking image without anyone reading, so an open can happen within seconds of sending. Automated-looking opens (machine user agents, or within a minute of sending) are filtered out, but click-throughs are the reliable measure.</p>
         <DataTable columns={columns} rows={emails} rowKey={(row) => row.id} defaultSort="subject" empty="No broadcast emails have been sent yet." pageSize={12} />
       </Panel>
       <div className="admin-two-col">
@@ -359,7 +360,7 @@ export default function AnalyticsPanel({ analytics, subscribers, emailSends, lis
     KINDS.forEach((kind) => { rows[kind] = buildItemRows(kind, agg, lists?.[kind] || []); });
     const emails = emailRows(emailSends, agg);
 
-    const verified = subscribers.filter(verifiedOnly);
+    const verified = subscribers.filter((subscriber) => verifiedOnly(subscriber) && !isExcludedEmail(subscriber.email));
     const cutoff = new Date(`${days[0]}T00:00:00Z`).getTime();
     const previousCutoff = new Date(`${previousDays[0]}T00:00:00Z`).getTime();
     const joinDay = (subscriber) => { const date = toDate(subscriber.createdAt); return date ? date.toISOString().slice(0, 10) : ""; };
