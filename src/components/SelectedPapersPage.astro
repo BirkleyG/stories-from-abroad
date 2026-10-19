@@ -3,7 +3,7 @@ import { siteCopy } from "../content/siteCopy";
 import TrackingScript from "./TrackingScript.astro";
 const base = import.meta.env.BASE_URL ?? "/";
 const basePath = base.endsWith("/") ? base : `${base}/`;
-const { mode = "public" } = Astro.props;
+const { mode = "public", paper = null } = Astro.props;
 const isProtected = mode === "drafts" || mode === "unpublished";
 const modeCopy = isProtected ? siteCopy.papers.protectedModes[mode] : null;
 const baseCopy = siteCopy.papers;
@@ -39,6 +39,33 @@ const publicFirestoreConfigJson = JSON.stringify({
   apiKey: import.meta.env.PUBLIC_FIREBASE_API_KEY ?? "",
 });
 const publicFirebaseApiKey = import.meta.env.PUBLIC_FIREBASE_API_KEY ?? "";
+// `paper` is set on /selected-papers/<slug>/ pages: the same reader as /selected-papers/, opened on that paper,
+// with per-paper metadata and plain text so search engines can read it.
+const AUTHOR = "Birkley Grunewald";
+const siteOrigin = Astro.site ? Astro.site.origin : "";
+const canonicalUrl = siteOrigin ? new URL(Astro.url.pathname, Astro.site).href : "";
+const paperParagraphs = paper ? String(paper.bodyText || paper.fullText || "").split(/(?:\r?\n){2,}/).map((p) => p.trim()).filter(Boolean) : [];
+const paperSummary = paper ? String(paper.summary || "").trim() : "";
+const paperKeywords = paper && Array.isArray(paper.keywords) ? paper.keywords.filter(Boolean) : [];
+const paperIsoDate = paper && Number.isFinite(Date.parse(paper.date || "")) ? new Date(Date.parse(paper.date)).toISOString().slice(0, 10) : "";
+const pageTitle = paper ? `${paper.title} | Stories From Abroad` : copy.meta.title;
+const pageDescription = paper
+  ? (paperSummary || paperParagraphs[0] || `${paper.title} by ${AUTHOR}`).replace(/\s+/g, " ").slice(0, 300)
+  : copy.meta.description;
+const paperLd = paper
+  ? {
+      "@context": "https://schema.org",
+      "@type": "ScholarlyArticle",
+      headline: paper.title,
+      name: paper.title,
+      description: pageDescription,
+      author: { "@type": "Person", name: AUTHOR },
+      datePublished: paperIsoDate || undefined,
+      keywords: paperKeywords.length ? paperKeywords.join(", ") : undefined,
+      mainEntityOfPage: canonicalUrl || undefined,
+      inLanguage: "en",
+    }
+  : null;
 const initialFeatCounter = copy.featured.counterTemplate
   .replace("{current}", "01")
   .replace("{total}", "03");
@@ -52,13 +79,19 @@ const initialFeatCounter = copy.featured.counterTemplate
     <link rel="shortcut icon" href={`${basePath}favicon.ico`} />
     <link rel="apple-touch-icon" href={`${basePath}apple-touch-icon.png`} />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>{copy.meta.title}</title>
+    <title>{pageTitle}</title>
     {isProtected
       ? <meta name="robots" content="noindex, nofollow" />
       : (
         <>
-          <meta name="description" content={copy.meta.description} />
-          {Astro.site ? <link rel="canonical" href={new URL(Astro.url.pathname, Astro.site).href} /> : null}
+          <meta name="description" content={pageDescription} />
+          {canonicalUrl ? <link rel="canonical" href={canonicalUrl} /> : null}
+          <meta property="og:type" content={paper ? "article" : "website"} />
+          <meta property="og:title" content={pageTitle} />
+          <meta property="og:description" content={pageDescription} />
+          {canonicalUrl ? <meta property="og:url" content={canonicalUrl} /> : null}
+          <meta name="twitter:card" content="summary" />
+          {paperLd ? <script type="application/ld+json" set:html={JSON.stringify(paperLd)}></script> : null}
         </>
       )}
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -1825,6 +1858,16 @@ const initialFeatCounter = copy.featured.counterTemplate
     </style>
   </head>
   <body>
+    {paper && (
+      <article style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap">
+        <h1>{paper.title}</h1>
+        {paper.subtitle && <p>{paper.subtitle}</p>}
+        <p>{AUTHOR}{paper.date ? `, ${paper.date}` : ""}</p>
+        {paperSummary && <p>{paperSummary}</p>}
+        {paperParagraphs.map((text) => <p>{text}</p>)}
+        {paperKeywords.length > 0 && <p>Keywords: {paperKeywords.join(", ")}</p>}
+      </article>
+    )}
     <svg width="0" height="0" style="position: absolute; overflow: hidden">
       <defs>
         <filter id="f-drop" x="-60%" y="-60%" width="220%" height="220%">
@@ -2492,9 +2535,24 @@ const initialFeatCounter = copy.featured.counterTemplate
         const counterTemplate = copy.featured.counterTemplate;
         const citationStyles = copy.overlay.citationStyles || [];
 
+        // Public papers live at /selected-papers/<slug>/ (the address search engines index); the older
+        // /selected-papers/?paper=<slug> links keep working and are rewritten to the clean address.
+        function papersRoot() {
+          const path = window.location.pathname || "/";
+          const at = path.indexOf("selected-papers/");
+          return at >= 0 ? path.slice(0, at) + "selected-papers/" : "/selected-papers/";
+        }
+
         function readRequestedPaperToken() {
           try {
-            return String(new URL(window.location.href).searchParams.get("paper") || "").trim();
+            const url = new URL(window.location.href);
+            const fromQuery = String(url.searchParams.get("paper") || "").trim();
+            if (fromQuery) return fromQuery;
+            if (isProtectedMode) return "";
+            const root = papersRoot();
+            if ((url.pathname || "").indexOf(root) !== 0) return "";
+            const rest = url.pathname.slice(root.length).split("/").filter(Boolean);
+            return rest[0] ? decodeURIComponent(rest[0]) : "";
           } catch {
             return "";
           }
@@ -2504,10 +2562,15 @@ const initialFeatCounter = copy.featured.counterTemplate
           if (shareMode && !token) return;
           try {
             const url = new URL(window.location.href);
-            if (token) {
-              url.searchParams.set("paper", String(token));
+            if (isProtectedMode) {
+              if (token) {
+                url.searchParams.set("paper", String(token));
+              } else {
+                url.searchParams.delete("paper");
+              }
             } else {
               url.searchParams.delete("paper");
+              url.pathname = papersRoot() + (token ? encodeURIComponent(String(token)) + "/" : "");
             }
             window.history.replaceState(window.history.state, "", url.toString());
           } catch {

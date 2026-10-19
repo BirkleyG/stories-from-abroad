@@ -31,15 +31,34 @@
     }
   }
 
+  // A shoot lives at /photography/<slug>/ (the same address search engines index); the older
+  // /photography/?shoot=<slug> links keep working and are rewritten to the clean address.
+  function photographyRoot() {
+    var path = window.location.pathname || "/";
+    var at = path.indexOf("photography/");
+    return at >= 0 ? path.slice(0, at) + "photography/" : "/photography/";
+  }
+
+  function readRequestedShoot() {
+    try {
+      var url = new URL(window.location.href);
+      var fromQuery = String(url.searchParams.get("shoot") || "").trim();
+      if (fromQuery) return fromQuery;
+      var root = photographyRoot();
+      if ((url.pathname || "").indexOf(root) !== 0) return "";
+      var rest = url.pathname.slice(root.length).split("/").filter(Boolean);
+      return rest[0] ? decodeURIComponent(rest[0]) : "";
+    } catch {
+      return "";
+    }
+  }
+
   function writeShootParam(slug) {
     if (typeof window === "undefined") return;
     try {
       var url = new URL(window.location.href);
-      if (slug) {
-        url.searchParams.set("shoot", String(slug));
-      } else {
-        url.searchParams.delete("shoot");
-      }
+      url.searchParams.delete("shoot");
+      url.pathname = photographyRoot() + (slug ? encodeURIComponent(String(slug)) + "/" : "");
       window.history.replaceState(window.history.state, "", url.toString());
     } catch {
       // Ignore URL update failures.
@@ -132,7 +151,7 @@
   function installPageRouter() {
     var suppressInitialShootParamClear = false;
     try {
-      suppressInitialShootParamClear = Boolean(new URL(window.location.href).searchParams.get("shoot"));
+      suppressInitialShootParamClear = Boolean(readRequestedShoot());
     } catch {
       suppressInitialShootParamClear = false;
     }
@@ -1174,12 +1193,7 @@
       var featured = buildFeaturedItems(featuredDoc, shoots, bySlug, byId);
       patchFeaturedSlides(featured);
 
-      var requestedShoot = "";
-      try {
-        requestedShoot = String(new URL(window.location.href).searchParams.get("shoot") || "").trim();
-      } catch {
-        requestedShoot = "";
-      }
+      var requestedShoot = readRequestedShoot();
       if (requestedShoot && bySlug[requestedShoot] && typeof window.showShoot === "function") {
         window.showShoot(requestedShoot, new URL(window.location.href).searchParams.get("src") === "email" ? "email" : "link");
       } else if (requestedShoot && !bySlug[requestedShoot]) {
