@@ -44,7 +44,7 @@ export const siteCopy = {
       success: {
         title: "Welcome",
         subtitle: "Subscription received",
-        body: "A confirmation email is on its way.",
+        body: "A verification email is on its way. Check your inbox and your Junk or Spam folder.",
       },
     },
   },
@@ -124,6 +124,7 @@ export const siteCopy = {
   papers: {
     meta: {
       title: "Papers & Op-Eds - Stories From Abroad",
+      description: "Essays, papers and op-eds by Birkley Grunewald on international relations, culture and the world, written from a learner's perspective.",
     },
     nav: {
       backLabel: "← Back",

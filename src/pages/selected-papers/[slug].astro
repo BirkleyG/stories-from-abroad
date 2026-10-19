@@ -1,0 +1,85 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { loadPublishedPapers, parseDate } from "../../lib/publicPapers.js";
+
+export async function getStaticPaths() {
+  const papers = await loadPublishedPapers();
+  return papers.map((paper) => ({ params: { slug: paper.token }, props: { paper } }));
+}
+
+const { paper } = Astro.props;
+const base = import.meta.env.BASE_URL ?? "/";
+const basePath = base.endsWith("/") ? base : `${base}/`;
+const origin = Astro.site ? Astro.site.origin : "";
+const pageUrl = origin ? new URL(Astro.url.pathname, Astro.site).href : "";
+
+const AUTHOR = "Birkley Grunewald";
+const paragraphs = String(paper.bodyText || paper.fullText || "")
+  .split(/\n{2,}/)
+  .map((p) => p.trim())
+  .filter(Boolean);
+const summary = String(paper.summary || "").trim();
+const keywords = Array.isArray(paper.keywords) ? paper.keywords.filter(Boolean) : [];
+const description = (summary || paragraphs[0] || `${paper.title} by ${AUTHOR}`).replace(/\s+/g, " ").slice(0, 300);
+const isoDate = parseDate(paper);
+const dateLabel = paper.date || (paper.year ? String(paper.year) : "");
+
+const articleLd = {
+  "@context": "https://schema.org",
+  "@type": "ScholarlyArticle",
+  headline: paper.title,
+  name: paper.title,
+  description,
+  author: { "@type": "Person", name: AUTHOR, url: origin ? `${origin}${basePath}read-the-story/` : undefined },
+  datePublished: isoDate || undefined,
+  keywords: keywords.length ? keywords.join(", ") : undefined,
+  mainEntityOfPage: pageUrl || undefined,
+  inLanguage: "en",
+};
+---
+
+<BaseLayout
+  title={paper.title}
+  description={description}
+  navMode="single"
+  navLabel="Articles"
+  showSubscribe={false}
+  ogType="article"
+  extraJsonLd={[articleLd]}
+>
+  <article class="paper-page">
+    <a class="paper-back" href={`${basePath}selected-papers/`}>&larr; All writing</a>
+    {paper.category && <span class="section-label">{paper.category}</span>}
+    <h1>{paper.title}</h1>
+    {paper.subtitle && <p class="paper-sub">{paper.subtitle}</p>}
+    <p class="paper-meta">
+      <span>{AUTHOR}</span>
+      {dateLabel && <span> · <time datetime={isoDate || undefined}>{dateLabel}</time></span>}
+      {paper.readTime && <span> · {paper.readTime}</span>}
+    </p>
+    {summary && <p class="paper-summary">{summary}</p>}
+    <div class="paper-body">
+      {paragraphs.map((p) => <p>{p}</p>)}
+    </div>
+    {keywords.length > 0 && <p class="paper-kw">Keywords: {keywords.join(", ")}</p>}
+    <p class="paper-links">
+      {paper.documentUrl && <a href={paper.documentUrl} rel="noreferrer">Download PDF</a>}
+      {paper.publicationLink && <a href={paper.publicationLink} rel="noreferrer">{paper.publicationName || "Read the publication"}</a>}
+      <a href={`${basePath}selected-papers/?paper=${encodeURIComponent(paper.token)}`}>Open in the reader</a>
+    </p>
+  </article>
+
+  <style>
+    .paper-page { max-width: 44rem; margin: 0 auto; padding: 4rem 1.25rem 6rem; }
+    .paper-back { font-family: var(--font-sc); letter-spacing: 0.14em; font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); text-decoration: none; }
+    .paper-back:hover { color: var(--gold); }
+    .paper-page h1 { font-family: var(--font-title); font-size: clamp(2rem, 5vw, 3rem); line-height: 1.15; margin: 0.6rem 0 0.8rem; font-weight: 500; }
+    .paper-sub { font-style: italic; font-size: 1.25rem; color: var(--text-mid); margin: 0 0 0.8rem; }
+    .paper-meta { color: var(--text-muted); font-size: 0.95rem; margin: 0 0 1.6rem; }
+    .paper-summary { border-left: 2px solid var(--gold); padding-left: 1rem; color: var(--text-mid); font-style: italic; margin: 0 0 2rem; }
+    .paper-body p { font-size: 1.18rem; line-height: 1.75; margin: 0 0 1.2rem; }
+    .paper-kw { color: var(--text-muted); font-size: 0.95rem; margin-top: 2rem; }
+    .paper-links { display: flex; flex-wrap: wrap; gap: 1.4rem; margin-top: 1.4rem; }
+    .paper-links a { color: var(--green-light); }
+  </style>
+</BaseLayout>

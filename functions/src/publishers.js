@@ -147,6 +147,20 @@ function normalizeCoordinates(longitudeValue, latitudeValue) {
   return null;
 }
 
+// A slug of a letter or two (typed before the admin kept it in step with the title) makes a poor URL,
+// so derive a descriptive one from the content instead.
+function desiredSlugFor(kind, draft, id) {
+  const typed = cleanString(draft.slug);
+  if (typed.length >= 4) return typed;
+  const title = cleanString(draft.title || draft.profileName);
+  if (kind === "photography") {
+    const place = cleanString(draft.locationLabel);
+    const includesTitle = place && title && place.toLowerCase().includes(title.toLowerCase());
+    return [includesTitle ? "" : title, place].filter(Boolean).join(" ") || id;
+  }
+  return title || cleanString(draft.locationName) || typed || id;
+}
+
 async function resolveUniqueSlug(collectionName, desiredSlug, docId) {
   const db = getDb();
   const base = slugify(desiredSlug) || `item-${docId}`;
@@ -513,7 +527,7 @@ export async function publishDraft(kind, id, actor = "system") {
   const audience = kind === "papers" ? paperAudience(draft) : "public";
   const targetCollection = audience === "public" ? PUBLIC_COLLECTIONS[kind] : PROTECTED_WRITING_COLLECTION;
   const shareKey = audience === "public" ? "" : (cleanString(draft.shareKey) || generateShareKey());
-  const slug = await resolveUniqueSlug(targetCollection, draft.slug || draft.title || draft.profileName || draft.locationName || id, id);
+  const slug = await resolveUniqueSlug(targetCollection, desiredSlugFor(kind, draft, id), id);
   const batch = db.batch();
   let publicData = null;
 

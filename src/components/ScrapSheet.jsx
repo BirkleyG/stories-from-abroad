@@ -1621,7 +1621,7 @@ export default function ScrapSheet({ backHref = "/" }) {
         }
         setCommentWarning("Signed in. You can comment now.");
       } else {
-        setCommentWarning("Sign-in link sent. Check your inbox.");
+        setCommentWarning("Sign-in link sent. Check your inbox and your Junk or Spam folder.");
       }
     } catch (error) {
       setCommentWarning("Sign-in request failed. Please retry.");
@@ -1701,7 +1701,7 @@ export default function ScrapSheet({ backHref = "/" }) {
         return;
       }
       setSubscribed(false);
-      setSubStatus("Check your inbox to confirm your subscription.");
+      setSubStatus("Email verification sent. Check your inbox and your Junk or Spam folder.");
       if (tracker()) tracker().event("subscribe_ok", { detail: "travel" });
     } catch (error) {
       setSubStatus("Subscription failed. Try again in a moment.");

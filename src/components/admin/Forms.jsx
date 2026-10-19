@@ -1,5 +1,11 @@
 import { useState } from "react";
 import { slugify } from "../../lib/admin/contentAdapters";
+
+// Keep the slug in step with the title while typing; stop once the slug has been edited by hand.
+function followSlug(draft, previousText, nextText) {
+  const current = draft.slug || "";
+  return !current || current === slugify(previousText || "") ? slugify(nextText) : current;
+}
 import { mediaSummaryFromPhotos } from "../../lib/admin/photographyTemplates";
 import {
   AUDIENCE_LEVELS,
@@ -220,13 +226,13 @@ export function FacesForm({ draft, onChange, onUpload, assets }) {
     <div className="admin-form-stack">
       <Section title="Profile" description="Who this story is about.">
         <div className="admin-grid two-up">
-          <TextInput label="Title" value={draft.title} onChange={(next) => onChange({ ...draft, title: next, slug: draft.slug || slugify(next) })} />
+          <TextInput label="Title" value={draft.title} onChange={(next) => onChange({ ...draft, title: next, slug: followSlug(draft, draft.title, next) })} />
           <TextInput label="Subtitle" value={draft.subtitle} onChange={(next) => onChange({ ...draft, subtitle: next })} />
           <TextInput
             label="Person's name"
             hint="Shown on the card and the story."
             value={draft.profileName}
-            onChange={(next) => onChange({ ...draft, profileName: next, slug: draft.slug || slugify(next) })}
+            onChange={(next) => onChange({ ...draft, profileName: next, slug: followSlug(draft, draft.profileName, next) })}
           />
           <TextInput label="Descriptor" value={draft.descriptor} onChange={(next) => onChange({ ...draft, descriptor: next })} />
           <TextInput label="Age" value={draft.age} onChange={(next) => onChange({ ...draft, age: next })} />
@@ -304,7 +310,7 @@ export function PapersForm({ draft, onChange, onUpload, assets, paperTypeOptions
     <div className="admin-form-stack">
       <Section title="Details" description="Only pieces that are Live and set to Public appear on the Selected Papers page.">
         <div className="admin-grid two-up">
-          <TextInput label="Title" value={draft.title} onChange={(next) => onChange({ ...draft, title: next, slug: draft.slug || slugify(next) })} />
+          <TextInput label="Title" value={draft.title} onChange={(next) => onChange({ ...draft, title: next, slug: followSlug(draft, draft.title, next) })} />
           <TextInput label="Subtitle" value={draft.subtitle} onChange={(next) => onChange({ ...draft, subtitle: next })} />
           <SelectField label="Type" value={draft.type} onChange={(next) => onChange({ ...draft, type: next })} options={paperTypeOptions} />
           <TextInput label="Publish date" type="date" value={draft.publishDate} onChange={(next) => onChange({ ...draft, publishDate: next })} />
@@ -352,7 +358,7 @@ export function TravelForm({ draft, onChange, onUpload, assets }) {
     <div className="admin-form-stack">
       <Section title="Dispatch" description="Publishes into the Travel Dispatches feed.">
         <div className="admin-grid two-up">
-          <TextInput label="Title" value={draft.title} onChange={(next) => onChange({ ...draft, title: next, slug: draft.slug || slugify(next) })} />
+          <TextInput label="Title" value={draft.title} onChange={(next) => onChange({ ...draft, title: next, slug: followSlug(draft, draft.title, next) })} />
           <TextInput label="Publish date" type="date" value={draft.publishDate} onChange={(next) => onChange({ ...draft, publishDate: next })} />
           <SelectField label="Type" value={draft.dispatchType} onChange={(next) => onChange({ ...draft, dispatchType: next })} options={DISPATCH_TYPES} />
           <SelectField label="Audience level" value={draft.audienceLevel} onChange={(next) => onChange({ ...draft, audienceLevel: next })} options={AUDIENCE_LEVELS} />
@@ -427,7 +433,7 @@ export function PhotographyForm({ draft, onChange, onUpload, assets }) {
     <div className="admin-form-stack">
       <Section title="Shoot" description="The essentials for this photo story.">
         <div className="admin-grid two-up">
-          <TextInput label="Title" value={draft.title} onChange={(next) => onChange({ ...draft, title: next, slug: draft.slug || slugify(next) })} />
+          <TextInput label="Title" value={draft.title} onChange={(next) => onChange({ ...draft, title: next, slug: followSlug(draft, draft.title, next) })} />
           <TextInput label="Location (city, country)" value={draft.locationLabel || ""} onChange={(next) => onChange({ ...draft, locationLabel: next })} />
           <TextInput label="Date" type="date" value={draft.shootDate} onChange={(next) => onChange({ ...draft, shootDate: next })} />
           <SelectField label="Layout" hint="How the shoot is arranged on the page." value={themeValue} onChange={(next) => onChange({ ...draft, theme: next, template: next })} options={PHOTO_TEMPLATES} />

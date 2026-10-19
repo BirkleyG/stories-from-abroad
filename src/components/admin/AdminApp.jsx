@@ -1088,7 +1088,12 @@ export function SubscribersPanel({ subscribers, onPromptVerify, promptingId }) {
 	                          </td>
 	                          <td>{formatSubscriberSource(subscriber.source)}</td>
 	                          <td>{formatStamp(subscriber.createdAt, { dateOnly: true, empty: "Unknown" })}</td>
-	                          <td><StatusPill status={verified ? "verified" : "not verified"} /></td>
+	                          <td>
+	                            <StatusPill status={verified ? "verified" : "not verified"} />
+	                            {!verified && subscriber.lastSentAt ? (
+	                              <div className="admin-empty-inline">Sent {subscriber.sendCount || 1}x · last {formatStamp(subscriber.lastSentAt, { dateOnly: true, empty: "" })}</div>
+	                            ) : null}
+	                          </td>
 	                          <td>
 	                            {!verified ? (
 	                              <button
@@ -1097,7 +1102,7 @@ export function SubscribersPanel({ subscribers, onPromptVerify, promptingId }) {
 	                                disabled={!email || promptingId === rowActionKey}
 	                                onClick={() => onPromptVerify(subscriber)}
 	                              >
-	                                {promptingId === rowActionKey ? "Sending..." : "Prompt verify"}
+	                                {promptingId === rowActionKey ? "Sending..." : "Re-send verification"}
 	                              </button>
 	                            ) : <span className="admin-empty-inline">Verified</span>}
 	                          </td>
@@ -1562,6 +1567,7 @@ export default function AdminApp() {
         segmentTags: normalizeSubscriberSegments(subscriber),
         source: subscriber.source || "admin_verify_prompt",
         redirectUrl,
+        forceEmailLink: true,
       });
       if (!result.ok) {
         throw new Error("Could not send verification prompt.");

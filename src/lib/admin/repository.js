@@ -321,11 +321,34 @@ export function subscribePhotographyFeaturedConfig(callback, onError) {
 
 export function subscribeSubscribers(callback, onError) {
   assertFirestoreReady();
-  return onSnapshot(
+  let subscribers = [];
+  let pending = [];
+  const emit = () => {
+    // A pending record disappears from the list once the same email has a real subscriber record.
+    const known = new Set(subscribers.map((item) => String(item.emailLower || item.email || "").toLowerCase()));
+    const stillPending = pending.filter((item) => !known.has(String(item.emailLower || item.email || "").toLowerCase()));
+    callback([...subscribers, ...stillPending]);
+  };
+  const stopSubscribers = onSnapshot(
     query(collection(db, "subscribers"), orderBy("createdAt", "desc"), limit(500)),
-    (snapshot) => callback(snapshot.docs.map((item) => ({ id: item.id, ...item.data() }))),
+    (snapshot) => {
+      subscribers = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
+      emit();
+    },
     onError
   );
+  const stopPending = onSnapshot(
+    query(collection(db, "pending_subscribers"), orderBy("createdAt", "desc"), limit(500)),
+    (snapshot) => {
+      pending = snapshot.docs.map((item) => ({ id: `pending:${item.id}`, ...item.data(), verified: false }));
+      emit();
+    },
+    (error) => console.warn("Pending subscribers could not be loaded.", error)
+  );
+  return () => {
+    stopSubscribers();
+    stopPending();
+  };
 }
 
 export function subscribeAnalytics(days, callback, onError) {

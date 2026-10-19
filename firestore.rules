@@ -233,6 +233,11 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    match /pending_subscribers/{docId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
     match /email_log/{docId} {
       allow read: if isAdmin();
       allow write: if false;

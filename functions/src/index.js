@@ -6,6 +6,7 @@ import { onCall, onRequest, HttpsError } from "firebase-functions/v2/https";
 import { logger } from "firebase-functions";
 import { defineSecret, defineString } from "firebase-functions/params";
 import { publishDraft, repairCoordinateData, unpublishDraft, rotateShareKey, PUBLIC_COLLECTIONS } from "./publishers.js";
+import { triggerSiteRebuild } from "./siteRebuild.js";
 import { handleGetProtectedWriting } from "./protectedWriting.js";
 import { buildEmailForKind, buildContentUrl } from "./emailTemplates.js";
 import { ensureEmailImageUrl } from "./emailImages.js";
@@ -22,6 +23,7 @@ setGlobalOptions({ region: "us-central1", maxInstances: 5 });
 const bootstrapEmailsParam = defineString("ADMIN_BOOTSTRAP_EMAILS", { default: "" });
 const authEmailProviderParam = defineString("AUTH_EMAIL_PROVIDER", { default: "gmail_smtp" });
 const resendApiKeyParam = defineSecret("RESEND_API_KEY");
+const githubDispatchTokenParam = defineSecret("GITHUB_DISPATCH_TOKEN");
 const gmailSmtpAppPasswordParam = defineSecret("GMAIL_SMTP_APP_PASSWORD");
 const gmailSmtpUserParam = defineString("GMAIL_SMTP_USER", { default: "" });
 const authSenderEmailParam = defineString("AUTH_EMAIL_FROM", { default: "" });
@@ -463,6 +465,33 @@ async function logSystemEmail(entry) {
   }
 }
 
+// Tracks people who asked for a verification link so the admin panel can list (and re-prompt)
+// anyone who never clicked it. Verified subscribers live in `subscribers`, keyed by auth uid.
+async function recordPendingSubscriber(email, body) {
+  try {
+    const ref = admin.firestore().collection("pending_subscribers").doc(Buffer.from(email).toString("base64url"));
+    const snap = await ref.get();
+    const segmentTags = normalizeSegmentTags(body.segmentTags);
+    const incomingName = normalizeText(body.name, 80);
+    const FieldValue = admin.firestore.FieldValue;
+    await ref.set({
+      email,
+      emailLower: email,
+      name: incomingName || (snap.exists ? snap.data().name || "" : ""),
+      segmentTags: segmentTags.length ? segmentTags : (snap.exists ? snap.data().segmentTags || [] : []),
+      preferences: Array.isArray(body.preferences) ? body.preferences.map((item) => normalizeText(item, 40)).filter(Boolean) : (snap.exists ? snap.data().preferences || [] : []),
+      source: normalizeText(body.source, 40) || (snap.exists ? snap.data().source || "" : "") || "subscriber_modal",
+      verified: false,
+      status: "pending",
+      createdAt: snap.exists ? snap.data().createdAt : FieldValue.serverTimestamp(),
+      lastSentAt: FieldValue.serverTimestamp(),
+      sendCount: FieldValue.increment(1),
+    }, { merge: true });
+  } catch (error) {
+    logger.error("recordPendingSubscriber failed", { error: error.message });
+  }
+}
+
 export const sendSubscriberSignInLinkEmail = onRequest({ secrets: [resendApiKeyParam, gmailSmtpAppPasswordParam] }, async (req, res) => {
   const origin = String(req.headers.origin || "*");
   applyCors(res, origin);
@@ -546,6 +575,7 @@ export const sendSubscriberSignInLinkEmail = onRequest({ secrets: [resendApiKeyP
       providerId: result?.id || null,
       status: "sent",
     });
+    await recordPendingSubscriber(email, body);
 
     res.status(200).json({
       ok: true,
@@ -767,7 +797,7 @@ export const rotateWritingShareKey = onCall(async (request) => {
   }
 });
 
-export const publishContent = onCall(async (request) => {
+export const publishContent = onCall({ secrets: [githubDispatchTokenParam] }, async (request) => {
   const auth = requireAdmin(request);
   const kind = String(request.data?.kind || "");
   const id = String(request.data?.id || "");
@@ -776,8 +806,10 @@ export const publishContent = onCall(async (request) => {
   }
   try {
     const result = await publishDraft(kind, id, String(auth.token.email || auth.uid || "admin"));
+    const rebuild = await triggerSiteRebuild(kind, githubDispatchTokenParam.value());
     return {
       ...result,
+      siteRebuild: rebuild,
       message: `Published ${kind} ${id}.`,
     };
   } catch (error) {
@@ -786,7 +818,7 @@ export const publishContent = onCall(async (request) => {
   }
 });
 
-export const unpublishContent = onCall(async (request) => {
+export const unpublishContent = onCall({ secrets: [githubDispatchTokenParam] }, async (request) => {
   const auth = requireAdmin(request);
   const kind = String(request.data?.kind || "");
   const id = String(request.data?.id || "");
@@ -795,8 +827,10 @@ export const unpublishContent = onCall(async (request) => {
   }
   try {
     const result = await unpublishDraft(kind, id, String(auth.token.email || auth.uid || "admin"));
+    const rebuild = await triggerSiteRebuild(kind, githubDispatchTokenParam.value());
     return {
       ...result,
+      siteRebuild: rebuild,
       message: `Unpublished ${kind} ${id}.`,
     };
   } catch (error) {

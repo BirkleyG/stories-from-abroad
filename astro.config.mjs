@@ -22,7 +22,7 @@ export default defineConfig({
   integrations: [
     react(),
     sitemap({
-      filter: (page) => !/\/(admin|subscriber-settings|unsubscribe|email-verified|404)\/?$/.test(page),
+      filter: (page) => !/\/(admin|subscriber-settings|unsubscribe|email-verified|404|selected-papers\/(drafts|unpublished))\/?$/.test(page),
     }),
   ],
 });

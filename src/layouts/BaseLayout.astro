@@ -12,6 +12,9 @@ const {
   navMode = "home",
   navLabel = "",
   showSubscribe = true,
+  ogType = "",
+  ogImage = "",
+  extraJsonLd = [],
 } = Astro.props;
 
 const base = import.meta.env.BASE_URL ?? "/";
@@ -50,6 +53,7 @@ const isPrivatePage = /\/(admin|subscriber-settings|unsubscribe|email-verified)\
 const isHome = currentRoute === "/";
 const jsonLd = siteOrigin
   ? [
+      ...extraJsonLd,
       {
         "@context": "https://schema.org",
         "@type": "WebSite",
@@ -75,18 +79,24 @@ const jsonLd = siteOrigin
 <html lang="en">
   <head>
     <meta charset="utf-8" />
+    <link rel="icon" href={`${basePath}favicon.svg`} type="image/svg+xml" />
+    <link rel="icon" href={`${basePath}favicon-48.png`} type="image/png" sizes="48x48" />
+    <link rel="shortcut icon" href={`${basePath}favicon.ico`} />
+    <link rel="apple-touch-icon" href={`${basePath}apple-touch-icon.png`} />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{pageTitle}</title>
     <meta name="description" content={description} />
     <meta name="author" content={AUTHOR_NAME} />
     {canonicalUrl ? <link rel="canonical" href={canonicalUrl} /> : null}
     {isPrivatePage ? <meta name="robots" content="noindex, nofollow" /> : null}
-    <meta property="og:type" content={isHome ? "website" : "article"} />
+    <meta property="og:type" content={ogType || (isHome ? "website" : "article")} />
     <meta property="og:site_name" content={copy.siteTitle} />
     <meta property="og:title" content={pageTitle} />
     <meta property="og:description" content={description} />
     {canonicalUrl ? <meta property="og:url" content={canonicalUrl} /> : null}
-    <meta name="twitter:card" content="summary" />
+    {ogImage ? <meta property="og:image" content={ogImage} /> : null}
+    <meta name="twitter:card" content={ogImage ? "summary_large_image" : "summary"} />
+    {ogImage ? <meta name="twitter:image" content={ogImage} /> : null}
     <meta name="twitter:title" content={pageTitle} />
     <meta name="twitter:description" content={description} />
     {!isPrivatePage && jsonLd.length ? <script type="application/ld+json" set:html={JSON.stringify(jsonLd)}></script> : null}
@@ -750,7 +760,7 @@ const jsonLd = siteOrigin
               return;
             }
 
-            showSuccess("Check your inbox", "Use the sign-in link to confirm your subscription.");
+            showSuccess("Email verification sent", "Check your inbox and your Junk or Spam folder for the link to confirm your subscription.");
           } catch (error) {
             setStatus("Subscription failed. Please retry in a moment.", "error");
           } finally {

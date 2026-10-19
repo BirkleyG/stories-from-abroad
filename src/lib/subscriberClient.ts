@@ -301,6 +301,9 @@ async function sendCustomSubscriberSignInEmail(pending: PendingSubscriber, redir
     body: JSON.stringify({
       email: pending.email,
       name: pending.name,
+      segmentTags: pending.segmentTags || [],
+      preferences: pending.preferences || [],
+      source: pending.source,
       redirectUrl: redirectWithSubscriberState(redirectUrl, pending),
     }),
   });
